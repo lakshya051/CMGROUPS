@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { protect, adminOnly, optionalProtect } = require('../middleware/auth');
 const { sendOrderConfirmationSMS, sendOrderConfirmationEmail } = require('../utils/emailNotifications');
@@ -9,7 +10,7 @@ const router = express.Router();
 
 // Generate a 6-digit OTP
 const generateOtp = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    return crypto.randomInt(100000, 999999).toString();
 };
 
 // POST /api/orders (Optional Auth - place order)
@@ -55,7 +56,7 @@ router.post('/', optionalProtect, async (req, res) => {
             }
         }
 
-        // Check wallet balance
+        // Validate wallet balance BEFORE transaction
         if (useWallet && walletUsed > 0) {
             if (!req.user) {
                 return res.status(401).json({ error: 'You must be logged in to use wallet balance' });
@@ -64,60 +65,73 @@ router.post('/', optionalProtect, async (req, res) => {
             if (dbUser.walletBalance < walletUsed) {
                 return res.status(400).json({ error: 'Insufficient wallet balance' });
             }
-
-            // Deduct wallet balance
-            await prisma.user.update({
-                where: { id: req.user.id },
-                data: { walletBalance: { decrement: walletUsed } }
-            });
-
-            await prisma.walletTransaction.create({
-                data: {
-                    userId: req.user.id,
-                    amount: walletUsed,
-                    type: 'DEBIT',
-                    description: 'Used for order placement'
-                }
-            });
         }
 
         const otp = generateOtp();
         const isFullyPaidWithWallet = paymentMethod === 'wallet' && total === 0;
 
-        const order = await prisma.order.create({
-            data: {
-                userId: req.user ? req.user.id : null,
-                total, // This is the net total after wallet discount
-                status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
-                paymentMethod: paymentMethod || 'pay_at_store',
-                paymentOtp: isFullyPaidWithWallet ? null : otp,
-                isPaid: isFullyPaidWithWallet,
-                shippingAddress: shippingAddress || null,
-                guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
-                referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
-                items: {
-                    create: items.map(item => ({
-                        productId: item.productId,
-                        quantity: item.quantity,
-                        price: item.price
-                    }))
-                }
-            },
-            include: {
-                items: {
-                    include: { product: true }
-                },
-                user: true
-            }
-        });
+        // *** TRANSACTION: wallet deduction + order creation + stock decrement ***
+        const order = await prisma.$transaction(async (tx) => {
+            // 1. Deduct wallet balance (if applicable)
+            if (useWallet && walletUsed > 0 && req.user) {
+                await tx.user.update({
+                    where: { id: req.user.id },
+                    data: { walletBalance: { decrement: walletUsed } }
+                });
 
-        // Decrease stock AFTER successful order creation
-        for (const item of items) {
-            await prisma.product.update({
-                where: { id: item.productId },
-                data: { stock: { decrement: item.quantity } }
+                await tx.walletTransaction.create({
+                    data: {
+                        userId: req.user.id,
+                        amount: walletUsed,
+                        type: 'DEBIT',
+                        description: 'Used for order placement'
+                    }
+                });
+            }
+
+            // 2. Create the order
+            const createdOrder = await tx.order.create({
+                data: {
+                    userId: req.user ? req.user.id : null,
+                    total,
+                    status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
+                    paymentMethod: paymentMethod || 'pay_at_store',
+                    paymentOtp: isFullyPaidWithWallet ? null : otp,
+                    isPaid: isFullyPaidWithWallet,
+                    shippingAddress: shippingAddress || null,
+                    guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
+                    referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
+                    items: {
+                        create: items.map(item => ({
+                            productId: item.productId,
+                            quantity: item.quantity,
+                            price: item.price
+                        }))
+                    }
+                },
+                include: {
+                    items: { include: { product: true } },
+                    user: true
+                }
             });
-        }
+
+            // 3. Decrement stock for each product (race-condition safe)
+            for (const item of items) {
+                const result = await tx.product.updateMany({
+                    where: {
+                        id: item.productId,
+                        stock: { gte: item.quantity }
+                    },
+                    data: { stock: { decrement: item.quantity } }
+                });
+
+                if (result.count === 0) {
+                    throw new Error(`Insufficient stock for product ID ${item.productId}. Please try again.`);
+                }
+            }
+
+            return createdOrder;
+        });
 
         // Send Confirmations
         const userPhone = req.user?.phone || shippingAddress?.phone;
@@ -155,15 +169,33 @@ router.post('/', optionalProtect, async (req, res) => {
     }
 });
 
-// GET /api/orders/my-orders (Protected - user's orders)
+// GET /api/orders/my-orders (Protected - user's orders with pagination)
 router.get('/my-orders', protect, async (req, res) => {
     try {
-        const orders = await prisma.order.findMany({
-            where: { userId: req.user.id },
-            include: { items: { include: { product: true } } },
-            orderBy: { createdAt: 'desc' }
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const [orders, total] = await prisma.$transaction([
+            prisma.order.findMany({
+                where: { userId: req.user.id },
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: { items: { include: { product: true } } }
+            }),
+            prisma.order.count({ where: { userId: req.user.id } })
+        ]);
+
+        res.json({
+            orders,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
         });
-        res.json(orders);
     } catch (error) {
         console.error('Get my orders error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -326,73 +358,80 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
         // *** REFERRAL REWARD - Credit points ONLY after payment verified ***
         if (order.referralCodeUsed) {
             try {
-                // Get reward amount from settings or fallback to 200
-                const settings = await prisma.referralSettings.findFirst();
-                const rewardAmount = settings ? settings.pointsPerProductPurchase : 200;
-
-                // Find referrer by code
-                const referrer = await prisma.user.findFirst({
-                    where: { referralCode: order.referralCodeUsed }
+                // Prevent duplicate rewards if admin verifies twice
+                const existingReferral = await prisma.referral.findFirst({
+                    where: { orderId: order.id }
                 });
 
-                if (referrer && referrer.id !== order.userId) {
-                    // Credit referrer
-                    await prisma.user.update({
-                        where: { id: referrer.id },
-                        data: { walletBalance: { increment: rewardAmount } }
+                if (!existingReferral) {
+                    // Get reward amount from settings or fallback to 200
+                    const settings = await prisma.referralSettings.findFirst();
+                    const rewardAmount = settings ? settings.pointsPerProductPurchase : 200;
+
+                    // Find referrer by code
+                    const referrer = await prisma.user.findFirst({
+                        where: { referralCode: order.referralCodeUsed }
                     });
 
-                    // Create referral record for referrer
-                    await prisma.referral.create({
-                        data: {
-                            referrerId: referrer.id,
-                            refereeId: order.userId,
-                            status: 'rewarded',
-                            rewardAmount,
-                            orderId: order.id,
-                            completedAt: new Date()
-                        }
-                    });
+                    if (referrer && referrer.id !== order.userId) {
+                        // Credit referrer
+                        await prisma.user.update({
+                            where: { id: referrer.id },
+                            data: { walletBalance: { increment: rewardAmount } }
+                        });
 
-                    // Credit buyer (person who made purchase)
-                    await prisma.user.update({
-                        where: { id: order.userId },
-                        data: { walletBalance: { increment: rewardAmount } }
-                    });
-
-                    console.log(`Referral reward: ₹${rewardAmount} credited to referrer ${referrer.id} and buyer ${order.userId} from order ${order.id}`);
-
-                    // *** TIER SYSTEM UPDATE (If Enabled) ***
-                    if (settings && settings.tierSystemEnabled) {
-                        try {
-                            const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
-
-                            // Update Referrer
-                            const updatedReferrer = await prisma.user.update({
-                                where: { id: referrer.id },
-                                data: { tierPoints: { increment: rewardAmount } },
-                                select: { id: true, tierPoints: true, tier: true }
-                            });
-                            const newReferrerTier = tiers.find(t => updatedReferrer.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                            if (newReferrerTier !== updatedReferrer.tier) {
-                                await prisma.user.update({ where: { id: referrer.id }, data: { tier: newReferrerTier } });
+                        // Create referral record for referrer
+                        await prisma.referral.create({
+                            data: {
+                                referrerId: referrer.id,
+                                refereeId: order.userId,
+                                status: 'rewarded',
+                                rewardAmount,
+                                orderId: order.id,
+                                completedAt: new Date()
                             }
+                        });
 
-                            // Update Buyer
-                            const updatedBuyer = await prisma.user.update({
-                                where: { id: order.userId },
-                                data: { tierPoints: { increment: rewardAmount } },
-                                select: { id: true, tierPoints: true, tier: true }
-                            });
-                            const newBuyerTier = tiers.find(t => updatedBuyer.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                            if (newBuyerTier !== updatedBuyer.tier) {
-                                await prisma.user.update({ where: { id: order.userId }, data: { tier: newBuyerTier } });
+                        // Credit buyer (person who made purchase)
+                        await prisma.user.update({
+                            where: { id: order.userId },
+                            data: { walletBalance: { increment: rewardAmount } }
+                        });
+
+                        console.log(`Referral reward: ₹${rewardAmount} credited to referrer ${referrer.id} and buyer ${order.userId} from order ${order.id}`);
+
+                        // *** TIER SYSTEM UPDATE (If Enabled) ***
+                        if (settings && settings.tierSystemEnabled) {
+                            try {
+                                const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
+
+                                // Update Referrer
+                                const updatedReferrer = await prisma.user.update({
+                                    where: { id: referrer.id },
+                                    data: { tierPoints: { increment: rewardAmount } },
+                                    select: { id: true, tierPoints: true, tier: true }
+                                });
+                                const newReferrerTier = tiers.find(t => updatedReferrer.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                if (newReferrerTier !== updatedReferrer.tier) {
+                                    await prisma.user.update({ where: { id: referrer.id }, data: { tier: newReferrerTier } });
+                                }
+
+                                // Update Buyer
+                                const updatedBuyer = await prisma.user.update({
+                                    where: { id: order.userId },
+                                    data: { tierPoints: { increment: rewardAmount } },
+                                    select: { id: true, tierPoints: true, tier: true }
+                                });
+                                const newBuyerTier = tiers.find(t => updatedBuyer.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                if (newBuyerTier !== updatedBuyer.tier) {
+                                    await prisma.user.update({ where: { id: order.userId }, data: { tier: newBuyerTier } });
+                                }
+                            } catch (tierErr) {
+                                console.error('Tier system update error:', tierErr);
                             }
-                        } catch (tierErr) {
-                            console.error('Tier system update error:', tierErr);
                         }
                     }
-                }
+                } // end if (!existingReferral)
             } catch (refErr) {
                 // Don't fail payment verification if referral reward fails
                 console.error('Referral reward error (non-blocking):', refErr);
@@ -426,7 +465,7 @@ router.post('/:id/cancel', protect, async (req, res) => {
         const { reason } = req.body;
         const order = await prisma.order.findUnique({
             where: { id: parseInt(req.params.id) },
-            include: { user: true }
+            include: { user: true, items: true }
         });
 
         if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -438,36 +477,51 @@ router.post('/:id/cancel', protect, async (req, res) => {
             return res.status(400).json({ error: 'Order cannot be cancelled at this stage' });
         }
 
-        // Process Refund to Wallet if Paid
-        let walletTx = null;
-        if (order.isPaid) {
-            await prisma.user.update({
-                where: { id: order.userId },
-                data: { walletBalance: { increment: order.total } }
-            });
+        // *** TRANSACTION: wallet refund + stock restore + status update ***
+        const result = await prisma.$transaction(async (tx) => {
+            let walletTx = null;
 
-            walletTx = await prisma.walletTransaction.create({
+            // 1. Refund wallet if paid
+            if (order.isPaid) {
+                await tx.user.update({
+                    where: { id: order.userId },
+                    data: { walletBalance: { increment: order.total } }
+                });
+
+                walletTx = await tx.walletTransaction.create({
+                    data: {
+                        userId: order.userId,
+                        amount: order.total,
+                        type: 'CREDIT',
+                        description: `Refund for Cancelled Order #${order.id}`,
+                        orderId: order.id
+                    }
+                });
+            }
+
+            // 2. Restore stock for all items
+            for (const item of order.items) {
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: { stock: { increment: item.quantity } }
+                });
+            }
+
+            // 3. Update order status
+            const updatedOrder = await tx.order.update({
+                where: { id: order.id },
                 data: {
-                    userId: order.userId,
-                    amount: order.total,
-                    type: 'CREDIT',
-                    description: `Refund for Cancelled Order #${order.id}`,
-                    orderId: order.id
+                    status: 'Cancelled',
+                    cancelReason: reason,
+                    refundStatus: order.isPaid ? 'Processed' : 'None',
+                    refundAmount: order.isPaid ? order.total : 0
                 }
             });
-        }
 
-        const updatedOrder = await prisma.order.update({
-            where: { id: order.id },
-            data: {
-                status: 'Cancelled',
-                cancelReason: reason,
-                refundStatus: order.isPaid ? 'Processed' : 'None',
-                refundAmount: order.isPaid ? order.total : 0
-            }
+            return { updatedOrder, walletTx };
         });
 
-        res.json({ message: 'Order cancelled successfully', order: updatedOrder, refund: walletTx });
+        res.json({ message: 'Order cancelled successfully', order: result.updatedOrder, refund: result.walletTx });
     } catch (error) {
         console.error('Cancel order error:', error);
         res.status(500).json({ error: 'Failed to cancel order: ' + error.message });
@@ -506,9 +560,10 @@ router.post('/:id/return', protect, async (req, res) => {
 // Process Refund / Approve Return (Admin)
 router.put('/:id/refund', protect, adminOnly, async (req, res) => {
     try {
-        const { action } = req.body; // "approve" or "reject"
+        const { action, restoreStock = false } = req.body; // "approve" or "reject" + optional restoreStock
         const order = await prisma.order.findUnique({
-            where: { id: parseInt(req.params.id) }
+            where: { id: parseInt(req.params.id) },
+            include: { items: true }
         });
 
         if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -521,19 +576,31 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
             return res.json(updatedOrder);
         }
 
-        // Approve Return -> Refund to Wallet
-        await prisma.user.update({
-            where: { id: order.userId },
-            data: { walletBalance: { increment: order.total } }
-        });
+        // Approve Return -> Refund to Wallet + optional stock restore
+        await prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: order.userId },
+                data: { walletBalance: { increment: order.total } }
+            });
 
-        await prisma.walletTransaction.create({
-            data: {
-                userId: order.userId,
-                amount: order.total,
-                type: 'CREDIT',
-                description: `Refund for Returned Order #${order.id}`,
-                orderId: order.id
+            await tx.walletTransaction.create({
+                data: {
+                    userId: order.userId,
+                    amount: order.total,
+                    type: 'CREDIT',
+                    description: `Refund for Returned Order #${order.id}`,
+                    orderId: order.id
+                }
+            });
+
+            // Restore stock if admin says the items are not defective
+            if (restoreStock) {
+                for (const item of order.items) {
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: { stock: { increment: item.quantity } }
+                    });
+                }
             }
         });
 

@@ -4,8 +4,6 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
-const REFERRAL_REWARD = 200; // ₹200 for both referrer and referee
-
 // GET /api/referrals/my-stats — Get my referral code, wallet, stats
 router.get('/my-stats', protect, async (req, res) => {
     try {
@@ -39,6 +37,8 @@ router.get('/my-stats', protect, async (req, res) => {
             _sum: { rewardAmount: true }
         });
 
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
         res.json({
             referralCode: user.referralCode,
             walletBalance: user.walletBalance,
@@ -48,7 +48,7 @@ router.get('/my-stats', protect, async (req, res) => {
             shoppingReferrals,
             courseReferrals,
             totalEarnings: totalEarnings._sum.rewardAmount || 0,
-            referralLink: `http://localhost:5173/signup?ref=${user.referralCode}`
+            referralLink: `${baseUrl}/signup?ref=${user.referralCode}`
         });
     } catch (error) {
         console.error('Get referral stats error:', error);
@@ -80,7 +80,8 @@ router.get('/my-referrals', protect, async (req, res) => {
     }
 });
 
-// POST /api/referrals/apply-wallet — Use wallet balance at checkout
+// POST /api/referrals/apply-wallet — Validate wallet amount at checkout (no DB deduction)
+// Actual deduction happens inside the order creation transaction
 router.post('/apply-wallet', protect, async (req, res) => {
     try {
         const { amount } = req.body;
@@ -100,12 +101,7 @@ router.post('/apply-wallet', protect, async (req, res) => {
             return res.status(400).json({ error: 'No wallet balance available' });
         }
 
-        // Deduct from wallet
-        await prisma.user.update({
-            where: { id: req.user.id },
-            data: { walletBalance: { decrement: applicableAmount } }
-        });
-
+        // Only return the calculated amount — do NOT update the database
         res.json({
             success: true,
             appliedAmount: applicableAmount,

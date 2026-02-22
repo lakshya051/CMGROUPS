@@ -44,7 +44,7 @@ router.post('/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Generate 6-digit OTP for email verification
-        const verificationOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        const verificationOtp = crypto.randomInt(100000, 999999).toString();
         const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         const user = await prisma.user.create({
@@ -148,7 +148,7 @@ router.post('/resend-verification', async (req, res) => {
             return res.status(400).json({ error: 'Account already verified' });
         }
 
-        const verificationOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        const verificationOtp = crypto.randomInt(100000, 999999).toString();
         const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
         await prisma.user.update({
