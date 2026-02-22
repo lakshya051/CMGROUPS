@@ -177,7 +177,22 @@ router.get('/referral-settings', protect, adminOnly, async (req, res) => {
         if (!settings) {
             settings = await prisma.referralSettings.create({ data: {} });
         }
-        res.json(settings);
+
+        // Fetch counts of items with custom overrides
+        const [customProducts, customServices, customCourses] = await Promise.all([
+            prisma.product.count({ where: { referrerPoints: { not: null } } }),
+            prisma.serviceType.count({ where: { referrerPoints: { not: null } } }),
+            prisma.course.count({ where: { referrerPoints: { not: null } } })
+        ]);
+
+        res.json({
+            ...settings,
+            customCounts: {
+                products: customProducts,
+                services: customServices,
+                courses: customCourses
+            }
+        });
     } catch (error) {
         console.error('Get referral settings error:', error);
         res.status(500).json({ error: 'Server error' });

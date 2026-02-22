@@ -241,7 +241,14 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
                     if (!existingReferral) {
                         await prisma.$transaction(async (tx) => {
-                            const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward('service');
+                            const serviceTypeObj = await tx.serviceType.findUnique({
+                                where: { title: fullBooking.serviceType }
+                            });
+
+                            const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward('service', {
+                                referrerPoints: serviceTypeObj?.referrerPoints,
+                                refereePoints: serviceTypeObj?.refereePoints
+                            });
                             const referrerId = fullBooking.user.referredById;
 
                             // Credit referrer

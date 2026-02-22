@@ -12,9 +12,11 @@ const emptyProductValues = {
     category: '',
     brand: '',
     image: '',
-    description: '',
     condition: 'New',
-    isSecondHand: false
+    isSecondHand: false,
+    referrerPoints: '',
+    refereePoints: '',
+    sku: ''
 };
 
 const AdminProducts = () => {
@@ -26,6 +28,13 @@ const AdminProducts = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
     const [specs, setSpecs] = useState({});
+
+    // Variant state
+    const [variants, setVariants] = useState([]);
+    const [variantName, setVariantName] = useState('');
+    const [variantPrice, setVariantPrice] = useState('');
+    const [variantStock, setVariantStock] = useState('');
+    const [variantSku, setVariantSku] = useState('');
 
     // Specs state (key-value pairs)
     const [specKey, setSpecKey] = useState('');
@@ -47,17 +56,52 @@ const AdminProducts = () => {
                 image: values.image,
                 description: values.description || null,
                 specs: Object.keys(specs).length > 0 ? specs : null,
-                condition: values.condition,
                 isSecondHand: values.isSecondHand,
+                referrerPoints: values.referrerPoints ? parseInt(values.referrerPoints) : null,
+                refereePoints: values.refereePoints ? parseInt(values.refereePoints) : null,
+                sku: values.sku || null
             };
             try {
+                let savedProduct;
                 if (editingProduct) {
-                    const updated = await productsAPI.update(editingProduct.id, productData);
-                    setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated : p));
+                    savedProduct = await productsAPI.update(editingProduct.id, productData);
+                    setProducts(prev => prev.map(p => p.id === editingProduct.id ? savedProduct : p));
                 } else {
-                    const created = await productsAPI.create(productData);
-                    setProducts(prev => [created, ...prev]);
+                    savedProduct = await productsAPI.create(productData);
+                    setProducts(prev => [savedProduct, ...prev]);
                 }
+
+                // Handle Variants
+                // For simplicity, if editing, we recreate variants based on the current state.
+                let finalVariants = [...variants];
+
+                // If no variants were defined by the admin, auto-generate one from the base details
+                if (finalVariants.length === 0) {
+                    finalVariants.push({
+                        name: 'Standard',
+                        price: parseFloat(values.price),
+                        stock: parseInt(values.stock),
+                        sku: values.sku || null
+                    });
+                }
+
+                if (finalVariants.length > 0) {
+                    // Delete existing variants if editing
+                    if (editingProduct && editingProduct.variants) {
+                        for (let v of editingProduct.variants) {
+                            await productsAPI.deleteVariant(savedProduct.id, v.id);
+                        }
+                    }
+                    // Create new variants
+                    for (let variant of finalVariants) {
+                        await productsAPI.addVariant(savedProduct.id, variant);
+                    }
+                    // Force refresh product list to get updated variants
+                    const updatedList = await productsAPI.getAll();
+                    setProducts(updatedList);
+                }
+
+                closeModal();
                 closeModal();
             } catch (err) {
                 setErrors({ submit: err.message || 'Failed to save product.' });
@@ -91,17 +135,21 @@ const AdminProducts = () => {
     const openEditModal = (product) => {
         setEditingProduct(product);
         setSpecs(product.specs || {});
+        setVariants(product.variants || []);
         formik.resetForm({
             values: {
                 title: product.title || '',
                 price: product.price || '',
-                stock: product.stock || '',
+                stock: product.stock !== undefined ? product.stock : '',
                 category: product.category || '',
                 brand: product.brand || '',
                 image: product.image || '',
                 description: product.description || '',
                 condition: product.condition || 'New',
                 isSecondHand: product.isSecondHand || false,
+                referrerPoints: product.referrerPoints !== null ? product.referrerPoints : '',
+                refereePoints: product.refereePoints !== null ? product.refereePoints : '',
+                sku: product.sku || ''
             }
         });
         setShowModal(true);
@@ -113,6 +161,11 @@ const AdminProducts = () => {
         setSpecs({});
         setSpecKey('');
         setSpecValue('');
+        setVariants([]);
+        setVariantName('');
+        setVariantPrice('');
+        setVariantStock('');
+        setVariantSku('');
         formik.resetForm();
     };
 
@@ -126,6 +179,26 @@ const AdminProducts = () => {
 
     const removeSpec = (key) => {
         setSpecs(prev => { const s = { ...prev }; delete s[key]; return s; });
+    };
+
+    const addVariant = () => {
+        if (variantName.trim() && variantPrice !== '' && variantStock !== '') {
+            setVariants(prev => [...prev, {
+                id: Date.now(), // temp ID for UI list
+                name: variantName.trim(),
+                price: parseFloat(variantPrice),
+                stock: parseInt(variantStock),
+                sku: variantSku.trim() || null
+            }]);
+            setVariantName('');
+            setVariantPrice('');
+            setVariantStock('');
+            setVariantSku('');
+        }
+    };
+
+    const removeVariant = (id) => {
+        setVariants(prev => prev.filter(v => v.id !== id));
     };
 
     const handleDelete = async (id) => {
@@ -201,6 +274,15 @@ const AdminProducts = () => {
                                                     )}
                                                 </div>
                                                 {product.brand && <p className="text-xs text-text-muted">{product.brand}</p>}
+                                                {product.variants && product.variants.length > 1 ? (
+                                                    <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-blue-100 text-blue-600 rounded-full border border-blue-200 font-bold tracking-wider">
+                                                        {product.variants.length} Variants
+                                                    </span>
+                                                ) : (
+                                                    <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full border border-gray-200 font-bold tracking-wider">
+                                                        Single
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </td>
@@ -295,6 +377,18 @@ const AdminProducts = () => {
                                         onBlur={formik.handleBlur}
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-muted mb-1">SKU</label>
+                                    <input
+                                        type="text"
+                                        name="sku"
+                                        className="input-field"
+                                        placeholder="e.g. RTX-4090-FE"
+                                        value={formik.values.sku}
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </div>
                             </div>
 
                             {/* Price, Stock, Category */}
@@ -363,6 +457,22 @@ const AdminProducts = () => {
                                 </div>
                             </div>
 
+                            {/* Referral Points Overrides */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-text-muted mb-1">
+                                        Referrer Points (Optional)
+                                    </label>
+                                    <input type="number" name="referrerPoints" className="input-field" placeholder="e.g. 500" value={formik.values.referrerPoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-muted mb-1">
+                                        Referee Points (Optional)
+                                    </label>
+                                    <input type="number" name="refereePoints" className="input-field" placeholder="e.g. 250" value={formik.values.refereePoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
+                                </div>
+                            </div>
+
                             {/* Image URL */}
                             <div>
                                 <label className="block text-sm font-medium text-text-muted mb-1">
@@ -425,6 +535,56 @@ const AdminProducts = () => {
                                     <Button type="button" variant="outline" size="sm" onClick={addSpec}>
                                         <Plus size={16} />
                                     </Button>
+                                </div>
+                            </div>
+
+                            {/* Variants Setup */}
+                            <div className="pt-4 border-t border-gray-200">
+                                <label className="block text-sm font-medium text-text-muted mb-2">Product Variants</label>
+
+                                {variants.length > 0 && (
+                                    <div className="overflow-x-auto mb-4 border border-gray-200 rounded-lg">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-gray-50 text-text-muted">
+                                                <tr>
+                                                    <th className="p-3 font-medium">Variant Name</th>
+                                                    <th className="p-3 font-medium">Price (₹)</th>
+                                                    <th className="p-3 font-medium">Stock</th>
+                                                    <th className="p-3 font-medium">SKU</th>
+                                                    <th className="p-3 font-medium text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {variants.map(variant => (
+                                                    <tr key={variant.id} className="bg-white">
+                                                        <td className="p-3 font-medium">{variant.name}</td>
+                                                        <td className="p-3 text-success">₹{variant.price}</td>
+                                                        <td className="p-3">{variant.stock}</td>
+                                                        <td className="p-3 font-mono text-xs text-text-muted">{variant.sku || '-'}</td>
+                                                        <td className="p-3 text-right">
+                                                            <button type="button" onClick={() => removeVariant(variant.id)} className="text-text-muted hover:text-error transition-colors p-1" title="Delete Variant">
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
+                                    <div className="md:col-span-2">
+                                        <input type="text" className="input-field" placeholder="Variant Name (e.g. 1TB SSD)" value={variantName} onChange={(e) => setVariantName(e.target.value)} />
+                                    </div>
+                                    <input type="number" className="input-field" placeholder="Price" value={variantPrice} onChange={(e) => setVariantPrice(e.target.value)} min="0" />
+                                    <input type="number" className="input-field" placeholder="Stock" value={variantStock} onChange={(e) => setVariantStock(e.target.value)} min="0" />
+                                    <div className="flex gap-2">
+                                        <input type="text" className="input-field flex-1" placeholder="SKU" value={variantSku} onChange={(e) => setVariantSku(e.target.value)} />
+                                        <Button type="button" variant="outline" className="px-3" onClick={addVariant}>
+                                            <Plus size={16} />
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
 

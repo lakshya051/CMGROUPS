@@ -105,6 +105,7 @@ router.post('/', optionalProtect, async (req, res) => {
                     items: {
                         create: items.map(item => ({
                             productId: item.productId,
+                            variantId: item.variantId || null,
                             quantity: item.quantity,
                             price: item.price
                         }))
@@ -116,18 +117,32 @@ router.post('/', optionalProtect, async (req, res) => {
                 }
             });
 
-            // 3. Decrement stock for each product (race-condition safe)
+            // 3. Decrement stock for each product/variant (race-condition safe)
             for (const item of items) {
-                const result = await tx.product.updateMany({
-                    where: {
-                        id: item.productId,
-                        stock: { gte: item.quantity }
-                    },
-                    data: { stock: { decrement: item.quantity } }
-                });
+                if (item.variantId) {
+                    const result = await tx.productVariant.updateMany({
+                        where: {
+                            id: item.variantId,
+                            stock: { gte: item.quantity }
+                        },
+                        data: { stock: { decrement: item.quantity } }
+                    });
 
-                if (result.count === 0) {
-                    throw new Error(`Insufficient stock for product ID ${item.productId}. Please try again.`);
+                    if (result.count === 0) {
+                        throw new Error(`Insufficient stock for product variant ID ${item.variantId}. Please try again.`);
+                    }
+                } else {
+                    const result = await tx.product.updateMany({
+                        where: {
+                            id: item.productId,
+                            stock: { gte: item.quantity }
+                        },
+                        data: { stock: { decrement: item.quantity } }
+                    });
+
+                    if (result.count === 0) {
+                        throw new Error(`Insufficient stock for product ID ${item.productId}. Please try again.`);
+                    }
                 }
             }
 
@@ -365,7 +380,18 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                 });
 
                 if (!existingReferral) {
-                    const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward('product');
+                    // Check if order has items to get item-level referral overrides
+                    const firstItem = await prisma.orderItem.findFirst({
+                        where: { orderId: order.id },
+                        include: { product: true }
+                    });
+
+                    const product = firstItem?.product || {};
+
+                    const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward('product', {
+                        referrerPoints: product.referrerPoints,
+                        refereePoints: product.refereePoints
+                    });
 
                     // Find referrer by code
                     const referrer = await prisma.user.findFirst({

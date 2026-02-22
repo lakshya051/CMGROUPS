@@ -12,6 +12,11 @@ const AdminReferralSettings = () => {
         pointExpiryDays: 0,
         tierSystemEnabled: false
     });
+    const [overrideCounts, setOverrideCounts] = useState({
+        products: 0,
+        courses: 0,
+        serviceTypes: 0
+    });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
@@ -25,6 +30,9 @@ const AdminReferralSettings = () => {
                     ...data,
                     pointExpiryDays: data.pointExpiryDays || 0
                 });
+                if (data.counts) {
+                    setOverrideCounts(data.counts);
+                }
             } catch (err) {
                 setError('Failed to load referral settings');
             } finally {
@@ -96,10 +104,22 @@ const AdminReferralSettings = () => {
             <div className="glass-panel p-6 space-y-8">
                 {/* Reward Values Section */}
                 <section>
-                    <h2 className="text-xl font-bold mb-4 border-b border-gray-100 pb-2">Reward Values</h2>
+                    <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
+                        <h2 className="text-xl font-bold">Global Reward Defaults</h2>
+                    </div>
+                    <p className="text-sm text-text-muted mb-4">
+                        These points are awarded globally. Individual items can override these values.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-muted">Points per Product Purchase</label>
+                            <label className="text-sm font-medium text-text-muted flex items-center justify-between">
+                                Default Product Points
+                                {overrideCounts.products > 0 && (
+                                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
+                                        {overrideCounts.products} Overrides
+                                    </span>
+                                )}
+                            </label>
                             <input
                                 type="number"
                                 name="pointsPerProductPurchase"
@@ -109,7 +129,14 @@ const AdminReferralSettings = () => {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-muted">Points per Service Booking</label>
+                            <label className="text-sm font-medium text-text-muted flex items-center justify-between">
+                                Default Service Points
+                                {overrideCounts.serviceTypes > 0 && (
+                                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
+                                        {overrideCounts.serviceTypes} Overrides
+                                    </span>
+                                )}
+                            </label>
                             <input
                                 type="number"
                                 name="pointsPerServiceBooking"
@@ -119,7 +146,14 @@ const AdminReferralSettings = () => {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-text-muted">Points per Course Enrollment</label>
+                            <label className="text-sm font-medium text-text-muted flex items-center justify-between">
+                                Default Course Points
+                                {overrideCounts.courses > 0 && (
+                                    <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold">
+                                        {overrideCounts.courses} Overrides
+                                    </span>
+                                )}
+                            </label>
                             <input
                                 type="number"
                                 name="pointsPerCourseEnrollment"

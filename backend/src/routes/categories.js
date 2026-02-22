@@ -87,7 +87,7 @@ router.get('/service-types/all', protect, adminOnly, async (req, res) => {
 // POST /api/categories/service-types - Create service type (Admin)
 router.post('/service-types', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, icon, price, features } = req.body;
+        const { title, description, icon, price, features, referrerPoints, refereePoints } = req.body;
 
         if (!title) {
             return res.status(400).json({ error: 'Title is required' });
@@ -99,7 +99,9 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
                 description: description || null,
                 icon: icon || 'Wrench',
                 price: price || null,
-                features: features || []
+                features: features || [],
+                referrerPoints: referrerPoints !== undefined ? parseFloat(referrerPoints) : null,
+                refereePoints: refereePoints !== undefined ? parseFloat(refereePoints) : null
             }
         });
 
@@ -109,6 +111,36 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Service type with this title already exists' });
         }
         console.error('Create service type error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/categories/service-types/:id - Update service type (Admin)
+router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const { title, description, icon, price, features, active, referrerPoints, refereePoints } = req.body;
+
+        const data = {};
+        if (title !== undefined) data.title = title;
+        if (description !== undefined) data.description = description;
+        if (icon !== undefined) data.icon = icon;
+        if (price !== undefined) data.price = price;
+        if (features !== undefined) data.features = features;
+        if (active !== undefined) data.active = active;
+        if (referrerPoints !== undefined) data.referrerPoints = referrerPoints === null ? null : parseFloat(referrerPoints);
+        if (refereePoints !== undefined) data.refereePoints = refereePoints === null ? null : parseFloat(refereePoints);
+
+        const serviceType = await prisma.serviceType.update({
+            where: { id: parseInt(req.params.id) },
+            data
+        });
+
+        res.json(serviceType);
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'Service type with this title already exists' });
+        }
+        console.error('Update service type error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

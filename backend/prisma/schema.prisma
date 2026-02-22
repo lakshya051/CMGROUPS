@@ -53,6 +53,8 @@ model Course {
   thumbnail   String   @default("")
   hasCertificate Boolean @default(true)
   isPublished Boolean  @default(true)
+  referrerPoints    Float?
+  refereePoints     Float?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -195,11 +197,14 @@ model Product {
   numReviews  Int      @default(0)
   condition   String   @default("New")
   isSecondHand Boolean @default(false)
+  referrerPoints    Float?
+  refereePoints     Float?
   
   orderItems  OrderItem[]
   reviews     Review[]
   alerts      ProductAlert[]
   wishlists   Wishlist[]
+  variants    ProductVariant[]
 
   @@index([category])
   @@index([isSecondHand])
@@ -254,6 +259,8 @@ model OrderItem {
   product   Product  @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
 }
 
 model Review {
@@ -345,7 +352,23 @@ model ServiceType {
   price       String?     // Starting price e.g. "₹499"
   features    Json?       // Array of feature strings
   active      Boolean  @default(true)
+  referrerPoints    Float?
+  refereePoints     Float?
   createdAt   DateTime @default(now())
+}
+
+model ProductVariant {
+  id          Int      @id @default(autoincrement())
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String   // e.g. "64GB", "Red", "512GB SSD"
+  price       Float    // variant specific price
+  stock       Int      @default(0)
+  sku         String?  // optional stock keeping unit code
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems  OrderItem[] // so order items can reference a variant
 }
 
 model ProductAlert {

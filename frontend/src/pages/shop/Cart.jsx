@@ -36,9 +36,9 @@ const Cart = () => {
         }
     };
 
-    const handleQuantityChange = (id, currentQty, change) => {
+    const handleQuantityChange = (uniqueId, currentQty, change) => {
         if (currentQty + change < 1) return;
-        addToCart(id, change); // Re-using addToCart which adds to existing qty
+        addToCart(uniqueId, change); // Re-using addToCart which adds to existing qty (with our updated ShopContext it accepts uniqueId for string parses)
     };
 
     if (cart.length === 0) {
@@ -61,7 +61,7 @@ const Cart = () => {
                 {/* Cart Items */}
                 <div className="lg:col-span-2 space-y-4">
                     {cart.map(item => (
-                        <div key={item.id} className="glass-panel p-4 flex flex-wrap sm:flex-nowrap gap-4 items-center">
+                        <div key={item.uniqueId} className="glass-panel p-4 flex flex-wrap sm:flex-nowrap gap-4 items-center">
                             <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-50 rounded-lg flex items-center justify-center p-2 flex-shrink-0">
                                 <img src={item.image} alt={item.title} loading="lazy" decoding="async" className="w-full h-full object-contain" />
                             </div>
@@ -70,7 +70,10 @@ const Cart = () => {
                                 <Link to={`/products/${item.id}`} className="font-bold hover:text-primary transition-colors text-base line-clamp-2">
                                     {item.title}
                                 </Link>
-                                <p className="text-text-muted text-sm">{item.category}</p>
+                                {item.variantName && item.variantName !== 'Standard' && (
+                                    <p className="text-sm font-medium text-text-muted mt-0.5">Variant: <span className="text-text-main">{item.variantName}</span></p>
+                                )}
+                                <p className="text-text-muted text-sm mt-0.5">{item.category}</p>
                             </div>
 
                             <div className="flex sm:flex-col items-center sm:items-end gap-3 ml-auto">
@@ -78,14 +81,14 @@ const Cart = () => {
 
                                 <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
                                     <button
-                                        onClick={() => handleQuantityChange(item.id, item.quantity, -1)}
+                                        onClick={() => handleQuantityChange(item.uniqueId, item.quantity, -1)}
                                         className="p-1 hover:bg-slate-700 rounded transition-colors"
                                     >
                                         <Minus size={14} />
                                     </button>
                                     <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
                                     <button
-                                        onClick={() => handleQuantityChange(item.id, item.quantity, 1)}
+                                        onClick={() => handleQuantityChange(item.uniqueId, item.quantity, 1)}
                                         className="p-1 hover:bg-slate-700 rounded transition-colors"
                                     >
                                         <Plus size={14} />
@@ -93,7 +96,7 @@ const Cart = () => {
                                 </div>
 
                                 <button
-                                    onClick={() => removeFromCart(item.id)}
+                                    onClick={() => removeFromCart(item.uniqueId)}
                                     className="text-text-muted hover:text-error transition-colors p-1"
                                 >
                                     <Trash2 size={18} />

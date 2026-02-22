@@ -317,7 +317,10 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
                     });
 
                     if (!existingReferral) {
-                        const { referrerPoints, refereePoints } = await calculateReferralReward('course');
+                        const { referrerPoints, refereePoints } = await calculateReferralReward('course', {
+                            referrerPoints: application.course?.referrerPoints,
+                            refereePoints: application.course?.refereePoints
+                        });
 
                         // Credit referrer wallet
                         await tx.user.update({ where: { id: referrer.id }, data: { walletBalance: { increment: referrerPoints } } });
@@ -383,10 +386,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, instructor, category, thumbnail, hasCertificate, isPublished } = req.body;
+        const { title, description, instructor, category, thumbnail, hasCertificate, isPublished, referrerPoints, refereePoints } = req.body;
         const course = await prisma.course.update({
             where: { id: parseInt(req.params.id) },
-            data: { title, description, instructor, category, thumbnail, hasCertificate, isPublished }
+            data: { title, description, instructor, category, thumbnail, hasCertificate, isPublished, referrerPoints, refereePoints }
         });
         cache.delByPrefix('courses:');
         res.json(course);

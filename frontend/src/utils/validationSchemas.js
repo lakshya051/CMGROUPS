@@ -113,6 +113,9 @@ export const addProductSchema = Yup.object({
     brand: Yup.string().optional(),
     description: Yup.string().optional(),
     condition: Yup.string().required('Condition is required'),
+    referrerPoints: Yup.number().typeError('Must be a number').min(0, 'Cannot be negative').optional().nullable(),
+    refereePoints: Yup.number().typeError('Must be a number').min(0, 'Cannot be negative').optional().nullable(),
+    sku: Yup.string().optional().nullable(),
 });
 
 // ─── Admin — Courses ──────────────────────────────────────────────────────────
@@ -123,6 +126,8 @@ export const addCourseSchema = Yup.object({
     instructor: Yup.string().required('Instructor name is required'),
     category: Yup.string().optional(),
     thumbnail: Yup.string().url('Please enter a valid thumbnail URL').optional().nullable(),
+    referrerPoints: Yup.number().typeError('Must be a number').min(0, 'Cannot be negative').optional().nullable(),
+    refereePoints: Yup.number().typeError('Must be a number').min(0, 'Cannot be negative').optional().nullable(),
 });
 
 // ─── Admin — Categories ───────────────────────────────────────────────────────

@@ -68,18 +68,36 @@ export const ShopProvider = ({ children }) => {
 
     const getProduct = (id) => products.find(p => p.id === parseInt(id) || p.id === id);
 
-    const addToCart = (productId, quantity = 1) => {
+    const addToCart = (productObj, quantity = 1, variant = null) => {
         setCart(prev => {
-            const numId = typeof productId === 'string' ? parseInt(productId) : productId;
-            const existing = prev.find(item => item.id === numId);
+            // we expect productObj to be the full product now if variant is provided, 
+            // since we can't just fetch from local 'products' list easily if it's dynamic
+            const numId = typeof productObj === 'object' ? productObj.id : (typeof productObj === 'string' ? parseInt(productObj) : productObj);
+            const baseProduct = typeof productObj === 'object' ? productObj : getProduct(numId);
+
+            if (!baseProduct) return prev;
+
+            const variantId = variant ? variant.id : null;
+            const uniqueId = variantId ? `${numId}-${variantId}` : `${numId}`;
+
+            const existing = prev.find(item => item.uniqueId === uniqueId);
             if (existing) {
                 return prev.map(item =>
-                    item.id === numId ? { ...item, quantity: item.quantity + quantity } : item
+                    item.uniqueId === uniqueId ? { ...item, quantity: item.quantity + quantity } : item
                 );
             }
-            const product = getProduct(numId);
-            if (!product) return prev;
-            return [...prev, { ...product, quantity }];
+
+            const cartItem = {
+                ...baseProduct,
+                uniqueId,
+                variantId,
+                variantName: variant ? variant.name : null,
+                price: variant ? variant.price : baseProduct.price,
+                stock: variant ? variant.stock : baseProduct.stock, // important for validations later
+                quantity
+            };
+
+            return [...prev, cartItem];
         });
     };
 
@@ -88,7 +106,8 @@ export const ShopProvider = ({ children }) => {
     const placeOrder = async (orderData) => {
         try {
             const items = cart.map(item => ({
-                productId: item.id,
+                productId: item.id, // the base product ID
+                variantId: item.variantId || null,
                 quantity: item.quantity,
                 price: item.price
             }));
@@ -101,9 +120,10 @@ export const ShopProvider = ({ children }) => {
         }
     };
 
-    const removeFromCart = (productId) => {
-        const numId = typeof productId === 'string' ? parseInt(productId) : productId;
-        setCart(prev => prev.filter(item => item.id !== numId));
+    const removeFromCart = (uniqueId) => {
+        // Handle backward compatibility if someone passes a number (old productId)
+        const searchId = typeof uniqueId === 'number' ? `${uniqueId}` : uniqueId;
+        setCart(prev => prev.filter(item => (item.uniqueId || `${item.id}`) !== searchId));
     };
 
     const toggleWishlist = async (productId) => {

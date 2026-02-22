@@ -32,7 +32,9 @@ const AdminServiceTypes = () => {
         description: '',
         icon: 'Wrench',
         price: '',
-        features: ''
+        features: '',
+        referrerPoints: '',
+        refereePoints: ''
     });
 
     useEffect(() => {
@@ -65,11 +67,13 @@ const AdminServiceTypes = () => {
                 description: form.description || null,
                 icon: form.icon,
                 price: form.price || null,
-                features: featuresArray
+                features: featuresArray,
+                referrerPoints: form.referrerPoints ? parseFloat(form.referrerPoints) : null,
+                refereePoints: form.refereePoints ? parseFloat(form.refereePoints) : null
             });
             setServiceTypes(prev => [newType, ...prev]);
             setShowModal(false);
-            setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '' });
+            setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '', referrerPoints: '', refereePoints: '' });
         } catch (err) {
             setError(err.message || 'Failed to create service type');
         } finally {
@@ -203,6 +207,31 @@ const AdminServiceTypes = () => {
                                         placeholder="e.g. ₹499"
                                         value={form.price}
                                         onChange={e => setForm({ ...form, price: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Referrer Points (Optional)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="input-field"
+                                        placeholder="Override default"
+                                        value={form.referrerPoints}
+                                        onChange={e => setForm({ ...form, referrerPoints: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Referee Points (Optional)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="input-field"
+                                        placeholder="Override default"
+                                        value={form.refereePoints}
+                                        onChange={e => setForm({ ...form, refereePoints: e.target.value })}
                                     />
                                 </div>
                             </div>

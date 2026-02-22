@@ -47,7 +47,7 @@ router.get('/', async (req, res) => {
 
         if (usePagination) {
             const [products, total] = await Promise.all([
-                prisma.product.findMany({ where, orderBy, take, skip }),
+                prisma.product.findMany({ where, orderBy, take, skip, include: { variants: true } }),
                 prisma.product.count({ where }),
             ]);
 
@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
         }
 
         // ── No pagination — return full list (backward compat for ShopContext) ─
-        const products = await prisma.product.findMany({ where, orderBy });
+        const products = await prisma.product.findMany({ where, orderBy, include: { variants: true } });
         cache.set(cacheKey, products);
         res.json(products);
 
@@ -84,6 +84,7 @@ router.get('/:id', async (req, res) => {
         const product = await prisma.product.findUnique({
             where: { id: parseInt(req.params.id) },
             include: {
+                variants: true,
                 reviews: {
                     include: { user: { select: { name: true } } },
                     orderBy: { createdAt: 'desc' }
@@ -104,7 +105,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/products (Admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, price, stock, category, brand, image, description, specs, condition, isSecondHand } = req.body;
+        const { title, price, stock, category, brand, image, description, specs, condition, isSecondHand, referrerPoints, refereePoints } = req.body;
 
         if (!title || price === undefined || stock === undefined || !category || !image) {
             return res.status(400).json({ error: 'Title, price, stock, category, and image are required.' });
@@ -121,7 +122,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 description: description || null,
                 specs: specs || null,
                 condition: condition || 'New',
-                isSecondHand: isSecondHand === true || isSecondHand === 'true'
+                isSecondHand: isSecondHand === true || isSecondHand === 'true',
+                referrerPoints: referrerPoints !== undefined ? parseFloat(referrerPoints) : undefined,
+                refereePoints: refereePoints !== undefined ? parseFloat(refereePoints) : undefined
             }
         });
 
@@ -139,12 +142,17 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
+        const { referrerPoints, refereePoints, sku, ...otherData } = req.body;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
 
         const product = await prisma.product.update({
             where: { id: productId },
-            data: req.body
+            data: {
+                ...otherData,
+                referrerPoints: referrerPoints !== undefined ? referrerPoints : undefined,
+                refereePoints: refereePoints !== undefined ? refereePoints : undefined
+            }
         });
 
         // Invalidate caches
@@ -229,6 +237,87 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
         res.json({ message: 'Product deleted' });
     } catch (error) {
         console.error('Delete product error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────
+// PRODUCT VARIANTS (Admin / Public for GET)
+// ─────────────────────────────────────────────
+
+// GET /api/products/:id/variants (Public)
+router.get('/:id/variants', async (req, res) => {
+    try {
+        const variants = await prisma.productVariant.findMany({
+            where: { productId: parseInt(req.params.id) },
+            orderBy: { price: 'asc' }
+        });
+        res.json(variants);
+    } catch (error) {
+        console.error('Get variants error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/products/:id/variants (Admin only)
+router.post('/:id/variants', protect, adminOnly, async (req, res) => {
+    try {
+        const { name, price, stock, sku } = req.body;
+        const productId = parseInt(req.params.id);
+
+        const variant = await prisma.productVariant.create({
+            data: {
+                productId,
+                name,
+                price: parseFloat(price),
+                stock: parseInt(stock),
+                sku: sku || null
+            }
+        });
+
+        cache.delByPrefix('products:'); // full cache flush for simplicity
+        res.status(201).json(variant);
+    } catch (error) {
+        console.error('Create variant error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/products/:id/variants/:variantId (Admin only)
+router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
+    try {
+        const { name, price, stock, sku } = req.body;
+
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (price !== undefined) updateData.price = parseFloat(price);
+        if (stock !== undefined) updateData.stock = parseInt(stock);
+        if (sku !== undefined) updateData.sku = sku || null;
+
+        const variant = await prisma.productVariant.update({
+            where: { id: parseInt(req.params.variantId) },
+            data: updateData
+        });
+
+        cache.delByPrefix('products:');
+        res.json(variant);
+    } catch (error) {
+        console.error('Update variant error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/products/:id/variants/:variantId (Admin only)
+router.delete('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
+    try {
+        await prisma.productVariant.delete({
+            where: { id: parseInt(req.params.variantId) }
+        });
+
+        cache.delByPrefix('products:');
+        res.json({ message: 'Variant deleted' });
+    } catch (error) {
+        console.error('Delete variant error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

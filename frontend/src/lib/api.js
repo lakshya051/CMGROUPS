@@ -88,7 +88,16 @@ export const productsAPI = {
         }),
 
     delete: (id) =>
-        apiFetch(`/products/${id}`, { method: 'DELETE' })
+        apiFetch(`/products/${id}`, { method: 'DELETE' }),
+
+    addVariant: (productId, variantData) =>
+        apiFetch(`/products/${productId}/variants`, {
+            method: 'POST',
+            body: JSON.stringify(variantData)
+        }),
+
+    deleteVariant: (productId, variantId) =>
+        apiFetch(`/products/${productId}/variants/${variantId}`, { method: 'DELETE' })
 };
 
 // ============ ORDERS ============
