@@ -30,7 +30,7 @@ const UserOrders = () => {
 
     useEffect(() => {
         ordersAPI.getMyOrders()
-            .then(data => setOrders(data))
+            .then(data => setOrders(data.orders || data))
             .catch(err => console.error('Failed to fetch orders:', err))
             .finally(() => setLoading(false));
     }, []);
