@@ -4,6 +4,7 @@ const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
 const { protect, adminOnly } = require('../middleware/auth');
 const { generateCertificate } = require('../utils/certificateGenerator');
+const { calculateReferralReward } = require('../utils/referralHelper');
 
 // ─────────────────────────────────────────────
 // STUDENT — Get my applications (with fee ledger)
@@ -281,59 +282,69 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
 
         const isFirstPayment = application.feePayments.length === 0;
 
-        // Record payment
-        const payment = await prisma.feePayment.create({
-            data: {
-                applicationId: appId,
-                amount: parseFloat(amount),
-                note: note || null,
-                markedBy: req.user.email
-            }
-        });
-
-        // Auto-update status to Enrolled after first payment (if currently Approved)
-        if (isFirstPayment && application.status === 'Approved') {
-            await prisma.courseApplication.update({
-                where: { id: appId },
-                data: { status: 'Enrolled', enrolledAt: new Date() }
+        // *** TRANSACTION: fee payment + status update + referral reward ***
+        const payment = await prisma.$transaction(async (tx) => {
+            // 1. Record payment
+            const feePayment = await tx.feePayment.create({
+                data: {
+                    applicationId: appId,
+                    amount: parseFloat(amount),
+                    note: note || null,
+                    markedBy: req.user.email
+                }
             });
-        }
 
-        // Trigger referral points on FIRST payment
-        if (isFirstPayment && application.referralCode) {
-            try {
-                const referrer = await prisma.user.findUnique({ where: { referralCode: application.referralCode } });
+            // 2. Auto-update status to Enrolled after first payment (if currently Approved)
+            if (isFirstPayment && application.status === 'Approved') {
+                await tx.courseApplication.update({
+                    where: { id: appId },
+                    data: { status: 'Enrolled', enrolledAt: new Date() }
+                });
+            }
+
+            // 3. Trigger referral points on FIRST payment
+            if (isFirstPayment && application.referralCode) {
+                const referrer = await tx.user.findFirst({ where: { referralCode: application.referralCode } });
 
                 if (referrer && referrer.id !== application.userId) {
-                    const settings = await prisma.referralSettings.findFirst({}).catch(() => null);
-                    const referrerPoints = settings?.pointsPerCourseEnrollment || 200;
-                    const refereePoints = Math.round(referrerPoints / 2);
-
-                    // Credit referrer wallet
-                    await prisma.user.update({ where: { id: referrer.id }, data: { walletBalance: { increment: referrerPoints } } });
-                    await prisma.walletTransaction.create({ data: { userId: referrer.id, amount: referrerPoints, type: 'CREDIT', description: `Course referral reward — ${application.user.name} enrolled in ${application.course.title}` } });
-
-                    // Credit the student (referee)
-                    await prisma.user.update({ where: { id: application.userId }, data: { walletBalance: { increment: refereePoints } } });
-                    await prisma.walletTransaction.create({ data: { userId: application.userId, amount: refereePoints, type: 'CREDIT', description: `Course referral bonus for enrolling in ${application.course.title}` } });
-
-                    // Create Referral record so it shows in the referral portal
-                    await prisma.referral.create({
-                        data: {
-                            referrerId: referrer.id,
+                    // Prevent duplicate rewards
+                    const existingReferral = await tx.referral.findFirst({
+                        where: {
                             refereeId: application.userId,
-                            status: 'rewarded',
-                            rewardAmount: referrerPoints,
-                            source: 'course',
-                            courseName: application.course.title,
-                            completedAt: new Date()
+                            referrerId: referrer.id,
+                            source: 'course'
                         }
                     });
+
+                    if (!existingReferral) {
+                        const { referrerPoints, refereePoints } = await calculateReferralReward('course');
+
+                        // Credit referrer wallet
+                        await tx.user.update({ where: { id: referrer.id }, data: { walletBalance: { increment: referrerPoints } } });
+                        await tx.walletTransaction.create({ data: { userId: referrer.id, amount: referrerPoints, type: 'CREDIT', description: `Course referral reward — ${application.user.name} enrolled in ${application.course.title}` } });
+
+                        // Credit the student (referee)
+                        await tx.user.update({ where: { id: application.userId }, data: { walletBalance: { increment: refereePoints } } });
+                        await tx.walletTransaction.create({ data: { userId: application.userId, amount: refereePoints, type: 'CREDIT', description: `Course referral bonus for enrolling in ${application.course.title}` } });
+
+                        // Create Referral record so it shows in the referral portal
+                        await tx.referral.create({
+                            data: {
+                                referrerId: referrer.id,
+                                refereeId: application.userId,
+                                status: 'rewarded',
+                                rewardAmount: referrerPoints,
+                                source: 'course',
+                                courseName: application.course.title,
+                                completedAt: new Date()
+                            }
+                        });
+                    }
                 }
-            } catch (referralErr) {
-                console.error('Referral credit error (non-blocking):', referralErr);
             }
-        }
+
+            return feePayment;
+        });
 
         // Notify student
         await prisma.notification.create({

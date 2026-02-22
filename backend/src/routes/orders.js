@@ -5,6 +5,7 @@ const { protect, adminOnly, optionalProtect } = require('../middleware/auth');
 const { sendOrderConfirmationSMS, sendOrderConfirmationEmail } = require('../utils/emailNotifications');
 const smsNotifications = require('../utils/smsNotifications');
 const { generateInvoice } = require('../utils/invoiceGenerator');
+const { calculateReferralReward } = require('../utils/referralHelper');
 
 const router = express.Router();
 
@@ -364,9 +365,7 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                 });
 
                 if (!existingReferral) {
-                    // Get reward amount from settings or fallback to 200
-                    const settings = await prisma.referralSettings.findFirst();
-                    const rewardAmount = settings ? settings.pointsPerProductPurchase : 200;
+                    const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward('product');
 
                     // Find referrer by code
                     const referrer = await prisma.user.findFirst({
@@ -395,13 +394,14 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                         // Credit buyer (person who made purchase)
                         await prisma.user.update({
                             where: { id: order.userId },
-                            data: { walletBalance: { increment: rewardAmount } }
+                            data: { walletBalance: { increment: refereePoints } }
                         });
 
                         console.log(`Referral reward: ₹${rewardAmount} credited to referrer ${referrer.id} and buyer ${order.userId} from order ${order.id}`);
 
                         // *** TIER SYSTEM UPDATE (If Enabled) ***
-                        if (settings && settings.tierSystemEnabled) {
+                        const tierSettings = await prisma.referralSettings.findFirst();
+                        if (tierSettings && tierSettings.tierSystemEnabled) {
                             try {
                                 const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
 

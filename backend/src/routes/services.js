@@ -3,6 +3,7 @@ const prisma = require('../lib/prisma');
 const { protect, adminOnly } = require('../middleware/auth');
 const { sendServiceBookingSMS, sendServiceBookingEmail } = require('../utils/emailNotifications');
 const smsNotifications = require('../utils/smsNotifications');
+const { calculateReferralReward } = require('../utils/referralHelper');
 
 const router = express.Router();
 
@@ -229,55 +230,67 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
             if (fullBooking && fullBooking.user && fullBooking.user.referredById) {
                 try {
-                    const settings = await prisma.referralSettings.findFirst();
-                    const rewardAmount = settings ? settings.pointsPerServiceBooking : 150;
-                    const referrerId = fullBooking.user.referredById;
-
-                    // Credit referrer
-                    await prisma.user.update({
-                        where: { id: referrerId },
-                        data: { walletBalance: { increment: rewardAmount } }
-                    });
-
-                    await prisma.referral.create({
-                        data: {
-                            referrerId,
+                    // Prevent duplicate rewards
+                    const existingReferral = await prisma.referral.findFirst({
+                        where: {
                             refereeId: fullBooking.userId,
-                            status: 'rewarded',
-                            rewardAmount,
-                            completedAt: new Date()
+                            referrerId: fullBooking.user.referredById,
+                            source: 'shopping' // service referrals use 'shopping' source
                         }
                     });
 
-                    // Credit buyer
-                    await prisma.user.update({
-                        where: { id: fullBooking.userId },
-                        data: { walletBalance: { increment: rewardAmount } }
-                    });
+                    if (!existingReferral) {
+                        await prisma.$transaction(async (tx) => {
+                            const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward('service');
+                            const referrerId = fullBooking.user.referredById;
 
-                    // TIER SYSTEM
-                    if (settings && settings.tierSystemEnabled) {
-                        const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
+                            // Credit referrer
+                            await tx.user.update({
+                                where: { id: referrerId },
+                                data: { walletBalance: { increment: rewardAmount } }
+                            });
 
-                        // Update Referrer
-                        const upRef = await prisma.user.update({
-                            where: { id: referrerId },
-                            data: { tierPoints: { increment: rewardAmount } },
-                            select: { id: true, tierPoints: true, tier: true }
+                            await tx.referral.create({
+                                data: {
+                                    referrerId,
+                                    refereeId: fullBooking.userId,
+                                    status: 'rewarded',
+                                    rewardAmount,
+                                    completedAt: new Date()
+                                }
+                            });
+
+                            // Credit buyer
+                            await tx.user.update({
+                                where: { id: fullBooking.userId },
+                                data: { walletBalance: { increment: refereePoints } }
+                            });
+
+                            // TIER SYSTEM
+                            const tierSettings = await prisma.referralSettings.findFirst();
+                            if (tierSettings && tierSettings.tierSystemEnabled) {
+                                const tiers = await tx.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
+
+                                // Update Referrer
+                                const upRef = await tx.user.update({
+                                    where: { id: referrerId },
+                                    data: { tierPoints: { increment: rewardAmount } },
+                                    select: { id: true, tierPoints: true, tier: true }
+                                });
+                                const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                if (nRT !== upRef.tier) await tx.user.update({ where: { id: referrerId }, data: { tier: nRT } });
+
+                                // Update Buyer
+                                const upBuy = await tx.user.update({
+                                    where: { id: fullBooking.userId },
+                                    data: { tierPoints: { increment: rewardAmount } },
+                                    select: { id: true, tierPoints: true, tier: true }
+                                });
+                                const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                if (nBT !== upBuy.tier) await tx.user.update({ where: { id: fullBooking.userId }, data: { tier: nBT } });
+                            }
                         });
-                        const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                        if (nRT !== upRef.tier) await prisma.user.update({ where: { id: referrerId }, data: { tier: nRT } });
-
-                        // Update Buyer
-                        const upBuy = await prisma.user.update({
-                            where: { id: fullBooking.userId },
-                            data: { tierPoints: { increment: rewardAmount } },
-                            select: { id: true, tierPoints: true, tier: true }
-                        });
-                        const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                        if (nBT !== upBuy.tier) await prisma.user.update({ where: { id: fullBooking.userId }, data: { tier: nBT } });
                     }
-
                 } catch (err) {
                     console.error('Service referral/tier error:', err);
                 }
