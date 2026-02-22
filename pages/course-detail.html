@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Details | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container" style="padding-top: 2rem;">
+            <a href="courses.html" class="btn btn-outline" style="margin-bottom: 2rem;">← Back to Courses</a>
+
+            <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 3rem; align-items: start;">
+                <!-- Main Info -->
+                <div class="glass-panel" style="padding: 3rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1.5rem;" id="c-icon">🎓</div>
+                    <h1 style="margin-bottom: 1rem; line-height: 1.2;" id="c-title">Loading...</h1>
+                    <p class="text-muted" style="font-size: 1.1rem; margin-bottom: 2rem;" id="c-desc"></p>
+
+                    <h3 style="margin-bottom: 1.5rem;">Syllabus</h3>
+                    <ul id="c-syllabus" style="list-style: none; padding: 0;">
+                        <!-- Injected -->
+                    </ul>
+                </div>
+
+                <!-- Sidebar Action -->
+                <div class="glass-panel" style="padding: 2rem; position: sticky; top: 100px;">
+                    <div style="font-size: 2.5rem; font-weight: 700; color: var(--primary-color); margin-bottom: 1rem;"
+                        id="c-price">₹ -</div>
+                    <button id="enroll-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;"
+                        onclick="handleEnroll()">Enroll Now</button>
+
+                    <div style="font-size: 0.9rem; color: var(--text-muted);">
+                        <div class="flex justify-between mb-2">
+                            <span>Instructor</span>
+                            <span id="c-instructor" style="color: var(--text-main); font-weight: 500;">-</span>
+                        </div>
+                        <div class="flex justify-between mb-2">
+                            <span>Duration</span>
+                            <span id="c-duration" style="color: var(--text-main); font-weight: 500;">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Level</span>
+                            <span id="c-level" style="color: var(--text-main); font-weight: 500;">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module">
+        import { getCourseById } from '../scripts/courses_data.js';
+
+        const params = new URLSearchParams(window.location.search);
+        const courseId = params.get('id');
+        let currentCourse = null;
+
+        if (courseId) {
+            currentCourse = getCourseById(courseId);
+            if (currentCourse) {
+                document.title = `${currentCourse.title} | TechNova`;
+                document.getElementById('c-icon').textContent = currentCourse.image;
+                document.getElementById('c-title').textContent = currentCourse.title;
+                document.getElementById('c-desc').textContent = currentCourse.description;
+                document.getElementById('c-price').textContent = `₹${currentCourse.price.toLocaleString()}`;
+                document.getElementById('c-instructor').textContent = currentCourse.instructor;
+                document.getElementById('c-duration').textContent = currentCourse.duration;
+                document.getElementById('c-level').textContent = currentCourse.level;
+
+                document.getElementById('c-syllabus').innerHTML = currentCourse.syllabus.map((item, index) => `
+                    <li style="padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; gap: 1rem;">
+                        <span style="color: var(--primary-color); font-weight: 700;">0${index + 1}</span>
+                        ${item}
+                    </li>
+                `).join('');
+
+                checkEnrollmentStatus();
+            }
+        }
+
+        async function checkEnrollmentStatus() {
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (user && user.enrolledCourses) {
+                const enrolled = user.enrolledCourses.find(c => c.courseId === courseId);
+                if (enrolled) {
+                    const btn = document.getElementById('enroll-btn');
+                    btn.textContent = "Continue Learning (Enrolled)";
+                    btn.classList.replace('btn-primary', 'btn-outline');
+                    btn.onclick = () => alert('Resume Course module...');
+                }
+            }
+        }
+
+        window.handleEnroll = async () => {
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (!user) {
+                window.location.href = '/pages/login.html';
+                return;
+            }
+
+            // Confirm enrollment (Mock Payment)
+            if (confirm(`Confirm enrollment for ₹${currentCourse.price}?`)) {
+                const { enrollCourse } = await import('../scripts/courses.js');
+                const result = enrollCourse(user.id, courseId);
+
+                if (result.success) {
+                    alert('Successfully Enrolled! +50 Points');
+                    location.reload();
+                } else {
+                    alert(result.message);
+                }
+            }
+        };
+    </script>
+</body>
+
+</html>

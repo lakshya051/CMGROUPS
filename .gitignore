@@ -1,0 +1,53 @@
+# Root .gitignore for Website Project
+
+# Dependency directories
+node_modules/
+jspm_packages/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.docusaurus/
+.cache/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Project specific
+backend/node_modules/
+frontend/node_modules/
+backend/prisma/migrations/
+backend/.env
+frontend/.env
+
+# Temporary files
+tmp/
+temp/

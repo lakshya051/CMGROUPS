@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container">
+            <h1 class="section-title">Checkout</h1>
+
+            <div class="products-layout" style="grid-template-columns: 1fr 350px;">
+                <div class="checkout-form glass-panel" style="padding: 2rem;">
+                    <h3 style="margin-bottom: 1.5rem;">Shipping Address</h3>
+                    <form id="checkout-form">
+                        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label class="form-label">First Name</label>
+                                <input type="text" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" class="form-input" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Address</label>
+                            <input type="text" class="form-input" required placeholder="123 Tech Street">
+                        </div>
+                        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label class="form-label">City</label>
+                                <input type="text" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Zip Code</label>
+                                <input type="text" class="form-input" required>
+                            </div>
+                        </div>
+
+                        <h3 style="margin: 2rem 0 1.5rem;">Payment Method</h3>
+                        <div class="form-group">
+                            <label class="filter-option"
+                                style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; border: 1px solid var(--primary-color);">
+                                <input type="radio" name="payment" checked>
+                                Credit/Debit Card (Simulated)
+                            </label>
+                            <label class="filter-option"
+                                style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+                                <input type="radio" name="payment">
+                                UPI / Netbanking
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Place
+                            Order</button>
+                    </form>
+                </div>
+
+                <div class="cart-summary glass-panel" style="padding: 2rem; height: fit-content;">
+                    <h3 style="margin-bottom: 1rem;">Order Summary</h3>
+                    <div id="checkout-items">
+                        <!-- Items list -->
+                    </div>
+                    <div style="height: 1px; background: var(--border-color); margin: 1rem 0;"></div>
+                    <div class="flex justify-between" style="font-weight: 700; font-size: 1.2rem;">
+                        <span>Total Pay</span>
+                        <span id="checkout-total" style="color: var(--primary-color);">₹0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module">
+        import { getCartDetails, clearCart } from '../scripts/cart.js';
+
+        // Render Summary
+        const items = getCartDetails();
+        const total = items.reduce((sum, i) => sum + (i.product.price * i.quantity), 0) * 1.18; // plus tax
+
+        document.getElementById('checkout-items').innerHTML = items.map(item => `
+            <div class="flex justify-between" style="margin-bottom: 0.5rem; font-size: 0.9rem;">
+                <span>${item.product.title} x${item.quantity}</span>
+                <span>₹${(item.product.price * item.quantity).toLocaleString()}</span>
+            </div>
+        `).join('');
+
+        document.getElementById('checkout-total').textContent = `₹${total.toLocaleString()}`;
+
+        // Handle Submit
+        document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            // Simulate processing
+            const btn = e.target.querySelector('button');
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            const totalAmount = total; // from closure above
+
+            setTimeout(async () => {
+                const orderId = 'ORD-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+
+                // Award Loyalty Points
+                if (user) {
+                    const { addPoints } = await import('../scripts/loyalty.js');
+                    addPoints(user.email, totalAmount, `Order #${orderId}`);
+                }
+
+                clearCart();
+                window.location.href = `order-confirmation.html?id=${orderId}`;
+            }, 2000);
+        });
+    </script>
+</body>
+
+</html>

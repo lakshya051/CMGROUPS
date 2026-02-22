@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | TechNova</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../styles/main.css">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1 class="auth-title">Create Account</h1>
+                <form id="signup-form">
+                    <div class="form-group">
+                        <label for="name" class="form-label">Full Name</label>
+                        <input type="text" id="name" class="form-input" required placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" id="email" class="form-input" required placeholder="name@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone" class="form-label">Phone Number</label>
+                        <input type="tel" id="phone" class="form-input" placeholder="+91 98765 43210">
+                    </div>
+                    <div class="form-group">
+                        <label for="referral" class="form-label">Referral Code (Optional)</label>
+                        <input type="text" id="referral" class="form-input" placeholder="e.g. JOHN1234">
+                    </div>
+                    <div class="form-group">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" id="password" class="form-input" required placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password" class="form-label">Confirm Password</label>
+                        <input type="password" id="confirm-password" class="form-input" required placeholder="••••••••">
+                    </div>
+
+                    <div class="error-message" id="signup-error"></div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Join
+                        TechNova</button>
+                </form>
+
+                <div class="auth-footer">
+                    Already have an account? <a href="login.html" class="auth-link">Sign In</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script type="module">
+        import loadHeader from '../components/header.js';
+        // Load layout
+        loadHeader();
+
+        const signupForm = document.getElementById('signup-form');
+        const errorMsg = document.getElementById('signup-error');
+
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            const referralCode = document.getElementById('referral').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            if (password !== confirmPassword) {
+                errorMsg.textContent = "Passwords do not match.";
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            try {
+                if (!window.auth) {
+                    await import('../scripts/auth.js');
+                }
+
+                const newUser = await window.auth.register(name, email, phone, password);
+
+                // Process Referral if code exists
+                if (referralCode) {
+                    const { processReferral } = await import('../scripts/referral.js');
+                    await processReferral(newUser.id, referralCode);
+                }
+
+                // Redirect to dashboard or home on success
+                // For now, let's go to home
+                window.location.href = '/index.html';
+
+            } catch (err) {
+                errorMsg.textContent = err.message;
+                errorMsg.style.display = 'block';
+            }
+        });
+    </script>
+    <script src="../scripts/auth.js"></script>
+</body>
+
+</html>

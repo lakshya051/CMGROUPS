@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | TechNova</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../styles/main.css">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <div class="auth-container">
+            <div class="auth-card">
+                <h1 class="auth-title">Welcome Back</h1>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" id="email" class="form-input" required placeholder="name@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" id="password" class="form-input" required placeholder="••••••••">
+                    </div>
+
+                    <div class="error-message" id="login-error"></div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Sign
+                        In</button>
+
+                    <div style="text-align: right; margin-top: 0.5rem;">
+                        <a href="#" style="font-size: 0.85rem; color: var(--text-muted);">Forgot Password?</a>
+                    </div>
+                </form>
+
+                <div class="auth-footer">
+                    Don't have an account? <a href="signup.html" class="auth-link">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="footer-container text-center"></div>
+
+    <!-- Scripts -->
+    <script type="module">
+        import loadHeader from '../components/header.js';
+        import loadFooter from '../components/footer.js';
+        // Import auth from script tag since it's attached to window or we can try to import if supported
+        // But for simplicity let's rely on the global script loading
+
+        // Load layout
+        loadHeader();
+
+        // Auth Logic
+        const loginForm = document.getElementById('login-form');
+        const errorMsg = document.getElementById('login-error');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                // Determine if we can use the window.auth or need to import
+                if (!window.auth) {
+                    // Lazy load if not globally present, ensuring the script is loaded
+                    await import('../scripts/auth.js');
+                }
+
+                await window.auth.login(email, password);
+                window.location.href = '/index.html';
+
+            } catch (err) {
+                errorMsg.textContent = err.message;
+                errorMsg.style.display = 'block';
+            }
+        });
+    </script>
+    <script src="../scripts/auth.js"></script>
+</body>
+
+</html>

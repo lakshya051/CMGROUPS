@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container" id="product-detail-section">
+            <div class="product-detail-container">
+                <!-- Gallery -->
+                <div class="product-gallery" id="p-image">
+                    📦
+                </div>
+
+                <!-- Info -->
+                <div class="product-info">
+                    <div class="flex items-center gap-sm mb-2">
+                        <span class="stock-badge" id="p-stock">In Stock</span>
+                        <span class="section-subtitle" id="p-brand">Brand</span>
+                    </div>
+
+                    <h1 class="product-info-title" id="p-title">Loading...</h1>
+                    <div class="product-info-price" id="p-price">₹ -</div>
+
+                    <p class="card-desc" id="p-desc" style="font-size: 1.1rem;">
+                        Loading description...
+                    </p>
+
+                    <div class="flex gap-sm" style="margin-bottom: 2rem;">
+                        <input type="number" id="p-qty" value="1" min="1" class="form-input" style="width: 80px;">
+                        <button class="btn btn-primary" style="flex-grow: 1;" onclick="addToCartFromDetail()">Add to
+                            Cart</button>
+                        <button class="btn btn-outline" style="font-size: 1.5rem;" onclick="toggleWish()">♡</button>
+                    </div>
+
+                    <h3 style="margin-bottom: 1rem;">Technical Specifications</h3>
+                    <table class="specs-table" id="p-specs">
+                        <!-- Specs injected here -->
+                    </table>
+
+                    <h3 style="margin-bottom: 1rem; margin-top: 3rem;">Customer Reviews</h3>
+                    <div id="reviews-section">
+                        <div id="reviews-list" style="margin-bottom: 2rem;"></div>
+
+                        <div class="glass-panel" style="padding: 1.5rem;">
+                            <h4 style="margin-bottom: 1rem;">Write a Review</h4>
+                            <form id="review-form">
+                                <div class="form-group">
+                                    <label class="form-label">Rating</label>
+                                    <select id="review-rating" class="form-input">
+                                        <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                                        <option value="4">⭐⭐⭐⭐ (4)</option>
+                                        <option value="3">⭐⭐⭐ (3)</option>
+                                        <option value="2">⭐⭐ (2)</option>
+                                        <option value="1">⭐ (1)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <textarea id="review-comment" class="form-input"
+                                        placeholder="Share your thoughts..." required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Submit Review</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module">
+        import { getProductById } from '../scripts/products_data.js';
+        import { addToCart } from '../scripts/cart.js';
+        import { toggleWishlist, getReviews, addReview } from '../scripts/products.js';
+
+        const params = new URLSearchParams(window.location.search);
+        const productId = params.get('id');
+
+        window.addToCartFromDetail = () => {
+            const qty = document.getElementById('p-qty').value;
+            addToCart(productId, qty);
+        };
+
+        window.toggleWish = () => {
+            toggleWishlist(productId);
+        };
+
+        if (productId) {
+            const product = getProductById(productId);
+            if (product) {
+                document.title = `${product.title} | TechNova`;
+                document.getElementById('p-image').textContent = product.image;
+                document.getElementById('p-brand').textContent = product.brand;
+                document.getElementById('p-title').textContent = product.title;
+                document.getElementById('p-price').textContent = `₹${product.price.toLocaleString('en-IN')}`;
+                document.getElementById('p-desc').textContent = product.description;
+                document.getElementById('p-stock').textContent = product.stock > 0 ? `${product.stock} In Stock` : 'Out of Stock';
+
+                // Render Specs
+                const specsTable = document.getElementById('p-specs');
+                specsTable.innerHTML = Object.entries(product.specs).map(([key, value]) => `
+                    <tr>
+                        <td>${key}</td>
+                        <td>${value}</td>
+                    </tr>
+                `).join('');
+
+                // Render Reviews
+                renderReviewsList();
+
+                function renderReviewsList() {
+                    const reviews = getReviews(productId);
+                    const list = document.getElementById('reviews-list');
+                    if (reviews.length === 0) {
+                        list.innerHTML = '<p class="text-muted">No reviews yet. Be the first!</p>';
+                        return;
+                    }
+                    list.innerHTML = reviews.map(r => `
+                        <div style="border-bottom: 1px solid var(--border-color); padding: 1rem 0;">
+                            <div class="flex justify-between">
+                                <span style="font-weight: 600;">${r.user}</span>
+                                <span class="text-muted" style="font-size: 0.8rem;">${r.date}</span>
+                            </div>
+                            <div style="color: #fbbf24; margin-bottom: 0.5rem;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+                            <p>${r.comment}</p>
+                        </div>
+                    `).join('');
+                }
+
+                // Handle Review Submit
+                document.getElementById('review-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const user = JSON.parse(localStorage.getItem('currentUser'));
+                    if (!user) {
+                        alert('Please login to write a review.');
+                        return;
+                    }
+
+                    const rating = document.getElementById('review-rating').value;
+                    const comment = document.getElementById('review-comment').value;
+
+                    addReview(productId, user, rating, comment);
+                    renderReviewsList();
+                    e.target.reset();
+                });
+            } else {
+                document.getElementById('product-detail-section').innerHTML = '<h2>Product not found</h2>';
+            }
+        } else {
+            document.getElementById('product-detail-section').innerHTML = '<h2>Invalid Product ID</h2>';
+        }
+    </script>
+</body>
+
+</html>

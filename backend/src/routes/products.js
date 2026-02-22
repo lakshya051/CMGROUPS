@@ -1,0 +1,236 @@
+const express = require('express');
+const prisma = require('../lib/prisma');
+const cache = require('../lib/cache');
+const { protect, adminOnly } = require('../middleware/auth');
+
+const router = express.Router();
+
+// ─── GET /api/products (Public) ───────────────────────────────────────────────
+// Supports:
+//   ?category=GPU  ?search=rtx  ?sort=price_asc  ?minPrice=  ?maxPrice=
+//   ?isSecondHand=true
+//   ?page=1  ?limit=20   (omit for full list — backward compat)
+router.get('/', async (req, res) => {
+    try {
+        const { category, search, sort, minPrice, maxPrice, isSecondHand, page, limit } = req.query;
+
+        // Build where clause
+        let where = {};
+        if (category) where.category = category;
+        if (isSecondHand !== undefined) where.isSecondHand = isSecondHand === 'true';
+        if (search) where.title = { contains: search, mode: 'insensitive' };
+        if (minPrice || maxPrice) {
+            where.price = {};
+            if (minPrice) where.price.gte = parseFloat(minPrice);
+            if (maxPrice) where.price.lte = parseFloat(maxPrice);
+        }
+
+        // Build orderBy
+        let orderBy = {};
+        if (sort === 'price_asc') orderBy = { price: 'asc' };
+        else if (sort === 'price_desc') orderBy = { price: 'desc' };
+        else if (sort === 'rating') orderBy = { rating: 'desc' };
+        else orderBy = { id: 'desc' };
+
+        // ── Cache key ──────────────────────────────────────────────────────────
+        // Include all query params so different filter combos get their own slot
+        const cacheKey = `products:${JSON.stringify(req.query)}`;
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
+
+        // ── Pagination ─────────────────────────────────────────────────────────
+        const usePagination = page !== undefined || limit !== undefined;
+        const take = usePagination ? parseInt(limit) || 20 : undefined;
+        const skip = usePagination ? ((parseInt(page) || 1) - 1) * take : undefined;
+
+        if (usePagination) {
+            const [products, total] = await Promise.all([
+                prisma.product.findMany({ where, orderBy, take, skip }),
+                prisma.product.count({ where }),
+            ]);
+
+            const result = {
+                data: products,
+                total,
+                page: parseInt(page) || 1,
+                limit: take,
+                totalPages: Math.ceil(total / take),
+            };
+
+            cache.set(cacheKey, result);
+            return res.json(result);
+        }
+
+        // ── No pagination — return full list (backward compat for ShopContext) ─
+        const products = await prisma.product.findMany({ where, orderBy });
+        cache.set(cacheKey, products);
+        res.json(products);
+
+    } catch (error) {
+        console.error('Get products error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/products/:id (Public)
+router.get('/:id', async (req, res) => {
+    try {
+        const cacheKey = `products:single:${req.params.id}`;
+        const cached = cache.get(cacheKey);
+        if (cached) return res.json(cached);
+
+        const product = await prisma.product.findUnique({
+            where: { id: parseInt(req.params.id) },
+            include: {
+                reviews: {
+                    include: { user: { select: { name: true } } },
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        cache.set(cacheKey, product, 120); // cache individual products for 2 min
+        res.json(product);
+    } catch (error) {
+        console.error('Get product error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/products (Admin only)
+router.post('/', protect, adminOnly, async (req, res) => {
+    try {
+        const { title, price, stock, category, brand, image, description, specs, condition, isSecondHand } = req.body;
+
+        if (!title || price === undefined || stock === undefined || !category || !image) {
+            return res.status(400).json({ error: 'Title, price, stock, category, and image are required.' });
+        }
+
+        const product = await prisma.product.create({
+            data: {
+                title,
+                price: parseFloat(price),
+                stock: parseInt(stock),
+                category,
+                brand: brand || null,
+                image,
+                description: description || null,
+                specs: specs || null,
+                condition: condition || 'New',
+                isSecondHand: isSecondHand === true || isSecondHand === 'true'
+            }
+        });
+
+        // Invalidate all product list caches
+        cache.delByPrefix('products:');
+
+        res.status(201).json(product);
+    } catch (error) {
+        console.error('Create product error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/products/:id (Admin only)
+router.put('/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+
+        const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
+
+        const product = await prisma.product.update({
+            where: { id: productId },
+            data: req.body
+        });
+
+        // Invalidate caches
+        cache.delByPrefix('products:');
+
+        // Background Alert Check (non-blocking)
+        (async () => {
+            try {
+                // 1. Stock Alert: If stock was 0 and now > 0
+                if (oldProduct.stock === 0 && product.stock > 0) {
+                    const alerts = await prisma.productAlert.findMany({
+                        where: { productId: product.id, type: 'STOCK', isActive: true }
+                    });
+
+                    if (alerts.length > 0) {
+                        const notifications = alerts.map(alert => ({
+                            userId: alert.userId,
+                            title: 'Back in Stock!',
+                            message: `Good news! "${product.title}" is back in stock. Hurry up!`,
+                            type: 'ALERT',
+                            link: `/product/${product.id}`
+                        }));
+
+                        await prisma.notification.createMany({ data: notifications });
+                        await prisma.productAlert.deleteMany({
+                            where: { id: { in: alerts.map(a => a.id) } }
+                        });
+                        console.log(`Sent ${alerts.length} stock alerts for product ${product.id}`);
+                    }
+                }
+
+                // 2. Price Alert: If price dropped
+                if (product.price < oldProduct.price) {
+                    const alerts = await prisma.productAlert.findMany({
+                        where: { productId: product.id, type: 'PRICE_DROP', isActive: true }
+                    });
+
+                    const notifications = [];
+                    const alertsToRemove = [];
+
+                    for (const alert of alerts) {
+                        if (!alert.priceThreshold || product.price <= alert.priceThreshold) {
+                            notifications.push({
+                                userId: alert.userId,
+                                title: 'Price Drop Alert!',
+                                message: `Price dropped for "${product.title}" to ₹${product.price.toLocaleString()}!`,
+                                type: 'ALERT',
+                                link: `/product/${product.id}`
+                            });
+                            if (alert.priceThreshold) alertsToRemove.push(alert.id);
+                        }
+                    }
+
+                    if (notifications.length > 0) {
+                        await prisma.notification.createMany({ data: notifications });
+                        if (alertsToRemove.length > 0) {
+                            await prisma.productAlert.deleteMany({ where: { id: { in: alertsToRemove } } });
+                        }
+                        console.log(`Sent ${notifications.length} price alerts for product ${product.id}`);
+                    }
+                }
+            } catch (err) {
+                console.error('Alert trigger error:', err);
+            }
+        })();
+
+        res.json(product);
+    } catch (error) {
+        console.error('Update product error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/products/:id (Admin only)
+router.delete('/:id', protect, adminOnly, async (req, res) => {
+    try {
+        await prisma.product.delete({ where: { id: parseInt(req.params.id) } });
+
+        // Invalidate caches
+        cache.delByPrefix('products:');
+
+        res.json({ message: 'Product deleted' });
+    } catch (error) {
+        console.error('Delete product error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+module.exports = router;

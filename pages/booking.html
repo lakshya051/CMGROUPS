@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Service | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container" style="max-width: 800px;">
+            <a href="services.html" class="btn btn-outline" style="margin-bottom: 2rem;">← Back to Services</a>
+
+            <div class="glass-panel" style="padding: 3rem;">
+                <h1 class="section-title" style="text-align: left; margin-bottom: 2rem;">Service Request</h1>
+
+                <form id="booking-form">
+                    <div class="form-group">
+                        <label class="form-label">Service Type</label>
+                        <select id="service-type" class="form-input" required>
+                            <option value="repair">Laptop/PC Repair</option>
+                            <option value="cleaning">Deep Cleaning</option>
+                            <option value="assembly">Custom Assembly</option>
+                            <option value="amc">AMC Inquiry</option>
+                            <option value="diagnostic">General Diagnostic</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Preferred Date</label>
+                        <input type="date" id="service-date" class="form-input" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Device Details / Issue Description</label>
+                        <textarea id="service-details" class="form-input" rows="5"
+                            placeholder="e.g. Dell XPS 15, Screen flickering..." required></textarea>
+                    </div>
+
+                    <div
+                        style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+                        <p style="color: var(--text-muted); font-size: 0.9rem;">
+                            Note: Our team will contact you within 24 hours to confirm the appointment and provide a
+                            cost estimate.
+                        </p>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Request</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module">
+        import { bookService } from '../scripts/services.js';
+
+        // Pre-select type from URL
+        const params = new URLSearchParams(window.location.search);
+        const type = params.get('type');
+        if (type) {
+            const select = document.getElementById('service-type');
+            if (select.querySelector(`option[value="${type}"]`)) {
+                select.value = type;
+            }
+        }
+
+        // Min date = today
+        document.getElementById('service-date').min = new Date().toISOString().split('T')[0];
+
+        document.getElementById('booking-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const user = JSON.parse(localStorage.getItem('currentUser'));
+            if (!user) {
+                alert('Please login to book a service.');
+                window.location.href = '/pages/login.html';
+                return;
+            }
+
+            const sType = document.getElementById('service-type').value;
+            const sDate = document.getElementById('service-date').value;
+            const sDetails = document.getElementById('service-details').value;
+
+            const result = bookService(user.id, sType, sDetails, sDate);
+
+            if (result.success) {
+                alert('Booking Request Submitted! Your reference ID is ' + result.bookingId);
+                window.location.href = '/pages/dashboard.html#services';
+            }
+        });
+    </script>
+</body>
+
+</html>

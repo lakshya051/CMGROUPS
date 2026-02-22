@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .cart-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .cart-item {
+            display: grid;
+            grid-template-columns: 80px 1fr 100px 100px auto;
+            gap: 1.5rem;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.4);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .cart-summary {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            height: fit-content;
+            position: sticky;
+            top: 100px;
+        }
+
+        @media (max-width: 768px) {
+            .cart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cart-item {
+                grid-template-columns: 60px 1fr;
+                grid-template-rows: auto auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container">
+            <h1 class="section-title">Shopping Cart</h1>
+
+            <div id="empty-cart-msg" style="display: none; text-align: center; padding: 4rem;">
+                <h2>Your cart is empty</h2>
+                <a href="products.html" class="btn btn-primary" style="margin-top: 1rem;">Continue Shopping</a>
+            </div>
+
+            <div class="cart-grid" id="cart-container">
+                <!-- Cart Items -->
+                <div class="cart-items-list" id="cart-list">
+                    <!-- Injected via JS -->
+                </div>
+
+                <!-- Summary -->
+                <div class="cart-summary">
+                    <h2 style="margin-bottom: 1.5rem; font-size: 1.5rem;">Order Summary</h2>
+                    <div class="flex justify-between" style="margin-bottom: 1rem;">
+                        <span style="color: var(--text-muted);">Subtotal</span>
+                        <span id="subtotal">₹0</span>
+                    </div>
+                    <div class="flex justify-between" style="margin-bottom: 1rem;">
+                        <span style="color: var(--text-muted);">Tax (18%)</span>
+                        <span id="tax">₹0</span>
+                    </div>
+                    <div style="height: 1px; background: var(--border-color); margin: 1.5rem 0;"></div>
+                    <div class="flex justify-between"
+                        style="margin-bottom: 2rem; font-size: 1.25rem; font-weight: 700;">
+                        <span>Total</span>
+                        <span id="total" style="color: var(--primary-color);">₹0</span>
+                    </div>
+                    <a href="checkout.html" class="btn btn-primary" style="width: 100%; text-align: center;">Proceed to
+                        Checkout</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module">
+        import { getCartDetails, updateQuantity, removeFromCart, getCartTotal } from '../scripts/cart.js';
+
+        function renderCart() {
+            const items = getCartDetails();
+            const list = document.getElementById('cart-list');
+            const container = document.getElementById('cart-container');
+            const emptyMsg = document.getElementById('empty-cart-msg');
+
+            if (items.length === 0) {
+                container.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            container.style.display = 'grid';
+            emptyMsg.style.display = 'none';
+
+            list.innerHTML = items.map(item => `
+                <div class="cart-item">
+                    <div style="font-size: 2rem; text-align: center; background: rgba(255,255,255,0.05); border-radius: 8px; height: 60px; display: flex; align-items: center; justify-content: center;">${item.product.image}</div>
+                    <div>
+                        <h3 style="font-size: 1rem; margin-bottom: 0.25rem;">${item.product.title}</h3>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">₹${item.product.price.toLocaleString()}</span>
+                    </div>
+                    <div class="flex items-center gap-sm">
+                        <input type="number" min="1" value="${item.quantity}" class="form-input" style="padding: 0.25rem; width: 60px;" onchange="window.updateQty('${item.productId}', this.value)">
+                    </div>
+                    <div style="font-weight: 600;">₹${(item.quantity * item.product.price).toLocaleString()}</div>
+                    <button onclick="window.removeItem('${item.productId}')" style="background: none; border: none; color: #ff4757; cursor: pointer;">✕</button>
+                </div>
+            `).join('');
+
+            // Totals
+            const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.product.price), 0);
+            const tax = subtotal * 0.18;
+            const total = subtotal + tax;
+
+            document.getElementById('subtotal').textContent = `₹${subtotal.toLocaleString()}`;
+            document.getElementById('tax').textContent = `₹${tax.toLocaleString()}`;
+            document.getElementById('total').textContent = `₹${total.toLocaleString()}`;
+        }
+
+        // Global handlers for inline events
+        window.updateQty = (id, newQty) => {
+            updateQuantity(id, newQty);
+            renderCart();
+        };
+
+        window.removeItem = (id) => {
+            if (confirm('Remove this item?')) {
+                removeFromCart(id);
+                renderCart();
+            }
+        };
+
+        renderCart();
+    </script>
+</body>
+
+</html>

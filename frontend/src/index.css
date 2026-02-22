@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-background text-text-main font-sans antialiased;
+        /* prevent horizontal overflow site-wide */
+        overflow-x: hidden;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-heading font-bold;
+    }
+
+    /* All images responsive by default */
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+@layer components {
+    .btn {
+        @apply px-4 py-2 rounded-lg font-medium transition-all duration-300 active:scale-95;
+    }
+
+    .btn-primary {
+        @apply bg-primary text-white hover:bg-pink-600 shadow-lg hover:shadow-pink-500/40;
+    }
+
+    .btn-outline {
+        @apply border border-gray-300 hover:border-primary hover:text-primary bg-transparent;
+    }
+
+    .glass-panel {
+        @apply bg-white border border-gray-200 rounded-xl shadow-card;
+    }
+
+    .input-field {
+        @apply w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-text-main placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-base;
+        /* text-base prevents iOS auto-zoom on input focus */
+    }
+
+    /* Auto scroll wrapper for data tables */
+    .table-scroll {
+        @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+    }
+
+    /* Prevent long words from breaking layout */
+    .word-break {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    /* Mobile-safe page padding */
+    .page-pad {
+        @apply px-4 sm:px-6 lg:px-8 py-6 sm:py-10;
+    }
+}
