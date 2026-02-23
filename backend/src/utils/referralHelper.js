@@ -1,34 +1,22 @@
 const prisma = require('../lib/prisma');
 
 /**
- * Fetch referral reward amounts from admin settings
- * @param {'product' | 'service' | 'course'} type
+ * Calculate referral reward strictly based on item overrides
+ * @param {Object} overrides - { referrerPoints, refereePoints }
  * @returns {Promise<{ referrerPoints: number, refereePoints: number }>}
  */
-async function calculateReferralReward(type, overrides = {}) {
-    const settings = await prisma.referralSettings.findFirst();
+async function calculateReferralReward(overrides = {}) {
+    const referrerPoints = overrides.referrerPoints;
+    const refereePoints = overrides.refereePoints;
 
-    let defaultReferrerPoints;
-
-    switch (type) {
-        case 'product':
-            defaultReferrerPoints = settings?.pointsPerProductPurchase ?? 200;
-            break;
-        case 'service':
-            defaultReferrerPoints = settings?.pointsPerServiceBooking ?? 100;
-            break;
-        case 'course':
-            defaultReferrerPoints = settings?.pointsPerCourseEnrollment ?? 300;
-            break;
-        default:
-            defaultReferrerPoints = 100;
+    if (referrerPoints == null || referrerPoints === 0) {
+        return { referrerPoints: 0, refereePoints: 0 };
     }
 
-    // Use item-level override if set, otherwise fall back to global setting
-    const referrerPoints = overrides.referrerPoints ?? defaultReferrerPoints;
-    const refereePoints = overrides.refereePoints ?? Math.round(referrerPoints / 2);
-
-    return { referrerPoints, refereePoints };
+    return {
+        referrerPoints,
+        refereePoints: refereePoints != null ? refereePoints : Math.round(referrerPoints / 2)
+    };
 }
 
 module.exports = { calculateReferralReward };

@@ -129,7 +129,7 @@ router.put('/enrollment/:id/payment', protect, adminOnly, async (req, res) => {
 
         const enrollment = await prisma.enrollment.findUnique({
             where: { id: parseInt(req.params.id) },
-            include: { course: true, user: true }
+            include: { course: true, user: { select: { id: true, name: true, email: true, referredById: true } } }
         });
 
         if (!enrollment) {

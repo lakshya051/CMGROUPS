@@ -46,12 +46,12 @@ async function sendOrderConfirmationEmail(email, orderId, total) {
     }
 }
 
-async function sendServiceBookingEmail(email, bookingId, otp) {
+async function sendServiceBookingEmail(email, bookingId) {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.log('\n[LOCAL DEV MOCK: Service Booking Email]');
         console.log(`To: ${email}`);
         console.log(`Subject: Service Booking Confirmed - TechNova #${bookingId}`);
-        console.log(`OTP: ${otp}`);
+
         console.log('----------------------------------------\n');
         return true; // Pretend it sent
     }
@@ -66,9 +66,8 @@ async function sendServiceBookingEmail(email, bookingId, otp) {
                 <p style="color: #555; line-height: 1.6;">Hello,</p>
                 <p style="color: #555; line-height: 1.6;">Your service booking <strong>#${bookingId}</strong> has been confirmed.</p>
                 <div style="background-color: #FEF3C7; color: #92400E; padding: 15px; border-radius: 6px; margin: 20px 0; font-size: 18px; text-align: center;">
-                    Your Pickup OTP is: <strong>${otp}</strong>
+                    Our technician will reach out to you soon.
                 </div>
-                <p style="color: #555; line-height: 1.6;">Please keep this OTP ready and show it to our technician when they arrive for pickup.</p>
                 <p style="color: #555; line-height: 1.6;">You can view the progress of your service booking in your dashboard.</p>
                 <p style="color: #888; font-size: 12px; margin-top: 30px;">This is an automated message, please do not reply to this email.</p>
             </div>

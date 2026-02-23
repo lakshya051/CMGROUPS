@@ -2,17 +2,12 @@ const express = require('express');
 const crypto = require('crypto');
 const prisma = require('../lib/prisma');
 const { protect, adminOnly, optionalProtect } = require('../middleware/auth');
-const { sendOrderConfirmationSMS, sendOrderConfirmationEmail } = require('../utils/emailNotifications');
-const smsNotifications = require('../utils/smsNotifications');
+const { sendOrderConfirmationEmail } = require('../utils/emailNotifications');
+// SMS imports removed
 const { generateInvoice } = require('../utils/invoiceGenerator');
 const { calculateReferralReward } = require('../utils/referralHelper');
 
 const router = express.Router();
-
-// Generate a 6-digit OTP
-const generateOtp = () => {
-    return crypto.randomInt(100000, 999999).toString();
-};
 
 // POST /api/orders (Optional Auth - place order)
 router.post('/', optionalProtect, async (req, res) => {
@@ -68,8 +63,7 @@ router.post('/', optionalProtect, async (req, res) => {
             }
         }
 
-        const otp = generateOtp();
-        const isFullyPaidWithWallet = paymentMethod === 'wallet' && total === 0;
+        const isFullyPaidWithWallet = useWallet && req.user && req.user.walletBalance >= total;
 
         // *** TRANSACTION: wallet deduction + order creation + stock decrement ***
         const order = await prisma.$transaction(async (tx) => {
@@ -90,24 +84,54 @@ router.post('/', optionalProtect, async (req, res) => {
                 });
             }
 
-            // 2. Create the order
+            // 2. Decrement stock for each product/variant (race-condition safe)
+            for (const item of items) {
+                const quantity = parseInt(item.quantity);
+                if (item.variantId) {
+                    const result = await tx.productVariant.updateMany({
+                        where: {
+                            id: parseInt(item.variantId),
+                            stock: { gte: quantity }
+                        },
+                        data: { stock: { decrement: quantity } }
+                    });
+
+                    if (result.count === 0) {
+                        throw new Error(`Insufficient stock for product variant ID ${item.variantId}. Please try again.`);
+                    }
+                } else {
+                    const result = await tx.product.updateMany({
+                        where: {
+                            id: parseInt(item.productId),
+                            stock: { gte: quantity }
+                        },
+                        data: { stock: { decrement: quantity } }
+                    });
+
+                    if (result.count === 0) {
+                        throw new Error(`Insufficient stock for product ID ${item.productId}. Please try again.`);
+                    }
+                }
+            }
+
+            // 3. Create the order
             const createdOrder = await tx.order.create({
                 data: {
                     userId: req.user ? req.user.id : null,
                     total,
                     status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
                     paymentMethod: paymentMethod || 'pay_at_store',
-                    paymentOtp: isFullyPaidWithWallet ? null : otp,
+                    paymentOtp: null,
                     isPaid: isFullyPaidWithWallet,
                     shippingAddress: shippingAddress || null,
                     guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
                     referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
                     items: {
                         create: items.map(item => ({
-                            productId: item.productId,
-                            variantId: item.variantId || null,
-                            quantity: item.quantity,
-                            price: item.price
+                            productId: parseInt(item.productId),
+                            variantId: item.variantId ? parseInt(item.variantId) : null,
+                            quantity: parseInt(item.quantity),
+                            price: parseFloat(item.price)
                         }))
                     }
                 },
@@ -117,36 +141,10 @@ router.post('/', optionalProtect, async (req, res) => {
                 }
             });
 
-            // 3. Decrement stock for each product/variant (race-condition safe)
-            for (const item of items) {
-                if (item.variantId) {
-                    const result = await tx.productVariant.updateMany({
-                        where: {
-                            id: item.variantId,
-                            stock: { gte: item.quantity }
-                        },
-                        data: { stock: { decrement: item.quantity } }
-                    });
-
-                    if (result.count === 0) {
-                        throw new Error(`Insufficient stock for product variant ID ${item.variantId}. Please try again.`);
-                    }
-                } else {
-                    const result = await tx.product.updateMany({
-                        where: {
-                            id: item.productId,
-                            stock: { gte: item.quantity }
-                        },
-                        data: { stock: { decrement: item.quantity } }
-                    });
-
-                    if (result.count === 0) {
-                        throw new Error(`Insufficient stock for product ID ${item.productId}. Please try again.`);
-                    }
-                }
-            }
-
             return createdOrder;
+        }, {
+            maxWait: 8000,
+            timeout: 15000
         });
 
         // Send Confirmations
@@ -154,19 +152,12 @@ router.post('/', optionalProtect, async (req, res) => {
         const userName = req.user?.name || shippingAddress?.fullName || 'Customer';
         const userEmail = req.user?.email || shippingAddress?.email;
 
-        // 1. WhatsApp/SMS (via Fast2SMS) for OTP and basic confirmation
-        if (userPhone && !isFullyPaidWithWallet) {
-            try {
-                await smsNotifications.sendOTP(userPhone, otp);
-            } catch (err) {
-                console.error('Failed to send WhatsApp/SMS:', err);
-            }
-        }
+        // 1. SMS logic removed
 
         // 2. Email Receipt (via Nodemailer)
         if (userEmail) {
             try {
-                await sendOrderConfirmationEmail(userEmail, userName, order, isFullyPaidWithWallet ? null : otp);
+                await sendOrderConfirmationEmail(userEmail, order.id, order.total);
             } catch (err) {
                 console.error('Failed to send Email Receipt:', err);
             }
@@ -315,10 +306,122 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
+        const updateData = { status };
+        let instantReferralInjection = false;
+
+        const orderWithItems = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: { items: { include: { product: true } } }
+        });
+
+        if (status === 'Delivered' && orderWithItems) {
+            updateData.deliveredAt = new Date();
+
+            if (orderWithItems.referralCodeUsed && orderWithItems.isPaid) {
+                let hasReturnable = false;
+                let maxWindowDays = 0;
+
+                for (const item of orderWithItems.items) {
+                    if (item.product && item.product.isReturnable) {
+                        hasReturnable = true;
+                        if (item.product.returnWindowDays > maxWindowDays) {
+                            maxWindowDays = item.product.returnWindowDays;
+                        }
+                    }
+                }
+
+                if (hasReturnable) {
+                    const eligibleDate = new Date(updateData.deliveredAt);
+                    eligibleDate.setDate(eligibleDate.getDate() + maxWindowDays);
+                    updateData.referralEligibleAt = eligibleDate;
+                } else {
+                    instantReferralInjection = true;
+                }
+            }
+        }
+
         const order = await prisma.order.update({
             where: { id: orderId },
-            data: { status }
+            data: updateData
         });
+
+        if (instantReferralInjection) {
+            try {
+                const existingReferral = await prisma.referral.findFirst({
+                    where: { orderId: orderId }
+                });
+
+                if (!existingReferral && orderWithItems.items.length > 0) {
+                    const firstItem = orderWithItems.items[0];
+                    const product = firstItem.product || {};
+
+                    const { referrerPoints, refereePoints } = await calculateReferralReward({
+                        referrerPoints: product.referrerPoints,
+                        refereePoints: product.refereePoints
+                    });
+
+                    if (referrerPoints > 0) {
+                        const referrer = await prisma.user.findFirst({
+                            where: { referralCode: orderWithItems.referralCodeUsed }
+                        });
+
+                        if (referrer && referrer.id !== orderWithItems.userId) {
+                            // Credit referrer
+                            await prisma.user.update({
+                                where: { id: referrer.id },
+                                data: { walletBalance: { increment: referrerPoints } }
+                            });
+
+                            await prisma.referral.create({
+                                data: {
+                                    referrerId: referrer.id,
+                                    refereeId: orderWithItems.userId,
+                                    status: 'rewarded',
+                                    rewardAmount: referrerPoints,
+                                    refereeReward: refereePoints > 0 ? refereePoints : null,
+                                    orderId: orderId,
+                                    completedAt: new Date()
+                                }
+                            });
+
+                            // Credit buyer
+                            if (orderWithItems.userId) {
+                                await prisma.user.update({
+                                    where: { id: orderWithItems.userId },
+                                    data: { walletBalance: { increment: refereePoints } }
+                                });
+                            }
+
+                            // Tier system
+                            const tierSettings = await prisma.referralSettings.findFirst();
+                            if (tierSettings && tierSettings.tierSystemEnabled) {
+                                const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
+
+                                const upRef = await prisma.user.update({
+                                    where: { id: referrer.id },
+                                    data: { tierPoints: { increment: referrerPoints } },
+                                    select: { id: true, tierPoints: true, tier: true }
+                                });
+                                const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                if (nRT !== upRef.tier) await prisma.user.update({ where: { id: referrer.id }, data: { tier: nRT } });
+
+                                if (orderWithItems.userId) {
+                                    const upBuy = await prisma.user.update({
+                                        where: { id: orderWithItems.userId },
+                                        data: { tierPoints: { increment: referrerPoints } },
+                                        select: { id: true, tierPoints: true, tier: true }
+                                    });
+                                    const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                    if (nBT !== upBuy.tier) await prisma.user.update({ where: { id: orderWithItems.userId }, data: { tier: nBT } });
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Instant referral log error (non-blocking):', err);
+            }
+        }
 
         // Send In-App Notification
         try {
@@ -345,10 +448,12 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 // POST /api/orders/:id/verify-payment (Admin - verify OTP to mark as paid)
 router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
     try {
-        const { otp } = req.body;
         const orderId = parseInt(req.params.id);
 
-        const order = await prisma.order.findUnique({ where: { id: orderId } });
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: { user: true, items: { include: { product: true } } }
+        });
 
         if (!order) {
             return res.status(404).json({ error: 'Order not found' });
@@ -358,109 +463,98 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Order is already paid' });
         }
 
-        if (order.paymentOtp !== otp) {
-            return res.status(400).json({ error: 'Invalid OTP. Payment not verified.' });
-        }
+        // OTP verification removed
 
         const updatedOrder = await prisma.order.update({
             where: { id: orderId },
             data: {
                 isPaid: true,
                 paymentOtp: null,
-                status: 'Confirmed'
+                status: (order.status === 'Processing') ? 'Confirmed' : order.status
             }
         });
 
-        // *** REFERRAL REWARD - Credit points ONLY after payment verified ***
-        if (order.referralCodeUsed) {
+        // Check for instant referral injection (if delivered or non-returnable)
+        const isDelivered = updatedOrder.status === 'Delivered';
+        const isReturnable = order.items.some(item => item.product?.isReturnable);
+
+        if (order.referralCodeUsed && (isDelivered || !isReturnable)) {
             try {
-                // Prevent duplicate rewards if admin verifies twice
                 const existingReferral = await prisma.referral.findFirst({
-                    where: { orderId: order.id }
+                    where: { orderId: orderId }
                 });
 
-                if (!existingReferral) {
-                    // Check if order has items to get item-level referral overrides
-                    const firstItem = await prisma.orderItem.findFirst({
-                        where: { orderId: order.id },
-                        include: { product: true }
-                    });
+                if (!existingReferral && order.items.length > 0) {
+                    const firstItem = order.items[0];
+                    const product = firstItem.product || {};
 
-                    const product = firstItem?.product || {};
-
-                    const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward('product', {
+                    const { referrerPoints, refereePoints } = await calculateReferralReward({
                         referrerPoints: product.referrerPoints,
                         refereePoints: product.refereePoints
                     });
 
-                    // Find referrer by code
-                    const referrer = await prisma.user.findFirst({
-                        where: { referralCode: order.referralCodeUsed }
-                    });
-
-                    if (referrer && referrer.id !== order.userId) {
-                        // Credit referrer
-                        await prisma.user.update({
-                            where: { id: referrer.id },
-                            data: { walletBalance: { increment: rewardAmount } }
+                    if (referrerPoints > 0) {
+                        const referrer = await prisma.user.findFirst({
+                            where: { referralCode: order.referralCodeUsed }
                         });
 
-                        // Create referral record for referrer
-                        await prisma.referral.create({
-                            data: {
-                                referrerId: referrer.id,
-                                refereeId: order.userId,
-                                status: 'rewarded',
-                                rewardAmount,
-                                orderId: order.id,
-                                completedAt: new Date()
+                        if (referrer && referrer.id !== order.userId) {
+                            // Credit referrer
+                            await prisma.user.update({
+                                where: { id: referrer.id },
+                                data: { walletBalance: { increment: referrerPoints } }
+                            });
+
+                            await prisma.referral.create({
+                                data: {
+                                    referrerId: referrer.id,
+                                    refereeId: order.userId,
+                                    status: 'rewarded',
+                                    rewardAmount: referrerPoints,
+                                    refereeReward: refereePoints > 0 ? refereePoints : null,
+                                    orderId: orderId,
+                                    completedAt: new Date()
+                                }
+                            });
+
+                            // Credit buyer
+                            if (order.userId) {
+                                await prisma.user.update({
+                                    where: { id: order.userId },
+                                    data: { walletBalance: { increment: refereePoints } }
+                                });
                             }
-                        });
 
-                        // Credit buyer (person who made purchase)
-                        await prisma.user.update({
-                            where: { id: order.userId },
-                            data: { walletBalance: { increment: refereePoints } }
-                        });
-
-                        console.log(`Referral reward: ₹${rewardAmount} credited to referrer ${referrer.id} and buyer ${order.userId} from order ${order.id}`);
-
-                        // *** TIER SYSTEM UPDATE (If Enabled) ***
-                        const tierSettings = await prisma.referralSettings.findFirst();
-                        if (tierSettings && tierSettings.tierSystemEnabled) {
-                            try {
+                            // Tier system
+                            const tierSettings = await prisma.referralSettings.findFirst();
+                            if (tierSettings && tierSettings.tierSystemEnabled) {
                                 const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
 
-                                // Update Referrer
-                                const updatedReferrer = await prisma.user.update({
+                                // Referrer
+                                const upRef = await prisma.user.update({
                                     where: { id: referrer.id },
-                                    data: { tierPoints: { increment: rewardAmount } },
+                                    data: { tierPoints: { increment: referrerPoints } },
                                     select: { id: true, tierPoints: true, tier: true }
                                 });
-                                const newReferrerTier = tiers.find(t => updatedReferrer.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                if (newReferrerTier !== updatedReferrer.tier) {
-                                    await prisma.user.update({ where: { id: referrer.id }, data: { tier: newReferrerTier } });
-                                }
+                                const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                if (nRT !== upRef.tier) await prisma.user.update({ where: { id: referrer.id }, data: { tier: nRT } });
 
-                                // Update Buyer
-                                const updatedBuyer = await prisma.user.update({
-                                    where: { id: order.userId },
-                                    data: { tierPoints: { increment: rewardAmount } },
-                                    select: { id: true, tierPoints: true, tier: true }
-                                });
-                                const newBuyerTier = tiers.find(t => updatedBuyer.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                if (newBuyerTier !== updatedBuyer.tier) {
-                                    await prisma.user.update({ where: { id: order.userId }, data: { tier: newBuyerTier } });
+                                // Buyer
+                                if (order.userId) {
+                                    const upBuy = await prisma.user.update({
+                                        where: { id: order.userId },
+                                        data: { tierPoints: { increment: referrerPoints } },
+                                        select: { id: true, tierPoints: true, tier: true }
+                                    });
+                                    const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                    if (nBT !== upBuy.tier) await prisma.user.update({ where: { id: order.userId }, data: { tier: nBT } });
                                 }
-                            } catch (tierErr) {
-                                console.error('Tier system update error:', tierErr);
                             }
                         }
                     }
-                } // end if (!existingReferral)
-            } catch (refErr) {
-                // Don't fail payment verification if referral reward fails
-                console.error('Referral reward error (non-blocking):', refErr);
+                }
+            } catch (err) {
+                console.error('Instant referral log error (verify-payment):', err);
             }
         }
 
@@ -470,9 +564,7 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                 if (order.user.email) {
                     await sendOrderConfirmationEmail(order.user.email, order.id, order.total);
                 }
-                if (order.user.phone) {
-                    await smsNotifications.sendOrderConfirmationSMS(order.user.phone, order.id, order.total);
-                }
+                // SMS disabled
             } catch (notifErr) {
                 console.error('Order notification error (non-blocking):', notifErr);
             }
@@ -559,7 +651,8 @@ router.post('/:id/return', protect, async (req, res) => {
     try {
         const { reason } = req.body;
         const order = await prisma.order.findUnique({
-            where: { id: parseInt(req.params.id) }
+            where: { id: parseInt(req.params.id) },
+            include: { items: { include: { product: true } } }
         });
 
         if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -567,6 +660,30 @@ router.post('/:id/return', protect, async (req, res) => {
 
         if (order.status !== 'Delivered') {
             return res.status(400).json({ error: 'Only delivered orders can be returned' });
+        }
+
+        let maxWindowDays = 0;
+        let hasReturnableItems = false;
+
+        for (const item of order.items) {
+            if (item.product && item.product.isReturnable) {
+                hasReturnableItems = true;
+                if (item.product.returnWindowDays > maxWindowDays) {
+                    maxWindowDays = item.product.returnWindowDays;
+                }
+            }
+        }
+
+        if (!hasReturnableItems) {
+            return res.status(400).json({ error: 'This order contains non-returnable items only.' });
+        }
+
+        if (order.deliveredAt) {
+            const expiryDate = new Date(order.deliveredAt);
+            expiryDate.setDate(expiryDate.getDate() + maxWindowDays);
+            if (new Date() > expiryDate) {
+                return res.status(400).json({ error: 'The return window for this order has expired.' });
+            }
         }
 
         const updatedOrder = await prisma.order.update({

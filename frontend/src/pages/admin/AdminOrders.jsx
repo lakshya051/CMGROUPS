@@ -9,11 +9,8 @@ const AdminOrders = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
-    // OTP verification state
+    // Verification state
     const [verifyingOrderId, setVerifyingOrderId] = useState(null);
-    const [otpInput, setOtpInput] = useState('');
-    const [verifyError, setVerifyError] = useState('');
-    const [verifySuccess, setVerifySuccess] = useState('');
 
     useEffect(() => {
         ordersAPI.getAll()
@@ -33,27 +30,19 @@ const AdminOrders = () => {
         }
     };
 
-    const handleVerifyPayment = async () => {
-        if (otpInput.length !== 6) {
-            setVerifyError('OTP must be 6 digits');
-            return;
-        }
-        setVerifyError('');
+    const handleVerifyPayment = async (orderId) => {
+        if (!window.confirm(`Are you sure you want to mark Order #${orderId} as PAID?`)) return;
+
         try {
-            const result = await ordersAPI.verifyPayment(verifyingOrderId, otpInput);
-            setVerifySuccess('Payment verified! Order confirmed.');
+            await ordersAPI.verifyPayment(orderId); // The backend no longer requires OTP in the body
             setOrders(prev => prev.map(order =>
-                order.id === verifyingOrderId
-                    ? { ...order, isPaid: true, status: 'Confirmed', paymentOtp: null }
+                order.id === orderId
+                    ? { ...order, isPaid: true, status: order.status === 'Processing' ? 'Confirmed' : order.status }
                     : order
             ));
-            setTimeout(() => {
-                setVerifyingOrderId(null);
-                setOtpInput('');
-                setVerifySuccess('');
-            }, 1500);
+            alert('Payment verified! Order confirmed.');
         } catch (err) {
-            setVerifyError(err.message || 'Invalid OTP');
+            alert(err.message || 'Failed to verify payment');
         }
     };
 
@@ -100,7 +89,7 @@ const AdminOrders = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-heading font-bold mb-1">Order Management</h1>
-                    <p className="text-text-muted">View and manage customer orders. Verify payments with OTP.</p>
+                    <p className="text-text-muted">View and manage customer orders. Manually verify COD/Pay At Store payments.</p>
                 </div>
             </div>
 
@@ -215,11 +204,11 @@ const AdminOrders = () => {
                                                     </select>
                                                 )}
 
-                                                {!order.isPaid && order.paymentMethod === 'pay_at_store' && order.status !== 'Cancelled' && (
+                                                {!order.isPaid && (order.paymentMethod === 'pay_at_store' || order.paymentMethod === 'cod') && order.status !== 'Cancelled' && (
                                                     <button
-                                                        onClick={() => setVerifyingOrderId(order.id)}
-                                                        className="p-2 text-primary hover:bg-primary/10 rounded"
-                                                        title="Verify OTP"
+                                                        onClick={() => handleVerifyPayment(order.id)}
+                                                        className="p-2 text-primary hover:bg-primary/10 rounded tooltip"
+                                                        title="Mark as Paid"
                                                     >
                                                         <Shield size={18} />
                                                     </button>
@@ -240,64 +229,8 @@ const AdminOrders = () => {
                 </div>
             </div>
 
-            {/* OTP Verification Modal */}
-            {
-                verifyingOrderId && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                        <div className="glass-panel p-8 max-w-md w-full mx-4 relative animate-in zoom-in duration-300">
-                            <button
-                                onClick={() => setVerifyingOrderId(null)}
-                                className="absolute top-4 right-4 text-text-muted hover:text-text-main"
-                            >
-                                <X size={20} />
-                            </button>
-
-                            <div className="text-center space-y-4">
-                                <div className="w-16 h-16 bg-warning/20 text-warning rounded-full flex items-center justify-center mx-auto">
-                                    <Shield size={32} />
-                                </div>
-                                <h2 className="text-2xl font-heading font-bold">Verify Payment</h2>
-                                <p className="text-text-muted text-sm">
-                                    Enter the 6-digit OTP from the customer to confirm payment for Order <span className="text-primary font-bold">#{verifyingOrderId}</span>
-                                </p>
-
-                                <input
-                                    type="text"
-                                    maxLength={6}
-                                    value={otpInput}
-                                    onChange={(e) => {
-                                        setOtpInput(e.target.value.replace(/\D/g, ''));
-                                        setVerifyError('');
-                                    }}
-                                    placeholder="Enter 6-digit OTP"
-                                    className="input-field text-center text-2xl font-mono tracking-[0.5em] py-4"
-                                    autoFocus
-                                />
-
-                                {verifyError && (
-                                    <p className="text-error text-sm flex items-center justify-center gap-1">
-                                        <XCircle size={14} /> {verifyError}
-                                    </p>
-                                )}
-                                {verifySuccess && (
-                                    <p className="text-success text-sm flex items-center justify-center gap-1">
-                                        <CheckCircle size={14} /> {verifySuccess}
-                                    </p>
-                                )}
-
-                                <Button
-                                    className="w-full"
-                                    onClick={handleVerifyPayment}
-                                    disabled={otpInput.length !== 6 || !!verifySuccess}
-                                >
-                                    {verifySuccess ? '✓ Verified!' : 'Verify & Confirm Payment'}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-        </div >
+            {/* OTP Modal Removed */}
+        </div>
     );
 };
 

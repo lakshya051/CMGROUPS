@@ -228,4 +228,52 @@ router.put('/referral-settings', protect, adminOnly, async (req, res) => {
     }
 });
 
+// GET /api/admin/service-settings
+router.get('/service-settings', protect, adminOnly, async (req, res) => {
+    try {
+        let settings = await prisma.serviceSettings.findFirst();
+        if (!settings) {
+            settings = await prisma.serviceSettings.create({
+                data: {
+                    timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
+                    maxBookingsPerSlot: 2
+                }
+            });
+        }
+        res.json(settings);
+    } catch (error) {
+        console.error('Get service settings error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/admin/service-settings
+router.put('/service-settings', protect, adminOnly, async (req, res) => {
+    try {
+        const { timeSlots, maxBookingsPerSlot } = req.body;
+
+        let settings = await prisma.serviceSettings.findFirst();
+        if (settings) {
+            settings = await prisma.serviceSettings.update({
+                where: { id: settings.id },
+                data: {
+                    timeSlots: timeSlots || settings.timeSlots,
+                    maxBookingsPerSlot: maxBookingsPerSlot !== undefined ? parseInt(maxBookingsPerSlot) : settings.maxBookingsPerSlot
+                }
+            });
+        } else {
+            settings = await prisma.serviceSettings.create({
+                data: {
+                    timeSlots: timeSlots || ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
+                    maxBookingsPerSlot: maxBookingsPerSlot !== undefined ? parseInt(maxBookingsPerSlot) : 2
+                }
+            });
+        }
+        res.json(settings);
+    } catch (error) {
+        console.error('Update service settings error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 module.exports = router;

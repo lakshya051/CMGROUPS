@@ -32,29 +32,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Input Validation/Sanitization Middleware (Basic XSS protection)
-const sanitizeInput = (req, res, next) => {
-    // Basic string sanitization (could be replaced with a library like DOMPurify for more robust logic)
-    const sanitizeObj = (obj) => {
-        if (!obj || typeof obj !== 'object') return;
-        for (const key in obj) {
-            if (typeof obj[key] === 'string') {
-                // Strip out basic script tags
-                obj[key] = obj[key].replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-            } else if (typeof obj[key] === 'object') {
-                sanitizeObj(obj[key]);
-            }
-        }
-    };
-
-    sanitizeObj(req.body);
-    sanitizeObj(req.query);
-    sanitizeObj(req.params);
-    next();
-};
-
-app.use(sanitizeInput);
-
 // API Routes
 app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));

@@ -67,6 +67,45 @@ const UserOrders = () => {
         }
     };
 
+    const isOrderReturnable = (order) => {
+        if (order.status !== 'Delivered' || order.returnStatus !== 'None') return false;
+
+        // Find if any item is returnable and max window
+        let hasReturnable = false;
+        let maxWindowDays = 0;
+
+        if (order.items) {
+            for (const item of order.items) {
+                if (item.product && item.product.isReturnable) {
+                    hasReturnable = true;
+                    if (item.product.returnWindowDays > maxWindowDays) {
+                        maxWindowDays = item.product.returnWindowDays;
+                    }
+                }
+            }
+        }
+
+        if (!hasReturnable) return false;
+
+        // Check if window has expired
+        if (order.deliveredAt) {
+            const expiryDate = new Date(order.deliveredAt);
+            expiryDate.setDate(expiryDate.getDate() + maxWindowDays);
+            if (new Date() > expiryDate) {
+                return false;
+            }
+        }
+
+        // Check legacy orders without deliveredAt (fallback to 3 days from creation)
+        if (!order.deliveredAt) {
+            const fallbackExpiry = new Date(order.createdAt);
+            fallbackExpiry.setDate(fallbackExpiry.getDate() + 10); // Assume max 7 days delivery + 3 days return
+            if (new Date() > fallbackExpiry) return false;
+        }
+
+        return true;
+    };
+
     const getStatusIcon = (status) => {
         switch (status) {
             case 'Processing': return <Clock size={16} className="text-blue-400" />;
@@ -172,13 +211,18 @@ const UserOrders = () => {
                                             Cancel Order
                                         </button>
                                     )}
-                                    {order.status === 'Delivered' && order.returnStatus === 'None' && (
+                                    {isOrderReturnable(order) && (
                                         <button
                                             onClick={() => setReturnOrderId(order.id)}
                                             className="px-3 py-1.5 text-sm text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
                                         >
                                             Return Item
                                         </button>
+                                    )}
+                                    {order.status === 'Delivered' && !isOrderReturnable(order) && order.returnStatus === 'None' && (
+                                        <span className="px-3 py-1.5 text-sm text-text-muted bg-gray-100 rounded-lg" title="Return window expired or items are non-returnable">
+                                            Not Returnable
+                                        </span>
                                     )}
                                     {order.returnStatus !== 'None' && (
                                         <span className="px-3 py-1.5 text-sm text-purple-600 bg-purple-100 rounded-lg">

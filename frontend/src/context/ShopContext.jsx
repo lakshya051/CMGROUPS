@@ -111,8 +111,15 @@ export const ShopProvider = ({ children }) => {
                 quantity: item.quantity,
                 price: item.price
             }));
-            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const order = await ordersAPI.place(items, total, orderData.paymentMethod, orderData.shippingAddress || null, orderData.referralCode || null);
+            const order = await ordersAPI.place(
+                items,
+                orderData.total,
+                orderData.paymentMethod,
+                orderData.shippingAddress || null,
+                orderData.referralCode || null,
+                orderData.useWallet || false,
+                orderData.walletUsed || 0
+            );
             clearCart();
             return order;
         } catch (error) {

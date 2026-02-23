@@ -15,7 +15,7 @@ const AdminReferrals = () => {
 
     const totalRewarded = referrals.filter(r => r.status === 'rewarded').length;
     const totalPending = referrals.filter(r => r.status === 'pending').length;
-    const totalPayout = referrals.filter(r => r.status === 'rewarded').reduce((s, r) => s + (r.rewardAmount || 0), 0);
+    const totalPayout = referrals.filter(r => r.status === 'rewarded').reduce((s, r) => s + (r.rewardAmount || 0) + (r.refereeReward || 0), 0);
 
     const getStatusBadge = (status) => {
         switch (status) {
@@ -83,7 +83,8 @@ const AdminReferrals = () => {
                                 <th className="p-4">Products Ordered</th>
                                 <th className="p-4">Date</th>
                                 <th className="p-4">Status</th>
-                                <th className="p-4 text-right">Reward</th>
+                                <th className="p-4 text-right">Referrer Reward</th>
+                                <th className="p-4 text-right">Referee Reward</th>
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-gray-100">
@@ -155,11 +156,18 @@ const AdminReferrals = () => {
                                             <span className="text-text-muted">—</span>
                                         )}
                                     </td>
+                                    <td className="p-4 text-right">
+                                        {ref.status === 'rewarded' && ref.refereeReward !== null ? (
+                                            <span className="text-success font-medium">+₹{ref.refereeReward}</span>
+                                        ) : (
+                                            <span className="text-text-muted">—</span>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                             {referrals.length === 0 && (
                                 <tr>
-                                    <td colSpan="9" className="p-12 text-center text-text-muted">
+                                    <td colSpan="10" className="p-12 text-center text-text-muted">
                                         <Gift size={40} className="mx-auto mb-3 opacity-50" />
                                         <p>No referral activity yet.</p>
                                         <p className="text-xs mt-1">Referrals appear when users enter a referral code at checkout.</p>

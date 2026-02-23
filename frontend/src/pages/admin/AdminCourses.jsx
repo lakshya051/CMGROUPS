@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useFormik } from 'formik';
 import { addCourseSchema } from '../../utils/validationSchemas';
 
-const emptyForm = { title: '', description: '', instructor: '', category: 'Computer', thumbnail: '', hasCertificate: true, isPublished: true };
+const emptyForm = { title: '', description: '', instructor: '', category: 'Computer', thumbnail: '', hasCertificate: true, isPublished: true, enableReferral: false, referrerPoints: '', refereePoints: '' };
 const emptyDuration = { label: '', totalFee: '', fullPayDiscount: '0', installments: '3' };
 const emptyBatch = { name: '', timing: '', seatLimit: '20' };
 
@@ -43,8 +43,13 @@ const AdminCourses = () => {
         enableReinitialize: true,
         onSubmit: async (values, { setSubmitting, setErrors }) => {
             try {
-                if (courseModal === 'create') await coursesAPI.create(values);
-                else await coursesAPI.update(courseModal.id, values);
+                const payload = {
+                    ...values,
+                    referrerPoints: values.enableReferral && values.referrerPoints ? parseInt(values.referrerPoints) : null,
+                    refereePoints: values.enableReferral && values.refereePoints ? parseInt(values.refereePoints) : null
+                };
+                if (courseModal === 'create') await coursesAPI.create(payload);
+                else await coursesAPI.update(courseModal.id, payload);
                 toast.success('Course saved!'); load(); setCourseModal(null);
                 courseFormik.resetForm();
             } catch (err) { setErrors({ submit: err.message || 'Failed' }); }
@@ -66,7 +71,7 @@ const AdminCourses = () => {
     // Course CRUD
     const openCourseCreate = () => { courseFormik.resetForm(); setCourseModal('create'); };
     const openCourseEdit = (c) => {
-        courseFormik.resetForm({ values: { title: c.title, description: c.description, instructor: c.instructor, category: c.category, thumbnail: c.thumbnail || '', hasCertificate: c.hasCertificate, isPublished: c.isPublished } });
+        courseFormik.resetForm({ values: { title: c.title, description: c.description, instructor: c.instructor, category: c.category, thumbnail: c.thumbnail || '', hasCertificate: c.hasCertificate, isPublished: c.isPublished, enableReferral: c.referrerPoints !== null && c.referrerPoints !== undefined, referrerPoints: c.referrerPoints !== null ? c.referrerPoints : '', refereePoints: c.refereePoints !== null ? c.refereePoints : '' } });
         setCourseModal(c);
     };
     const deleteCourse = async (id) => {
@@ -239,6 +244,40 @@ const AdminCourses = () => {
                                 <input type="checkbox" name="isPublished" checked={courseFormik.values.isPublished} onChange={courseFormik.handleChange} className="w-4 h-4 accent-primary" />
                                 <span className="font-bold">Published</span>
                             </label>
+                        </div>
+
+                        {/* Referral Points Overrides */}
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <input
+                                    type="checkbox"
+                                    id="enableReferral"
+                                    name="enableReferral"
+                                    checked={courseFormik.values.enableReferral}
+                                    onChange={courseFormik.handleChange}
+                                    className="w-5 h-5 text-primary bg-white border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                />
+                                <label htmlFor="enableReferral" className="font-medium text-text-main cursor-pointer select-none">
+                                    Enable Referral Rewards for this course?
+                                </label>
+                            </div>
+
+                            {courseFormik.values.enableReferral && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-muted mb-1">
+                                            Referrer Points <span className="text-error">*</span>
+                                        </label>
+                                        <input type="number" required={courseFormik.values.enableReferral} name="referrerPoints" className="input-field bg-white" placeholder="e.g. 500" value={courseFormik.values.referrerPoints} onChange={courseFormik.handleChange} onBlur={courseFormik.handleBlur} min="1" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-muted mb-1">
+                                            Referee Points <span className="text-error">*</span>
+                                        </label>
+                                        <input type="number" required={courseFormik.values.enableReferral} name="refereePoints" className="input-field bg-white" placeholder="e.g. 250" value={courseFormik.values.refereePoints} onChange={courseFormik.handleChange} onBlur={courseFormik.handleBlur} min="0" />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="flex gap-3 pt-2">
                             <Button type="button" variant="ghost" onClick={() => { setCourseModal(null); courseFormik.resetForm(); }} className="flex-1">Cancel</Button>

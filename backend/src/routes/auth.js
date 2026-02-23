@@ -5,7 +5,6 @@ const prisma = require('../lib/prisma');
 const { generateToken } = require('../utils/jwt');
 const { protect } = require('../middleware/auth');
 const { sendVerificationEmail } = require('../utils/nodemailer');
-const { sendSMS } = require('../utils/smsNotifications');
 
 const router = express.Router();
 

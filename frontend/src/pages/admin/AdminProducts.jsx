@@ -14,6 +14,9 @@ const emptyProductValues = {
     image: '',
     condition: 'New',
     isSecondHand: false,
+    isReturnable: true,
+    returnWindowDays: 3,
+    enableReferral: false,
     referrerPoints: '',
     refereePoints: '',
     sku: ''
@@ -58,8 +61,10 @@ const AdminProducts = () => {
                 description: values.description || null,
                 specs: Object.keys(specs).length > 0 ? specs : null,
                 isSecondHand: values.isSecondHand,
-                referrerPoints: values.referrerPoints ? parseInt(values.referrerPoints) : null,
-                refereePoints: values.refereePoints ? parseInt(values.refereePoints) : null,
+                isReturnable: values.isReturnable,
+                returnWindowDays: parseInt(values.returnWindowDays || 3),
+                referrerPoints: values.enableReferral && values.referrerPoints ? parseInt(values.referrerPoints) : null,
+                refereePoints: values.enableReferral && values.refereePoints ? parseInt(values.refereePoints) : null,
                 sku: values.sku || null
             };
             try {
@@ -152,6 +157,9 @@ const AdminProducts = () => {
                 description: product.description || '',
                 condition: product.condition || 'New',
                 isSecondHand: product.isSecondHand || false,
+                isReturnable: product.isReturnable !== undefined ? product.isReturnable : true,
+                returnWindowDays: product.returnWindowDays !== undefined ? product.returnWindowDays : 3,
+                enableReferral: product.referrerPoints !== null && product.referrerPoints !== undefined,
                 referrerPoints: product.referrerPoints !== null ? product.referrerPoints : '',
                 refereePoints: product.refereePoints !== null ? product.refereePoints : '',
                 sku: product.sku || ''
@@ -454,20 +462,63 @@ const AdminProducts = () => {
                                 </div>
                             </div>
 
-                            {/* Referral Points Overrides */}
+                            {/* Return Policy */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-1">
-                                        Referrer Points (Optional)
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="isReturnable"
+                                        name="isReturnable"
+                                        checked={formik.values.isReturnable}
+                                        onChange={formik.handleChange}
+                                        className="w-5 h-5 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                    />
+                                    <label htmlFor="isReturnable" className="text-sm font-medium text-text-main cursor-pointer select-none">
+                                        Accept Returns for this item
                                     </label>
-                                    <input type="number" name="referrerPoints" className="input-field" placeholder="e.g. 500" value={formik.values.referrerPoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-1">
-                                        Referee Points (Optional)
+                                {formik.values.isReturnable && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-muted mb-1">
+                                            Return Window (Days)
+                                        </label>
+                                        <input type="number" name="returnWindowDays" className="input-field" value={formik.values.returnWindowDays} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Referral Points Overrides */}
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <input
+                                        type="checkbox"
+                                        id="enableReferral"
+                                        name="enableReferral"
+                                        checked={formik.values.enableReferral}
+                                        onChange={formik.handleChange}
+                                        className="w-5 h-5 text-primary bg-white border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                    />
+                                    <label htmlFor="enableReferral" className="font-medium text-text-main cursor-pointer select-none">
+                                        Enable Referral Rewards for this item?
                                     </label>
-                                    <input type="number" name="refereePoints" className="input-field" placeholder="e.g. 250" value={formik.values.refereePoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
                                 </div>
+
+                                {formik.values.enableReferral && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Referrer Points <span className="text-error">*</span>
+                                            </label>
+                                            <input type="number" required={formik.values.enableReferral} name="referrerPoints" className="input-field bg-white" placeholder="e.g. 500" value={formik.values.referrerPoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="1" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Referee Points <span className="text-error">*</span>
+                                            </label>
+                                            <input type="number" required={formik.values.enableReferral} name="refereePoints" className="input-field bg-white" placeholder="e.g. 250" value={formik.values.refereePoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Image URL */}

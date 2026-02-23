@@ -197,6 +197,8 @@ model Product {
   numReviews  Int      @default(0)
   condition   String   @default("New")
   isSecondHand Boolean @default(false)
+  isReturnable Boolean @default(true)
+  returnWindowDays Int @default(3)
   referrerPoints    Float?
   refereePoints     Float?
   
@@ -242,6 +244,8 @@ model Order {
   returnStatus    String      @default("None") // "None", "Requested", "Approved", "Rejected", "Completed"
   refundStatus    String      @default("None") // "None", "Pending", "Processed"
   refundAmount    Float?
+  deliveredAt     DateTime?
+  referralEligibleAt DateTime?
 
   items           OrderItem[]
   referrals       Referral[]
@@ -326,7 +330,8 @@ model Referral {
   refereeId    Int
   referee      User      @relation("Referee", fields: [refereeId], references: [id])
   status       String    @default("pending")  // "pending" | "completed" | "rewarded"
-  rewardAmount Float     @default(200)
+  rewardAmount Float     @default(200)       // This is the referrer's reward
+  refereeReward Float?                        // This is the referee's reward
   orderId      Int?
   order        Order?    @relation(fields: [orderId], references: [id])
   source       String    @default("shopping") // "shopping" | "course"

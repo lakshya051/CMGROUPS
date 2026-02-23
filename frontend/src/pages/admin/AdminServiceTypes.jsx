@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Plus, Trash2, X, Monitor, Cpu, Printer, HardDrive, Settings, CheckCircle } from 'lucide-react';
+import { Wrench, Plus, Trash2, X, Monitor, Cpu, Printer, HardDrive, Settings, CheckCircle, Edit2 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { serviceTypesAPI } from '../../lib/api';
 
@@ -25,6 +25,7 @@ const AdminServiceTypes = () => {
     const [serviceTypes, setServiceTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [editingId, setEditingId] = useState(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState({
@@ -33,6 +34,7 @@ const AdminServiceTypes = () => {
         icon: 'Wrench',
         price: '',
         features: '',
+        enableReferral: false,
         referrerPoints: '',
         refereePoints: ''
     });
@@ -52,7 +54,31 @@ const AdminServiceTypes = () => {
         }
     };
 
-    const handleCreate = async (e) => {
+    const handleOpenCreate = () => {
+        setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '', enableReferral: false, referrerPoints: '', refereePoints: '', active: true });
+        setEditingId(null);
+        setError('');
+        setShowModal(true);
+    };
+
+    const handleOpenEdit = (st) => {
+        setForm({
+            title: st.title || '',
+            description: st.description || '',
+            icon: st.icon || 'Wrench',
+            price: st.price || '',
+            features: st.features ? st.features.join('\n') : '',
+            enableReferral: !!(st.referrerPoints || st.refereePoints),
+            referrerPoints: st.referrerPoints || '',
+            refereePoints: st.refereePoints || '',
+            active: st.active
+        });
+        setEditingId(st.id);
+        setError('');
+        setShowModal(true);
+    };
+
+    const handleSave = async (e) => {
         e.preventDefault();
         setError('');
         setSaving(true);
@@ -62,20 +88,27 @@ const AdminServiceTypes = () => {
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
-            const newType = await serviceTypesAPI.create({
+            const payload = {
                 title: form.title,
                 description: form.description || null,
                 icon: form.icon,
                 price: form.price || null,
                 features: featuresArray,
-                referrerPoints: form.referrerPoints ? parseFloat(form.referrerPoints) : null,
-                refereePoints: form.refereePoints ? parseFloat(form.refereePoints) : null
-            });
-            setServiceTypes(prev => [newType, ...prev]);
+                referrerPoints: form.enableReferral && form.referrerPoints ? parseFloat(form.referrerPoints) : null,
+                refereePoints: form.enableReferral && form.refereePoints ? parseFloat(form.refereePoints) : null,
+                active: form.active !== undefined ? form.active : true
+            };
+
+            if (editingId) {
+                const updatedType = await serviceTypesAPI.update(editingId, payload);
+                setServiceTypes(prev => prev.map(s => s.id === editingId ? updatedType : s));
+            } else {
+                const newType = await serviceTypesAPI.create(payload);
+                setServiceTypes(prev => [newType, ...prev]);
+            }
             setShowModal(false);
-            setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '', referrerPoints: '', refereePoints: '' });
         } catch (err) {
-            setError(err.message || 'Failed to create service type');
+            setError(err.message || (editingId ? 'Failed to update service type' : 'Failed to create service type'));
         } finally {
             setSaving(false);
         }
@@ -100,7 +133,7 @@ const AdminServiceTypes = () => {
                     <h1 className="text-3xl font-heading font-bold mb-1">Service Types</h1>
                     <p className="text-text-muted">Define the services customers can book.</p>
                 </div>
-                <Button onClick={() => setShowModal(true)}>
+                <Button onClick={handleOpenCreate}>
                     <Plus size={18} className="mr-2" /> Add Service
                 </Button>
             </div>
@@ -109,12 +142,20 @@ const AdminServiceTypes = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {serviceTypes.map(st => (
                     <div key={st.id} className="glass-panel p-6 hover:border-primary/30 transition-colors relative group">
-                        <button
-                            onClick={() => handleDelete(st.id)}
-                            className="absolute top-3 right-3 p-2 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                            <Trash2 size={16} />
-                        </button>
+                        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={() => handleOpenEdit(st)}
+                                className="p-2 text-text-muted hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            >
+                                <Edit2 size={16} />
+                            </button>
+                            <button
+                                onClick={() => handleDelete(st.id)}
+                                className="p-2 text-text-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
 
                         <div className="text-primary mb-4">
                             {iconMap[st.icon] || <Wrench size={28} />}
@@ -150,7 +191,7 @@ const AdminServiceTypes = () => {
                         <Wrench size={48} className="mx-auto text-gray-300 mb-4" />
                         <h3 className="text-xl font-bold mb-2">No Service Types</h3>
                         <p className="text-text-muted mb-4">Add your first service type to get started.</p>
-                        <Button onClick={() => setShowModal(true)}>Add Service Type</Button>
+                        <Button onClick={handleOpenCreate}>Add Service Type</Button>
                     </div>
                 )}
             </div>
@@ -160,10 +201,10 @@ const AdminServiceTypes = () => {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
                     <div className="glass-panel w-full max-w-lg relative animate-in zoom-in duration-300">
                         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                            <h2 className="text-xl font-bold">Create Service Type</h2>
+                            <h2 className="text-xl font-bold">{editingId ? 'Edit Service Type' : 'Create Service Type'}</h2>
                             <button onClick={() => setShowModal(false)}><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleCreate} className="p-6 space-y-4">
+                        <form onSubmit={handleSave} className="p-6 space-y-4">
                             {error && <div className="text-red-500 text-sm bg-red-50 p-2 rounded">{error}</div>}
 
                             <div>
@@ -211,29 +252,53 @@ const AdminServiceTypes = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Referrer Points (Optional)</label>
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+                                <div className="flex items-center gap-3 mb-4">
                                     <input
-                                        type="number"
-                                        min="0"
-                                        className="input-field"
-                                        placeholder="Override default"
-                                        value={form.referrerPoints}
-                                        onChange={e => setForm({ ...form, referrerPoints: e.target.value })}
+                                        type="checkbox"
+                                        id="enableReferral"
+                                        name="enableReferral"
+                                        checked={form.enableReferral}
+                                        onChange={e => setForm({ ...form, enableReferral: e.target.checked })}
+                                        className="w-5 h-5 text-primary bg-white border-gray-300 rounded focus:ring-primary focus:ring-2"
                                     />
+                                    <label htmlFor="enableReferral" className="font-medium text-text-main cursor-pointer select-none">
+                                        Enable Referral Rewards for this service?
+                                    </label>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Referee Points (Optional)</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        className="input-field"
-                                        placeholder="Override default"
-                                        value={form.refereePoints}
-                                        onChange={e => setForm({ ...form, refereePoints: e.target.value })}
-                                    />
-                                </div>
+
+                                {form.enableReferral && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Referrer Points <span className="text-error">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                required={form.enableReferral}
+                                                className="input-field bg-white"
+                                                placeholder="e.g. 500"
+                                                value={form.referrerPoints}
+                                                onChange={e => setForm({ ...form, referrerPoints: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Referee Points <span className="text-error">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                required={form.enableReferral}
+                                                className="input-field bg-white"
+                                                placeholder="e.g. 250"
+                                                value={form.refereePoints}
+                                                onChange={e => setForm({ ...form, refereePoints: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div>

@@ -1,5 +1,6 @@
 const app = require('./app');
 const dotenv = require('dotenv');
+require('./cron/referrals'); // Start daily referral cron job
 
 dotenv.config();
 

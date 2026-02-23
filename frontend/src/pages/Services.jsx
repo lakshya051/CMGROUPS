@@ -26,7 +26,7 @@ const Services = () => {
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
-    const [submittedOtp, setSubmittedOtp] = useState('');
+
     const [pageLoading, setPageLoading] = useState(true);
 
     const deviceTypes = ['Laptop', 'Desktop', 'Printer', 'Monitor', 'Other'];
@@ -67,7 +67,7 @@ const Services = () => {
                     serviceType: selectedService.title,
                     ...values,
                 });
-                setSubmittedOtp(result.pickupOtp);
+
                 setIsSubmitted(true);
             } catch (err) {
                 setErrors({ submit: err.message || 'Booking failed. Please try again.' });
@@ -93,14 +93,14 @@ const Services = () => {
             }
         });
         setIsSubmitted(false);
-        setSubmittedOtp('');
+
         setSelectedService(service);
     };
 
     const resetModal = () => {
         setSelectedService(null);
         setIsSubmitted(false);
-        setSubmittedOtp('');
+
         formik.resetForm();
     };
 
@@ -255,9 +255,7 @@ const Services = () => {
                                 <h3 className="text-xl font-bold mb-2">Booking Confirmed!</h3>
                                 <p className="text-text-muted mb-6">Your service request has been submitted successfully.</p>
                                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-4">
-                                    <p className="text-sm text-text-muted mb-2">Your Pickup Verification OTP</p>
-                                    <p className="text-3xl font-mono font-bold tracking-widest text-primary">{submittedOtp}</p>
-                                    <p className="text-xs text-text-muted mt-2">Share this OTP with the technician during device pickup.</p>
+                                    <p className="text-sm text-text-muted mb-2">Our technician will reach out to schedule an actual pickup soon.</p>
                                 </div>
                                 <Button onClick={resetModal} variant="outline" className="mt-2">Close</Button>
                             </div>

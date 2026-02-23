@@ -105,7 +105,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/products (Admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, price, stock, category, brand, image, description, specs, condition, isSecondHand, referrerPoints, refereePoints } = req.body;
+        const { title, price, stock, category, brand, image, description, specs, condition, isSecondHand, isReturnable, returnWindowDays, referrerPoints, refereePoints } = req.body;
 
         if (!title || price === undefined || stock === undefined || !category || !image) {
             return res.status(400).json({ error: 'Title, price, stock, category, and image are required.' });
@@ -123,8 +123,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 specs: specs || null,
                 condition: condition || 'New',
                 isSecondHand: isSecondHand === true || isSecondHand === 'true',
-                referrerPoints: referrerPoints !== undefined ? parseFloat(referrerPoints) : undefined,
-                refereePoints: refereePoints !== undefined ? parseFloat(refereePoints) : undefined
+                isReturnable: isReturnable !== undefined ? (isReturnable === true || isReturnable === 'true') : true,
+                returnWindowDays: returnWindowDays !== undefined ? parseInt(returnWindowDays) : 3,
+                referrerPoints: referrerPoints !== undefined && referrerPoints !== null ? parseFloat(referrerPoints) : null,
+                refereePoints: refereePoints !== undefined && refereePoints !== null ? parseFloat(refereePoints) : null
             }
         });
 
@@ -142,17 +144,22 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
-        const { referrerPoints, refereePoints, sku, ...otherData } = req.body;
+        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, ...otherData } = req.body;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
 
+        const updateData = {
+            ...otherData,
+            referrerPoints: referrerPoints !== undefined ? (referrerPoints === null ? null : parseFloat(referrerPoints)) : undefined,
+            refereePoints: refereePoints !== undefined ? (refereePoints === null ? null : parseFloat(refereePoints)) : undefined
+        };
+
+        if (isReturnable !== undefined) updateData.isReturnable = isReturnable === true || isReturnable === 'true';
+        if (returnWindowDays !== undefined) updateData.returnWindowDays = parseInt(returnWindowDays);
+
         const product = await prisma.product.update({
             where: { id: productId },
-            data: {
-                ...otherData,
-                referrerPoints: referrerPoints !== undefined ? referrerPoints : undefined,
-                refereePoints: refereePoints !== undefined ? refereePoints : undefined
-            }
+            data: updateData
         });
 
         // Invalidate caches

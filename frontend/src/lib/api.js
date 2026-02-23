@@ -309,6 +309,11 @@ export const serviceTypesAPI = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
+    update: (id, data) =>
+        apiFetch(`/categories/service-types/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        }),
     delete: (id) =>
         apiFetch(`/categories/service-types/${id}`, {
             method: 'DELETE'

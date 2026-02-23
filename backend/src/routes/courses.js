@@ -191,7 +191,7 @@ router.get('/:id/certificate', protect, async (req, res) => {
     try {
         const application = await prisma.courseApplication.findFirst({
             where: { courseId: parseInt(req.params.id), userId: req.user.id, status: 'Completed' },
-            include: { user: true, course: true }
+            include: { user: { select: { id: true, name: true, email: true } }, course: true }
         });
         if (!application) return res.status(403).json({ error: 'Certificate not available. Course must be completed.' });
 
@@ -245,7 +245,7 @@ router.patch('/applications/:id/status', protect, adminOnly, async (req, res) =>
         const app = await prisma.courseApplication.update({
             where: { id: appId },
             data: updateData,
-            include: { user: true, course: true }
+            include: { user: { select: { id: true, name: true, email: true } }, course: true }
         });
 
         // Notify student
@@ -276,7 +276,7 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
 
         const application = await prisma.courseApplication.findUnique({
             where: { id: appId },
-            include: { user: true, course: true, duration: true, feePayments: true }
+            include: { user: { select: { id: true, name: true, email: true } }, course: true, duration: true, feePayments: true }
         });
         if (!application) return res.status(404).json({ error: 'Application not found' });
 
@@ -317,31 +317,34 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
                     });
 
                     if (!existingReferral) {
-                        const { referrerPoints, refereePoints } = await calculateReferralReward('course', {
+                        const { referrerPoints, refereePoints } = await calculateReferralReward({
                             referrerPoints: application.course?.referrerPoints,
                             refereePoints: application.course?.refereePoints
                         });
 
-                        // Credit referrer wallet
-                        await tx.user.update({ where: { id: referrer.id }, data: { walletBalance: { increment: referrerPoints } } });
-                        await tx.walletTransaction.create({ data: { userId: referrer.id, amount: referrerPoints, type: 'CREDIT', description: `Course referral reward — ${application.user.name} enrolled in ${application.course.title}` } });
+                        if (referrerPoints > 0) {
+                            // Credit referrer wallet
+                            await tx.user.update({ where: { id: referrer.id }, data: { walletBalance: { increment: referrerPoints } } });
+                            await tx.walletTransaction.create({ data: { userId: referrer.id, amount: referrerPoints, type: 'CREDIT', description: `Course referral reward — ${application.user.name} enrolled in ${application.course.title}` } });
 
-                        // Credit the student (referee)
-                        await tx.user.update({ where: { id: application.userId }, data: { walletBalance: { increment: refereePoints } } });
-                        await tx.walletTransaction.create({ data: { userId: application.userId, amount: refereePoints, type: 'CREDIT', description: `Course referral bonus for enrolling in ${application.course.title}` } });
+                            // Credit the student (referee)
+                            await tx.user.update({ where: { id: application.userId }, data: { walletBalance: { increment: refereePoints } } });
+                            await tx.walletTransaction.create({ data: { userId: application.userId, amount: refereePoints, type: 'CREDIT', description: `Course referral bonus for enrolling in ${application.course.title}` } });
 
-                        // Create Referral record so it shows in the referral portal
-                        await tx.referral.create({
-                            data: {
-                                referrerId: referrer.id,
-                                refereeId: application.userId,
-                                status: 'rewarded',
-                                rewardAmount: referrerPoints,
-                                source: 'course',
-                                courseName: application.course.title,
-                                completedAt: new Date()
-                            }
-                        });
+                            // Create Referral record so it shows in the referral portal
+                            await tx.referral.create({
+                                data: {
+                                    referrerId: referrer.id,
+                                    refereeId: application.userId,
+                                    status: 'rewarded',
+                                    rewardAmount: referrerPoints,
+                                    refereeReward: refereePoints > 0 ? refereePoints : null,
+                                    source: 'course',
+                                    courseName: application.course.title,
+                                    completedAt: new Date()
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -372,9 +375,18 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
 // ─────────────────────────────────────────────
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, instructor, category, thumbnail, hasCertificate } = req.body;
+        const { title, description, instructor, category, thumbnail, hasCertificate, referrerPoints, refereePoints } = req.body;
         const course = await prisma.course.create({
-            data: { title, description, instructor, category: category || 'Computer', thumbnail: thumbnail || '', hasCertificate: hasCertificate !== false }
+            data: {
+                title,
+                description,
+                instructor,
+                category: category || 'Computer',
+                thumbnail: thumbnail || '',
+                hasCertificate: hasCertificate !== false,
+                referrerPoints: referrerPoints !== undefined && referrerPoints !== null ? parseFloat(referrerPoints) : null,
+                refereePoints: refereePoints !== undefined && refereePoints !== null ? parseFloat(refereePoints) : null
+            }
         });
         cache.delByPrefix('courses:');
         res.status(201).json(course);
@@ -389,7 +401,17 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         const { title, description, instructor, category, thumbnail, hasCertificate, isPublished, referrerPoints, refereePoints } = req.body;
         const course = await prisma.course.update({
             where: { id: parseInt(req.params.id) },
-            data: { title, description, instructor, category, thumbnail, hasCertificate, isPublished, referrerPoints, refereePoints }
+            data: {
+                title,
+                description,
+                instructor,
+                category,
+                thumbnail,
+                hasCertificate,
+                isPublished,
+                referrerPoints: referrerPoints !== undefined ? (referrerPoints === null ? null : parseFloat(referrerPoints)) : undefined,
+                refereePoints: refereePoints !== undefined ? (refereePoints === null ? null : parseFloat(refereePoints)) : undefined
+            }
         });
         cache.delByPrefix('courses:');
         res.json(course);

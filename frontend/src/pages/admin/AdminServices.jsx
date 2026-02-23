@@ -9,8 +9,7 @@ const AdminServices = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState(null);
-    const [otpInputs, setOtpInputs] = useState({});
-    const [otpError, setOtpError] = useState('');
+
     const [filterStatus, setFilterStatus] = useState('All');
     const [editData, setEditData] = useState({});
 
@@ -27,19 +26,6 @@ const AdminServices = () => {
             setBookings(prev => prev.map(b => b.id === id ? updated : b));
         } catch (err) {
             console.error('Failed to update booking:', err);
-        }
-    };
-
-    const handleVerifyOtp = async (id) => {
-        setOtpError('');
-        try {
-            const result = await servicesAPI.verifyPickupOtp(id, otpInputs[id] || '');
-            if (result.success) {
-                setBookings(prev => prev.map(b => b.id === id ? result.booking : b));
-                setOtpInputs(prev => ({ ...prev, [id]: '' }));
-            }
-        } catch (err) {
-            setOtpError(err.message || 'Invalid OTP');
         }
     };
 
@@ -102,8 +88,8 @@ const AdminServices = () => {
                         key={status}
                         onClick={() => setFilterStatus(status)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterStatus === status
-                                ? 'bg-primary text-white'
-                                : 'bg-gray-100 text-text-muted hover:bg-gray-200'
+                            ? 'bg-primary text-white'
+                            : 'bg-gray-100 text-text-muted hover:bg-gray-200'
                             }`}
                     >
                         {status} {status !== 'All' && statusCounts[status] ? `(${statusCounts[status]})` : ''}
@@ -134,10 +120,10 @@ const AdminServices = () => {
                                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                 <h3 className="font-bold text-lg">{booking.serviceType}</h3>
                                                 <span className={`px-2 py-0.5 rounded text-xs font-bold border ${booking.status === 'Completed' || booking.status === 'Delivered' ? 'text-success bg-success/10 border-success/20' :
-                                                        booking.status === 'Cancelled' ? 'text-red-500 bg-red-500/10 border-red-500/20' :
-                                                            booking.status === 'In Progress' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' :
-                                                                booking.status === 'Picked Up' ? 'text-purple-500 bg-purple-500/10 border-purple-500/20' :
-                                                                    'text-blue-500 bg-blue-500/10 border-blue-500/20'
+                                                    booking.status === 'Cancelled' ? 'text-red-500 bg-red-500/10 border-red-500/20' :
+                                                        booking.status === 'In Progress' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' :
+                                                            booking.status === 'Picked Up' ? 'text-purple-500 bg-purple-500/10 border-purple-500/20' :
+                                                                'text-blue-500 bg-blue-500/10 border-blue-500/20'
                                                     }`}>
                                                     {booking.status}
                                                 </span>
@@ -204,33 +190,6 @@ const AdminServices = () => {
                                                     <h4 className="font-bold text-sm uppercase tracking-wider text-text-muted">Admin Controls</h4>
                                                     <div className="bg-white rounded-xl p-4 border border-gray-100 space-y-4">
 
-                                                        {/* OTP Verification Section (only when Confirmed) */}
-                                                        {booking.status === 'Confirmed' && (
-                                                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                                                <h5 className="font-bold text-sm mb-2 flex items-center gap-2 text-yellow-700">
-                                                                    <Key size={14} /> Verify Pickup OTP
-                                                                </h5>
-                                                                <p className="text-xs text-yellow-600 mb-3">Enter the OTP shared by the customer to verify pickup.</p>
-                                                                <div className="flex gap-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="Enter 6-digit OTP"
-                                                                        className="input-field flex-1 font-mono text-center tracking-widest"
-                                                                        maxLength={6}
-                                                                        value={otpInputs[booking.id] || ''}
-                                                                        onChange={(e) => setOtpInputs(prev => ({ ...prev, [booking.id]: e.target.value.replace(/\D/g, '') }))}
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    />
-                                                                    <Button
-                                                                        onClick={(e) => { e.stopPropagation(); handleVerifyOtp(booking.id); }}
-                                                                        size="sm"
-                                                                    >
-                                                                        Verify
-                                                                    </Button>
-                                                                </div>
-                                                                {otpError && <p className="text-red-500 text-xs mt-2">{otpError}</p>}
-                                                            </div>
-                                                        )}
 
                                                         {/* Pricing */}
                                                         <div className="grid grid-cols-2 gap-3">
