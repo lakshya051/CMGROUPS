@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import ProductCard from '../../components/shop/ProductCard';
 import { Filter, Search } from 'lucide-react';
+import { categoriesAPI } from '../../lib/api';
 
 const Products = () => {
+    const location = useLocation();
     const { products } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
@@ -11,9 +14,26 @@ const Products = () => {
     const [conditionFilter, setConditionFilter] = useState('All');
     const [sortBy, setSortBy] = useState('newest');
     const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+    const [dbCategories, setDbCategories] = useState([]);
+
+    useEffect(() => {
+        categoriesAPI.getAll().then(setDbCategories).catch(console.error);
+    }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const cat = params.get('category');
+        if (cat) {
+            setSelectedCategories([cat]);
+        }
+    }, [location.search]);
 
     // Derived Categories
-    const categories = useMemo(() => ['All', ...new Set(products.map(p => p.category))].filter(c => c !== 'All'), [products]);
+    const categories = useMemo(() => {
+        const dbCatNames = dbCategories.map(c => c.name);
+        const productCats = products.map(p => p.category);
+        return [...new Set([...dbCatNames, ...productCats])].filter(c => c !== 'All').sort();
+    }, [products, dbCategories]);
 
     // Toggle Category
     const toggleCategory = (category) => {

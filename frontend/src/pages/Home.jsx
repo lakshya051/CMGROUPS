@@ -2,15 +2,20 @@ import React, { useEffect, useState } from 'react';
 import Button from '../components/ui/Button';
 import { ArrowRight, Cpu, ShieldCheck, Zap, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { productsAPI } from '../lib/api';
+import { productsAPI, categoriesAPI } from '../lib/api';
 
 const Home = () => {
     const [featuredProducts, setFeaturedProducts] = useState([]);
+    const [categories, setCategories] = useState([]);
 
     useEffect(() => {
         productsAPI.getAll()
             .then(data => setFeaturedProducts(data.slice(0, 4)))
             .catch(err => console.error('Failed to fetch products:', err));
+
+        categoriesAPI.getAll()
+            .then(data => setCategories(data))
+            .catch(err => console.error('Failed to fetch categories:', err));
     }, []);
 
     return (
@@ -187,22 +192,19 @@ const Home = () => {
                 <div className="container mx-auto px-4">
                     <h2 className="text-4xl font-heading font-bold mb-12 text-center">Shop by Category</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {[
-                            { name: 'Graphics Cards', category: 'GPU', emoji: '🎮' },
-                            { name: 'Processors', category: 'CPU', emoji: '⚡' },
-                            { name: 'Memory', category: 'RAM', emoji: '💾' },
-                            { name: 'Storage', category: 'Storage', emoji: '💿' },
-                            { name: 'Motherboards', category: 'Motherboard', emoji: '🔧' },
-                            { name: 'Power Supply', category: 'PSU', emoji: '🔋' },
-                            { name: 'Monitors', category: 'Monitor', emoji: '🖥️' },
-                            { name: 'Peripherals', category: 'Peripherals', emoji: '⌨️' },
-                        ].map((cat, idx) => (
+                        {categories.map((cat) => (
                             <Link
-                                key={idx}
-                                to={`/products?category=${cat.category}`}
+                                key={cat.id}
+                                to={`/products?category=${cat.name}`}
                                 className="p-6 rounded-xl bg-white border border-gray-100 hover:border-primary/50 hover:bg-primary/5 transition-all text-center group"
                             >
-                                <span className="text-4xl block mb-3">{cat.emoji}</span>
+                                {cat.image ? (
+                                    <div className="w-16 h-16 mx-auto mb-3 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 group-hover:scale-110 transition-transform">
+                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                                    </div>
+                                ) : (
+                                    <span className="text-4xl block mb-3 group-hover:scale-110 transition-transform">📦</span>
+                                )}
                                 <h3 className="font-bold group-hover:text-primary transition-colors">{cat.name}</h3>
                             </Link>
                         ))}

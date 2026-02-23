@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Search, Plus, Trash2, Edit, X, Save, Image } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { productsAPI } from '../../lib/api';
+import { productsAPI, categoriesAPI } from '../../lib/api';
 import { useFormik } from 'formik';
 import { addProductSchema } from '../../utils/validationSchemas';
 
@@ -23,6 +23,7 @@ const AdminProducts = () => {
     const [products, setProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+    const [categoriesList, setCategoriesList] = useState([]);
 
     // Modal state
     const [showModal, setShowModal] = useState(false);
@@ -112,13 +113,17 @@ const AdminProducts = () => {
     });
 
     useEffect(() => {
-        productsAPI.getAll()
-            .then(data => {
-                setProducts(data);
+        Promise.all([
+            productsAPI.getAll(),
+            categoriesAPI.getAll()
+        ])
+            .then(([productsData, categoriesData]) => {
+                setProducts(productsData);
+                setCategoriesList(categoriesData);
                 setLoading(false);
             })
             .catch(err => {
-                console.error('Failed to fetch products:', err);
+                console.error('Failed to fetch data:', err);
                 setLoading(false);
             });
     }, []);
@@ -413,17 +418,9 @@ const AdminProducts = () => {
                                     </label>
                                     <select name="category" className={`input-field ${formik.touched.category && formik.errors.category ? 'border-red-500' : ''}`} value={formik.values.category} onChange={formik.handleChange} onBlur={formik.handleBlur}>
                                         <option value="">Select category</option>
-                                        <option value="GPU">GPU</option>
-                                        <option value="CPU">CPU</option>
-                                        <option value="RAM">RAM</option>
-                                        <option value="Storage">Storage</option>
-                                        <option value="Motherboard">Motherboard</option>
-                                        <option value="PSU">PSU</option>
-                                        <option value="Case">Case</option>
-                                        <option value="Cooling">Cooling</option>
-                                        <option value="Monitor">Monitor</option>
-                                        <option value="Peripherals">Peripherals</option>
-                                        <option value="Accessories">Accessories</option>
+                                        {categoriesList.map(cat => (
+                                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                        ))}
                                     </select>
                                     {formik.touched.category && formik.errors.category && <p className="text-red-400 text-sm mt-1">{formik.errors.category}</p>}
                                 </div>
