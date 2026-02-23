@@ -28,6 +28,46 @@ router.get('/users', protect, adminOnly, async (req, res) => {
     }
 });
 
+// GET /api/admin/users/:id (Admin - get single user detailed profile)
+router.get('/users/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                orders: {
+                    select: { id: true, total: true, status: true, isPaid: true, createdAt: true },
+                    orderBy: { createdAt: 'desc' }
+                },
+                walletTransactions: {
+                    select: { id: true, type: true, amount: true, description: true, createdAt: true },
+                    orderBy: { createdAt: 'desc' }
+                },
+                referralsMade: {
+                    select: { id: true, status: true, refereeReward: true, createdAt: true, referee: { select: { name: true, email: true } } },
+                    orderBy: { createdAt: 'desc' }
+                },
+                bookings: {
+                    select: { id: true, serviceType: true, status: true, createdAt: true },
+                    orderBy: { createdAt: 'desc' }
+                }
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Avoid returning password hash even sequentially
+        delete user.password;
+
+        res.json(user);
+    } catch (error) {
+        console.error('Get user details error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // PATCH /api/admin/users/:id/role (Admin - change user role)
 router.patch('/users/:id/role', protect, adminOnly, async (req, res) => {
     try {

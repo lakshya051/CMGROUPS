@@ -352,6 +352,8 @@ export const adminAPI = {
 
     getUsers: () => apiFetch('/admin/users'),
 
+    getUserDetails: (id) => apiFetch(`/admin/users/${id}`),
+
     updateUserRole: (id, role) =>
         apiFetch(`/admin/users/${id}/role`, {
             method: 'PATCH',
