@@ -9,8 +9,17 @@ const { calculateReferralReward } = require('../utils/referralHelper');
 
 const router = express.Router();
 
+const checkoutTimingEnabled = process.env.CHECKOUT_TIMING_LOGS === 'true';
+
+function logCheckoutTiming(requestId, stage, startMs) {
+    if (!checkoutTimingEnabled) return;
+    console.log(`[CHECKOUT][${requestId}] ${stage} +${Date.now() - startMs}ms`);
+}
+
 // POST /api/orders (Optional Auth - place order)
 router.post('/', optionalProtect, async (req, res) => {
+    const checkoutStart = Date.now();
+    const checkoutRequestId = `ord-${checkoutStart}-${Math.floor(Math.random() * 10000)}`;
     try {
         const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed } = req.body;
 
@@ -18,11 +27,17 @@ router.post('/', optionalProtect, async (req, res) => {
             return res.status(400).json({ error: 'No items in order' });
         }
 
+        const parsedTotal = parseFloat(total);
+        if (!Number.isFinite(parsedTotal) || parsedTotal <= 0) {
+            return res.status(400).json({ error: 'Invalid order total' });
+        }
+        const parsedWalletUsed = Number(walletUsed) > 0 ? Number(walletUsed) : 0;
+
         const normalizedPaymentMethod = paymentMethod || 'pay_at_store';
 
         // 2. Validate stock for all items BEFORE creating order (Optimized for "alot of products")
-        const productIds = [...new Set(items.map(i => parseInt(i.productId)))];
-        const variantIds = [...new Set(items.filter(i => i.variantId).map(i => parseInt(i.variantId)))];
+        const productIds = [...new Set(items.map(i => parseInt(i.productId, 10)))];
+        const variantIds = [...new Set(items.filter(i => i.variantId).map(i => parseInt(i.variantId, 10)))];
 
         const [dbProducts, dbVariants] = await Promise.all([
             prisma.product.findMany({
@@ -34,6 +49,7 @@ router.post('/', optionalProtect, async (req, res) => {
                 select: { id: true, name: true, stock: true, productId: true }
             })
         ]);
+        logCheckoutTiming(checkoutRequestId, 'stock_prefetch_complete', checkoutStart);
 
         const productMap = new Map(dbProducts.map(p => [p.id, p]));
         const variantMap = new Map(dbVariants.map(v => [v.id, v]));
@@ -43,19 +59,19 @@ router.post('/', optionalProtect, async (req, res) => {
         const totalRequestedVariants = {}; // variantId -> quantity
 
         for (const item of items) {
-            const qty = parseInt(item.quantity);
+            const qty = parseInt(item.quantity, 10);
             if (item.variantId) {
-                const vid = parseInt(item.variantId);
+                const vid = parseInt(item.variantId, 10);
                 totalRequestedVariants[vid] = (totalRequestedVariants[vid] || 0) + qty;
             } else {
-                const pid = parseInt(item.productId);
+                const pid = parseInt(item.productId, 10);
                 totalRequestedProducts[pid] = (totalRequestedProducts[pid] || 0) + qty;
             }
         }
 
         // Perform validation
         for (const vid in totalRequestedVariants) {
-            const variant = variantMap.get(parseInt(vid));
+            const variant = variantMap.get(parseInt(vid, 10));
             const requested = totalRequestedVariants[vid];
             if (!variant) {
                 return res.status(400).json({ error: `Product variant not found (ID: ${vid})` });
@@ -68,7 +84,7 @@ router.post('/', optionalProtect, async (req, res) => {
         }
 
         for (const pid in totalRequestedProducts) {
-            const product = productMap.get(parseInt(pid));
+            const product = productMap.get(parseInt(pid, 10));
             const requested = totalRequestedProducts[pid];
             if (!product) {
                 return res.status(400).json({ error: `Product not found (ID: ${pid})` });
@@ -97,66 +113,69 @@ router.post('/', optionalProtect, async (req, res) => {
         }
 
         // Validate wallet balance BEFORE transaction
-        if (useWallet && walletUsed > 0) {
+        if (useWallet && parsedWalletUsed > 0) {
             if (!req.user) {
                 return res.status(401).json({ error: 'You must be logged in to use wallet balance' });
             }
             const dbUser = await prisma.user.findUnique({ where: { id: req.user.id } });
-            if (dbUser.walletBalance < walletUsed) {
+            if (dbUser.walletBalance < parsedWalletUsed) {
                 return res.status(400).json({ error: 'Insufficient wallet balance' });
             }
         }
 
-        const isFullyPaidWithWallet = useWallet && req.user && req.user.walletBalance >= total;
+        logCheckoutTiming(checkoutRequestId, 'pre_validation_complete', checkoutStart);
+
+        const isFullyPaidWithWallet = useWallet && req.user && parsedWalletUsed >= parsedTotal;
         const shouldGeneratePaymentOtp = !isFullyPaidWithWallet && ['pay_at_store', 'cod'].includes(normalizedPaymentMethod);
         const paymentOtp = shouldGeneratePaymentOtp ? crypto.randomInt(100000, 999999).toString() : null;
 
         // *** TRANSACTION: wallet deduction + order creation + stock decrement ***
         const order = await prisma.$transaction(async (tx) => {
             // 1. Deduct wallet balance (if applicable)
-            if (useWallet && walletUsed > 0 && req.user) {
+            if (useWallet && parsedWalletUsed > 0 && req.user) {
                 await tx.user.update({
                     where: { id: req.user.id },
-                    data: { walletBalance: { decrement: walletUsed } }
+                    data: { walletBalance: { decrement: parsedWalletUsed } }
                 });
 
                 await tx.walletTransaction.create({
                     data: {
                         userId: req.user.id,
-                        amount: walletUsed,
+                        amount: parsedWalletUsed,
                         type: 'DEBIT',
                         description: 'Used for order placement'
                     }
                 });
             }
 
-            // 2. Decrement stock for each product/variant (race-condition safe)
-            for (const item of items) {
-                const quantity = parseInt(item.quantity);
-                if (item.variantId) {
-                    const result = await tx.productVariant.updateMany({
-                        where: {
-                            id: parseInt(item.variantId),
-                            stock: { gte: quantity }
-                        },
-                        data: { stock: { decrement: quantity } }
-                    });
+            // 2. Decrement stock once per unique product/variant (race-condition safe)
+            for (const [variantId, quantityValue] of Object.entries(totalRequestedVariants)) {
+                const quantity = parseInt(quantityValue, 10);
+                const result = await tx.productVariant.updateMany({
+                    where: {
+                        id: parseInt(variantId, 10),
+                        stock: { gte: quantity }
+                    },
+                    data: { stock: { decrement: quantity } }
+                });
 
-                    if (result.count === 0) {
-                        throw new Error(`Insufficient stock for product variant ID ${item.variantId}. Please try again.`);
-                    }
-                } else {
-                    const result = await tx.product.updateMany({
-                        where: {
-                            id: parseInt(item.productId),
-                            stock: { gte: quantity }
-                        },
-                        data: { stock: { decrement: quantity } }
-                    });
+                if (result.count === 0) {
+                    throw new Error(`Insufficient stock for product variant ID ${variantId}. Please try again.`);
+                }
+            }
 
-                    if (result.count === 0) {
-                        throw new Error(`Insufficient stock for product ID ${item.productId}. Please try again.`);
-                    }
+            for (const [productId, quantityValue] of Object.entries(totalRequestedProducts)) {
+                const quantity = parseInt(quantityValue, 10);
+                const result = await tx.product.updateMany({
+                    where: {
+                        id: parseInt(productId, 10),
+                        stock: { gte: quantity }
+                    },
+                    data: { stock: { decrement: quantity } }
+                });
+
+                if (result.count === 0) {
+                    throw new Error(`Insufficient stock for product ID ${productId}. Please try again.`);
                 }
             }
 
@@ -164,7 +183,7 @@ router.post('/', optionalProtect, async (req, res) => {
             const createdOrder = await tx.order.create({
                 data: {
                     userId: req.user ? req.user.id : null,
-                    total: parseFloat(total),
+                    total: parsedTotal,
                     status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
                     paymentMethod: normalizedPaymentMethod,
                     paymentOtp,
@@ -174,9 +193,9 @@ router.post('/', optionalProtect, async (req, res) => {
                     referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
                     items: {
                         create: items.map(item => {
-                            const pId = parseInt(item.productId);
-                            const vId = item.variantId ? parseInt(item.variantId) : null;
-                            const qty = parseInt(item.quantity);
+                            const pId = parseInt(item.productId, 10);
+                            const vId = item.variantId ? parseInt(item.variantId, 10) : null;
+                            const qty = parseInt(item.quantity, 10);
                             const prc = parseFloat(String(item.price).replace(/,/g, '')); // Robust parsing
 
                             if (isNaN(pId) || isNaN(qty) || isNaN(prc)) {
@@ -203,48 +222,53 @@ router.post('/', optionalProtect, async (req, res) => {
             maxWait: 8000,
             timeout: 15000
         });
+        logCheckoutTiming(checkoutRequestId, 'transaction_complete', checkoutStart);
 
-        // Send Confirmations
-        const userPhone = req.user?.phone || shippingAddress?.phone;
-        const userName = req.user?.name || shippingAddress?.fullName || 'Customer';
         const userEmail = req.user?.email || shippingAddress?.email;
-
-        // 1. SMS logic removed
-
-        // 2. Email Receipt (via Nodemailer)
-        if (userEmail) {
-            try {
-                await sendOrderConfirmationEmail(userEmail, order.id, order.total, {
-                    paymentOtp: order.paymentOtp,
-                    paymentMethod: order.paymentMethod,
-                    isPaid: order.isPaid
-                });
-            } catch (err) {
-                console.error('Failed to send Email Receipt:', err);
-            }
-        }
-
-        // In-app OTP fallback for logged-in users so they can retrieve it later from dashboard.
-        if (req.user && order.paymentOtp) {
-            try {
-                await prisma.notification.create({
-                    data: {
-                        userId: req.user.id,
-                        title: `Payment OTP for Order #${order.id}`,
-                        message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
-                        type: 'order',
-                        link: '/dashboard/orders'
-                    }
-                });
-            } catch (notifErr) {
-                console.error('Order OTP notification error (non-blocking):', notifErr);
-            }
-        }
-
-        // *** ORDER-BASED REFERRAL REWARD ***
-        // Referral reward will be processed when payment is verified
+        const userId = req.user?.id;
 
         res.status(201).json(order);
+        logCheckoutTiming(checkoutRequestId, 'response_sent', checkoutStart);
+
+        // Post-response work: do not block checkout UX on SMTP/notification latency.
+        setImmediate(async () => {
+            const asyncStart = Date.now();
+            const backgroundTasks = [];
+
+            if (userEmail) {
+                backgroundTasks.push(
+                    sendOrderConfirmationEmail(userEmail, order.id, order.total, {
+                        paymentOtp: order.paymentOtp,
+                        paymentMethod: order.paymentMethod,
+                        isPaid: order.isPaid
+                    }).catch((err) => {
+                        console.error('Failed to send Email Receipt:', err);
+                    })
+                );
+            }
+
+            if (userId && order.paymentOtp) {
+                backgroundTasks.push(
+                    prisma.notification.create({
+                        data: {
+                            userId,
+                            title: `Payment OTP for Order #${order.id}`,
+                            message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
+                            type: 'order',
+                            link: '/dashboard/orders'
+                        }
+                    }).catch((notifErr) => {
+                        console.error('Order OTP notification error (non-blocking):', notifErr);
+                    })
+                );
+            }
+
+            await Promise.allSettled(backgroundTasks);
+            logCheckoutTiming(checkoutRequestId, 'async_notifications_complete', asyncStart);
+        });
+
+        // *** ORDER-BASED REFERRAL REWARD ***
+        // Referral reward will be processed when payment is verified.
     } catch (error) {
         console.error('CRITICAL: Create order failure:', {
             error: error.message,

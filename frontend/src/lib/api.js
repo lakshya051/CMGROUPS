@@ -45,10 +45,11 @@ export const authAPI = {
             body: JSON.stringify({ email, otp })
         }),
 
-    resendOTP: (userId) =>
-        apiFetch('/auth/resend-otp', {
+    // Backward-compatible alias for older callers.
+    resendOTP: (email) =>
+        apiFetch('/auth/resend-verification', {
             method: 'POST',
-            body: JSON.stringify({ userId })
+            body: JSON.stringify({ email })
         }),
 
     getMe: () => apiFetch('/auth/me'),
@@ -226,11 +227,9 @@ export const servicesAPI = {
             body: JSON.stringify(data)
         }),
 
-    verifyPickupOtp: (id, otp) =>
-        apiFetch(`/services/${id}/verify-otp`, {
-            method: 'POST',
-            body: JSON.stringify({ otp })
-        })
+    // verify-otp endpoint was removed from backend.
+    verifyPickupOtp: () =>
+        Promise.reject(new Error('Service pickup OTP verification is no longer supported.'))
 };
 
 // ============ COURSES ============
