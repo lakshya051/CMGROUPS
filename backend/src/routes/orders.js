@@ -16,6 +16,24 @@ function logCheckoutTiming(requestId, stage, startMs) {
     console.log(`[CHECKOUT][${requestId}] ${stage} +${Date.now() - startMs}ms`);
 }
 
+async function calculateOrderReferralPoints(items = []) {
+    let totalReferrerPoints = 0;
+    let totalRefereePoints = 0;
+
+    for (const item of items) {
+        const product = item.product || {};
+        const { referrerPoints, refereePoints } = await calculateReferralReward({
+            referrerPoints: product.referrerPoints,
+            refereePoints: product.refereePoints
+        });
+
+        totalReferrerPoints += referrerPoints;
+        totalRefereePoints += refereePoints;
+    }
+
+    return { referrerPoints: totalReferrerPoints, refereePoints: totalRefereePoints };
+}
+
 // POST /api/orders (Optional Auth - place order)
 router.post('/', optionalProtect, async (req, res) => {
     const checkoutStart = Date.now();
@@ -231,39 +249,32 @@ router.post('/', optionalProtect, async (req, res) => {
         logCheckoutTiming(checkoutRequestId, 'response_sent', checkoutStart);
 
         // Post-response work: do not block checkout UX on SMTP/notification latency.
-        setImmediate(async () => {
+        setImmediate(() => {
             const asyncStart = Date.now();
-            const backgroundTasks = [];
-
             if (userEmail) {
-                backgroundTasks.push(
-                    sendOrderConfirmationEmail(userEmail, order.id, order.total, {
-                        paymentOtp: order.paymentOtp,
-                        paymentMethod: order.paymentMethod,
-                        isPaid: order.isPaid
-                    }).catch((err) => {
-                        console.error('Failed to send Email Receipt:', err);
-                    })
-                );
+                sendOrderConfirmationEmail(userEmail, order.id, order.total, {
+                    paymentOtp: order.paymentOtp,
+                    paymentMethod: order.paymentMethod,
+                    isPaid: order.isPaid
+                }).catch((err) => {
+                    console.error('Failed to send Email Receipt:', err);
+                });
             }
 
             if (userId && order.paymentOtp) {
-                backgroundTasks.push(
-                    prisma.notification.create({
-                        data: {
-                            userId,
-                            title: `Payment OTP for Order #${order.id}`,
-                            message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
-                            type: 'order',
-                            link: '/dashboard/orders'
-                        }
-                    }).catch((notifErr) => {
-                        console.error('Order OTP notification error (non-blocking):', notifErr);
-                    })
-                );
+                prisma.notification.create({
+                    data: {
+                        userId,
+                        title: `Payment OTP for Order #${order.id}`,
+                        message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
+                        type: 'order',
+                        link: '/dashboard/orders'
+                    }
+                }).catch((notifErr) => {
+                    console.error('Order OTP notification error (non-blocking):', notifErr);
+                });
             }
 
-            await Promise.allSettled(backgroundTasks);
             logCheckoutTiming(checkoutRequestId, 'async_notifications_complete', asyncStart);
         });
 
@@ -475,13 +486,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 });
 
                 if (!existingReferral && orderWithItems.items.length > 0) {
-                    const firstItem = orderWithItems.items[0];
-                    const product = firstItem.product || {};
-
-                    const { referrerPoints, refereePoints } = await calculateReferralReward({
-                        referrerPoints: product.referrerPoints,
-                        refereePoints: product.refereePoints
-                    });
+                    const { referrerPoints, refereePoints } = await calculateOrderReferralPoints(orderWithItems.items);
 
                     if (referrerPoints > 0) {
                         const referrer = await prisma.user.findFirst({
@@ -611,13 +616,7 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                 });
 
                 if (!existingReferral && order.items.length > 0) {
-                    const firstItem = order.items[0];
-                    const product = firstItem.product || {};
-
-                    const { referrerPoints, refereePoints } = await calculateReferralReward({
-                        referrerPoints: product.referrerPoints,
-                        refereePoints: product.refereePoints
-                    });
+                    const { referrerPoints, refereePoints } = await calculateOrderReferralPoints(order.items);
 
                     if (referrerPoints > 0) {
                         const referrer = await prisma.user.findFirst({

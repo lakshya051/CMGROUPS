@@ -276,7 +276,7 @@ router.get('/referrals', protect, adminOnly, async (req, res) => {
                         total: true,
                         items: {
                             include: {
-                                product: { select: { id: true, title: true, image: true, price: true } }
+                                product: { select: { id: true, title: true, image: true, price: true, referrerPoints: true, refereePoints: true } }
                             }
                         }
                     }
@@ -284,7 +284,16 @@ router.get('/referrals', protect, adminOnly, async (req, res) => {
             },
             orderBy: { createdAt: 'desc' }
         });
-        res.json(referrals);
+
+        const seenOrderIds = new Set();
+        const dedupedReferrals = referrals.filter((referral) => {
+            if (!referral.orderId) return true;
+            if (seenOrderIds.has(referral.orderId)) return false;
+            seenOrderIds.add(referral.orderId);
+            return true;
+        });
+
+        res.json(dedupedReferrals);
     } catch (error) {
         console.error('Get referrals error:', error);
         res.status(500).json({ error: 'Server error' });

@@ -434,3 +434,11 @@ model TallyEnquiry {
   updatedAt    DateTime @updatedAt
 }
 
+model ServiceSettings {
+  id                 Int      @id @default(autoincrement())
+  timeSlots          String[]
+  maxBookingsPerSlot Int      @default(2)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+

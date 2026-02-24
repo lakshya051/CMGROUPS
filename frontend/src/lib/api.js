@@ -225,11 +225,7 @@ export const servicesAPI = {
         apiFetch(`/services/${id}/status`, {
             method: 'PATCH',
             body: JSON.stringify(data)
-        }),
-
-    // verify-otp endpoint was removed from backend.
-    verifyPickupOtp: () =>
-        Promise.reject(new Error('Service pickup OTP verification is no longer supported.'))
+        })
 };
 
 // ============ COURSES ============

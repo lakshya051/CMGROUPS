@@ -13,9 +13,36 @@ const AdminReferrals = () => {
             .finally(() => setLoading(false));
     }, []);
 
+    const getCalculatedRewards = (ref) => {
+        if (!ref?.order?.items?.length) {
+            return {
+                referrerReward: ref.rewardAmount || 0,
+                refereeReward: ref.refereeReward || 0
+            };
+        }
+
+        return ref.order.items.reduce((totals, item) => {
+            const referrerPoints = item?.product?.referrerPoints;
+            const refereePoints = item?.product?.refereePoints;
+
+            if (referrerPoints == null || referrerPoints === 0) {
+                return totals;
+            }
+
+            totals.referrerReward += referrerPoints;
+            totals.refereeReward += (refereePoints != null ? refereePoints : Math.round(referrerPoints / 2));
+            return totals;
+        }, { referrerReward: 0, refereeReward: 0 });
+    };
+
     const totalRewarded = referrals.filter(r => r.status === 'rewarded').length;
     const totalPending = referrals.filter(r => r.status === 'pending').length;
-    const totalPayout = referrals.filter(r => r.status === 'rewarded').reduce((s, r) => s + (r.rewardAmount || 0) + (r.refereeReward || 0), 0);
+    const totalPayout = referrals
+        .filter(r => r.status === 'rewarded')
+        .reduce((sum, ref) => {
+            const rewards = getCalculatedRewards(ref);
+            return sum + rewards.referrerReward + rewards.refereeReward;
+        }, 0);
 
     const getStatusBadge = (status) => {
         switch (status) {
@@ -88,7 +115,9 @@ const AdminReferrals = () => {
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-gray-100">
-                            {referrals.map((ref, idx) => (
+                            {referrals.map((ref, idx) => {
+                                const rewards = getCalculatedRewards(ref);
+                                return (
                                 <tr key={ref.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="p-4 text-text-muted">{idx + 1}</td>
                                     <td className="p-4">
@@ -151,20 +180,20 @@ const AdminReferrals = () => {
                                     <td className="p-4">{getStatusBadge(ref.status)}</td>
                                     <td className="p-4 text-right">
                                         {ref.status === 'rewarded' ? (
-                                            <span className="text-success font-medium">+₹{ref.rewardAmount}</span>
+                                            <span className="text-success font-medium">+₹{rewards.referrerReward}</span>
                                         ) : (
                                             <span className="text-text-muted">—</span>
                                         )}
                                     </td>
                                     <td className="p-4 text-right">
-                                        {ref.status === 'rewarded' && ref.refereeReward !== null ? (
-                                            <span className="text-success font-medium">+₹{ref.refereeReward}</span>
+                                        {ref.status === 'rewarded' && rewards.refereeReward !== null ? (
+                                            <span className="text-success font-medium">+₹{rewards.refereeReward}</span>
                                         ) : (
                                             <span className="text-text-muted">—</span>
                                         )}
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                             {referrals.length === 0 && (
                                 <tr>
                                     <td colSpan="10" className="p-12 text-center text-text-muted">
