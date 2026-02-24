@@ -1,6 +1,18 @@
 const { verifyToken } = require('../utils/jwt');
 const prisma = require('../lib/prisma');
 
+const SAFE_USER_SELECT = {
+    id: true,
+    name: true,
+    email: true,
+    phone: true,
+    role: true,
+    referralCode: true,
+    walletBalance: true,
+    isVerified: true,
+    createdAt: true
+};
+
 // Protect routes - require authentication
 const protect = async (req, res, next) => {
     try {
@@ -12,7 +24,10 @@ const protect = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
         const decoded = verifyToken(token);
 
-        const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: SAFE_USER_SELECT
+        });
         if (!user) {
             return res.status(401).json({ error: 'Not authorized, user not found' });
         }
@@ -44,7 +59,10 @@ const optionalProtect = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
         const decoded = verifyToken(token);
 
-        const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: SAFE_USER_SELECT
+        });
         if (user) {
             req.user = user;
         }

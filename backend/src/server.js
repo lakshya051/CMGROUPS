@@ -1,8 +1,13 @@
-const app = require('./app');
 const dotenv = require('dotenv');
-require('./cron/referrals'); // Start daily referral cron job
 
 dotenv.config();
+
+if (!process.env.JWT_SECRET || !process.env.JWT_SECRET.trim()) {
+    throw new Error('FATAL: JWT_SECRET environment variable is not set. Cannot start server.');
+}
+
+const app = require('./app');
+require('./cron/referrals'); // Start daily referral cron job
 
 const PORT = process.env.PORT || 5000;
 

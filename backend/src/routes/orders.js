@@ -231,7 +231,19 @@ router.post('/', optionalProtect, async (req, res) => {
                 },
                 include: {
                     items: { include: { product: true } },
-                    user: true
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            phone: true,
+                            role: true,
+                            referralCode: true,
+                            walletBalance: true,
+                            isVerified: true,
+                            createdAt: true
+                        }
+                    }
                 }
             });
 
@@ -580,7 +592,22 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
 
         const order = await prisma.order.findUnique({
             where: { id: orderId },
-            include: { user: true, items: { include: { product: true } } }
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        role: true,
+                        referralCode: true,
+                        walletBalance: true,
+                        isVerified: true,
+                        createdAt: true
+                    }
+                },
+                items: { include: { product: true } }
+            }
         });
 
         if (!order) {
@@ -711,7 +738,22 @@ router.post('/:id/cancel', protect, async (req, res) => {
         const { reason } = req.body;
         const order = await prisma.order.findUnique({
             where: { id: parseInt(req.params.id) },
-            include: { user: true, items: true }
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        role: true,
+                        referralCode: true,
+                        walletBalance: true,
+                        isVerified: true,
+                        createdAt: true
+                    }
+                },
+                items: true
+            }
         });
 
         if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -896,7 +938,14 @@ router.get('/:id/invoice', protect, async (req, res) => {
         const order = await prisma.order.findUnique({
             where: { id: parseInt(req.params.id) },
             include: {
-                user: true,
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true
+                    }
+                },
                 items: { include: { product: true } }
             }
         });

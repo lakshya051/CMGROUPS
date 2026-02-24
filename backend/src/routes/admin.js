@@ -101,7 +101,16 @@ router.get('/users/:id', protect, adminOnly, async (req, res) => {
         const userId = parseInt(req.params.id);
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: {
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                role: true,
+                referralCode: true,
+                walletBalance: true,
+                isVerified: true,
+                createdAt: true,
                 orders: {
                     select: { id: true, total: true, status: true, isPaid: true, createdAt: true },
                     orderBy: { createdAt: 'desc' }
@@ -124,9 +133,6 @@ router.get('/users/:id', protect, adminOnly, async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-
-        // Avoid returning password hash even sequentially
-        delete user.password;
 
         res.json(user);
     } catch (error) {
