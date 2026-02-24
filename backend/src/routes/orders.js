@@ -18,20 +18,64 @@ router.post('/', optionalProtect, async (req, res) => {
             return res.status(400).json({ error: 'No items in order' });
         }
 
-        // Validate stock for all items BEFORE creating order
-        for (const item of items) {
-            const product = await prisma.product.findUnique({
-                where: { id: item.productId },
+        const normalizedPaymentMethod = paymentMethod || 'pay_at_store';
+
+        // 2. Validate stock for all items BEFORE creating order (Optimized for "alot of products")
+        const productIds = [...new Set(items.map(i => parseInt(i.productId)))];
+        const variantIds = [...new Set(items.filter(i => i.variantId).map(i => parseInt(i.variantId)))];
+
+        const [dbProducts, dbVariants] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: productIds } },
                 select: { id: true, title: true, stock: true }
-            });
+            }),
+            prisma.productVariant.findMany({
+                where: { id: { in: variantIds } },
+                select: { id: true, name: true, stock: true, productId: true }
+            })
+        ]);
 
-            if (!product) {
-                return res.status(400).json({ error: `Product not found (ID: ${item.productId})` });
+        const productMap = new Map(dbProducts.map(p => [p.id, p]));
+        const variantMap = new Map(dbVariants.map(v => [v.id, v]));
+
+        // Aggregate quantities to check total requested against stock
+        const totalRequestedProducts = {}; // productId -> quantity
+        const totalRequestedVariants = {}; // variantId -> quantity
+
+        for (const item of items) {
+            const qty = parseInt(item.quantity);
+            if (item.variantId) {
+                const vid = parseInt(item.variantId);
+                totalRequestedVariants[vid] = (totalRequestedVariants[vid] || 0) + qty;
+            } else {
+                const pid = parseInt(item.productId);
+                totalRequestedProducts[pid] = (totalRequestedProducts[pid] || 0) + qty;
             }
+        }
 
-            if (product.stock < item.quantity) {
+        // Perform validation
+        for (const vid in totalRequestedVariants) {
+            const variant = variantMap.get(parseInt(vid));
+            const requested = totalRequestedVariants[vid];
+            if (!variant) {
+                return res.status(400).json({ error: `Product variant not found (ID: ${vid})` });
+            }
+            if (variant.stock < requested) {
                 return res.status(400).json({
-                    error: `Insufficient stock for "${product.title}". Available: ${product.stock}, Requested: ${item.quantity}`
+                    error: `Insufficient stock for "${variant.name}". Available: ${variant.stock}, Requested: ${requested}`
+                });
+            }
+        }
+
+        for (const pid in totalRequestedProducts) {
+            const product = productMap.get(parseInt(pid));
+            const requested = totalRequestedProducts[pid];
+            if (!product) {
+                return res.status(400).json({ error: `Product not found (ID: ${pid})` });
+            }
+            if (product.stock < requested) {
+                return res.status(400).json({
+                    error: `Insufficient stock for "${product.title}". Available: ${product.stock}, Requested: ${requested}`
                 });
             }
         }
@@ -64,6 +108,8 @@ router.post('/', optionalProtect, async (req, res) => {
         }
 
         const isFullyPaidWithWallet = useWallet && req.user && req.user.walletBalance >= total;
+        const shouldGeneratePaymentOtp = !isFullyPaidWithWallet && ['pay_at_store', 'cod'].includes(normalizedPaymentMethod);
+        const paymentOtp = shouldGeneratePaymentOtp ? crypto.randomInt(100000, 999999).toString() : null;
 
         // *** TRANSACTION: wallet deduction + order creation + stock decrement ***
         const order = await prisma.$transaction(async (tx) => {
@@ -118,21 +164,32 @@ router.post('/', optionalProtect, async (req, res) => {
             const createdOrder = await tx.order.create({
                 data: {
                     userId: req.user ? req.user.id : null,
-                    total,
+                    total: parseFloat(total),
                     status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
-                    paymentMethod: paymentMethod || 'pay_at_store',
-                    paymentOtp: null,
+                    paymentMethod: normalizedPaymentMethod,
+                    paymentOtp,
                     isPaid: isFullyPaidWithWallet,
                     shippingAddress: shippingAddress || null,
                     guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
                     referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
                     items: {
-                        create: items.map(item => ({
-                            productId: parseInt(item.productId),
-                            variantId: item.variantId ? parseInt(item.variantId) : null,
-                            quantity: parseInt(item.quantity),
-                            price: parseFloat(item.price)
-                        }))
+                        create: items.map(item => {
+                            const pId = parseInt(item.productId);
+                            const vId = item.variantId ? parseInt(item.variantId) : null;
+                            const qty = parseInt(item.quantity);
+                            const prc = parseFloat(String(item.price).replace(/,/g, '')); // Robust parsing
+
+                            if (isNaN(pId) || isNaN(qty) || isNaN(prc)) {
+                                throw new Error('Invalid item data in cart');
+                            }
+
+                            return {
+                                productId: pId,
+                                variantId: vId,
+                                quantity: qty,
+                                price: prc
+                            };
+                        })
                     }
                 },
                 include: {
@@ -157,22 +214,49 @@ router.post('/', optionalProtect, async (req, res) => {
         // 2. Email Receipt (via Nodemailer)
         if (userEmail) {
             try {
-                await sendOrderConfirmationEmail(userEmail, order.id, order.total);
+                await sendOrderConfirmationEmail(userEmail, order.id, order.total, {
+                    paymentOtp: order.paymentOtp,
+                    paymentMethod: order.paymentMethod,
+                    isPaid: order.isPaid
+                });
             } catch (err) {
                 console.error('Failed to send Email Receipt:', err);
+            }
+        }
+
+        // In-app OTP fallback for logged-in users so they can retrieve it later from dashboard.
+        if (req.user && order.paymentOtp) {
+            try {
+                await prisma.notification.create({
+                    data: {
+                        userId: req.user.id,
+                        title: `Payment OTP for Order #${order.id}`,
+                        message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
+                        type: 'order',
+                        link: '/dashboard/orders'
+                    }
+                });
+            } catch (notifErr) {
+                console.error('Order OTP notification error (non-blocking):', notifErr);
             }
         }
 
         // *** ORDER-BASED REFERRAL REWARD ***
         // Referral reward will be processed when payment is verified
 
-        res.status(201).json({
-            ...order,
-            paymentOtp: otp
-        });
+        res.status(201).json(order);
     } catch (error) {
-        console.error('Create order error:', error);
-        res.status(500).json({ error: 'Server error' });
+        console.error('CRITICAL: Create order failure:', {
+            error: error.message,
+            stack: error.stack,
+            body: req.body,
+            user: req.user?.id
+        });
+        // If it's a known error from the transaction (like stock issue), return 400
+        if (error.message && (error.message.includes('Insufficient stock') || error.message.includes('Invalid item data'))) {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: 'Internal server error. Our team has been notified.' });
     }
 });
 
@@ -244,10 +328,22 @@ router.get('/my-stats', protect, async (req, res) => {
 // ?page=1&limit=50&status=Processing
 router.get('/', protect, adminOnly, async (req, res) => {
     try {
-        const { page, limit, status } = req.query;
+        const { page, limit, status, search } = req.query;
 
         const where = {};
-        if (status) where.status = status;
+        if (status) {
+            if (status === 'Returns') {
+                where.returnStatus = 'Requested';
+            } else {
+                where.status = status;
+            }
+        }
+        if (search) {
+            const searchId = parseInt(search);
+            if (!isNaN(searchId)) {
+                where.id = searchId;
+            }
+        }
 
         const usePagination = page !== undefined || limit !== undefined;
         const take = usePagination ? parseInt(limit) || 50 : undefined;
@@ -315,6 +411,9 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
         });
 
         if (status === 'Delivered' && orderWithItems) {
+            if (!orderWithItems.isPaid) {
+                return res.status(400).json({ error: 'Order must be paid before it can be marked as Delivered.' });
+            }
             updateData.deliveredAt = new Date();
 
             if (orderWithItems.referralCodeUsed && orderWithItems.isPaid) {
@@ -463,7 +562,10 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Order is already paid' });
         }
 
-        // OTP verification removed
+        const { otp } = req.body;
+        if (!otp || order.paymentOtp !== otp) {
+            return res.status(400).json({ error: 'Invalid OTP. Please enter the correct customer OTP.' });
+        }
 
         const updatedOrder = await prisma.order.update({
             where: { id: orderId },
@@ -562,7 +664,10 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
         if (order.user) {
             try {
                 if (order.user.email) {
-                    await sendOrderConfirmationEmail(order.user.email, order.id, order.total);
+                    await sendOrderConfirmationEmail(order.user.email, order.id, order.total, {
+                        paymentMethod: order.paymentMethod,
+                        isPaid: true
+                    });
                 }
                 // SMS disabled
             } catch (notifErr) {

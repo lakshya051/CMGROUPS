@@ -1,12 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { Trash2, X, ShoppingCart, Star } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import { productsAPI } from '../../lib/api';
 
 const Compare = () => {
-    const { compareList, removeFromCompare, getProduct, addToCart, clearCompare } = useShop();
-    const products = compareList.map(id => getProduct(id)).filter(Boolean);
+    const { compareList, removeFromCompare, addToCart, clearCompare } = useShop();
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (compareList.length === 0) {
+            setProducts([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        Promise.all(compareList.map(id => productsAPI.getById(id).catch(() => null)))
+            .then(results => setProducts(results.filter(Boolean)))
+            .finally(() => setLoading(false));
+    }, [compareList]);
+
+    if (loading) return <div className="container mx-auto py-20 text-center">Loading comparison...</div>;
 
     if (products.length === 0) {
         return (

@@ -7,6 +7,46 @@ const { calculateReferralReward } = require('../utils/referralHelper');
 
 const router = express.Router();
 
+const DEFAULT_SERVICE_SETTINGS = {
+    timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
+    maxBookingsPerSlot: 2
+};
+const DB_UNAVAILABLE_MESSAGE = 'Unable to connect to database right now. Please try again in a minute.';
+
+const getDefaultServiceSettings = () => ({
+    timeSlots: [...DEFAULT_SERVICE_SETTINGS.timeSlots],
+    maxBookingsPerSlot: DEFAULT_SERVICE_SETTINGS.maxBookingsPerSlot
+});
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isDbUnavailableError = (error) =>
+    error && (error.code === 'P1001' || (typeof error.message === 'string' && error.message.includes("Can't reach database server")));
+
+const withDbRetry = async (operation, retries = 1, retryDelayMs = 1200) => {
+    let attempt = 0;
+    while (true) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (!isDbUnavailableError(error) || attempt >= retries) {
+                throw error;
+            }
+            attempt += 1;
+            await wait(retryDelayMs * attempt);
+        }
+    }
+};
+
+const getServiceSettings = async () => {
+    if (!prisma.serviceSettings || typeof prisma.serviceSettings.findFirst !== 'function') {
+        return getDefaultServiceSettings();
+    }
+
+    const settings = await withDbRetry(() => prisma.serviceSettings.findFirst());
+    return settings || getDefaultServiceSettings();
+};
+
 // GET /api/services/available-slots (Public)
 router.get('/available-slots', async (req, res) => {
     try {
@@ -18,20 +58,14 @@ router.get('/available-slots', async (req, res) => {
         const nextDate = new Date(targetDate);
         nextDate.setDate(nextDate.getDate() + 1);
 
-        const bookings = await prisma.serviceBooking.findMany({
+        const bookings = await withDbRetry(() => prisma.serviceBooking.findMany({
             where: {
                 date: { gte: targetDate, lt: nextDate },
                 status: { notIn: ['Cancelled', 'Rejected'] }
             }
-        });
+        }));
 
-        let settings = await prisma.serviceSettings.findFirst();
-        if (!settings) {
-            settings = {
-                timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
-                maxBookingsPerSlot: 2
-            };
-        }
+        const settings = await getServiceSettings();
 
         const slotCounts = {};
         bookings.forEach(b => {
@@ -48,6 +82,10 @@ router.get('/available-slots', async (req, res) => {
         res.json(availableSlots);
     } catch (error) {
         console.error('Get slots error:', error);
+        if (isDbUnavailableError(error)) {
+            const defaults = getDefaultServiceSettings();
+            return res.json(defaults.timeSlots.map((time) => ({ time, available: true })));
+        }
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -72,25 +110,19 @@ router.post('/book', protect, async (req, res) => {
         const nextDate = new Date(targetDate);
         nextDate.setDate(nextDate.getDate() + 1);
 
-        let settings = await prisma.serviceSettings.findFirst();
-        if (!settings) {
-            settings = {
-                timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
-                maxBookingsPerSlot: 2
-            };
-        }
+        const settings = await getServiceSettings();
 
         if (!settings.timeSlots.includes(timeSlot)) {
             return res.status(400).json({ error: 'Invalid time slot selected.' });
         }
 
-        const existingBookings = await prisma.serviceBooking.count({
+        const existingBookings = await withDbRetry(() => prisma.serviceBooking.count({
             where: {
                 date: { gte: targetDate, lt: nextDate },
                 timeSlot,
                 status: { notIn: ['Cancelled', 'Rejected'] }
             }
-        });
+        }));
 
         if (existingBookings >= settings.maxBookingsPerSlot) {
             return res.status(400).json({ error: 'Selected time slot is no longer available.' });
@@ -98,7 +130,7 @@ router.post('/book', protect, async (req, res) => {
 
         // Generated OTP logic removed
 
-        const booking = await prisma.serviceBooking.create({
+        const booking = await withDbRetry(() => prisma.serviceBooking.create({
             data: {
                 userId: req.user.id,
                 serviceType,
@@ -115,11 +147,11 @@ router.post('/book', protect, async (req, res) => {
                 pincode,
                 landmark: landmark || null
             }
-        });
+        }));
 
 
         // Send booking confirmation with OTP
-        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        const user = await withDbRetry(() => prisma.user.findUnique({ where: { id: req.user.id } }));
         if (user) {
             try {
                 if (user.email) {
@@ -148,6 +180,9 @@ router.post('/book', protect, async (req, res) => {
         });
     } catch (error) {
         console.error('Book service error:', error);
+        if (isDbUnavailableError(error)) {
+            return res.status(503).json({ error: DB_UNAVAILABLE_MESSAGE });
+        }
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -162,6 +197,9 @@ router.get('/my-bookings', protect, async (req, res) => {
         res.json(bookings);
     } catch (error) {
         console.error('Get my bookings error:', error);
+        if (isDbUnavailableError(error)) {
+            return res.status(503).json({ error: DB_UNAVAILABLE_MESSAGE });
+        }
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -176,6 +214,9 @@ router.get('/', protect, adminOnly, async (req, res) => {
         res.json(bookings);
     } catch (error) {
         console.error('Get all bookings error:', error);
+        if (isDbUnavailableError(error)) {
+            return res.status(503).json({ error: DB_UNAVAILABLE_MESSAGE });
+        }
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -316,6 +357,9 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
         res.json(booking);
     } catch (error) {
         console.error('Update booking error:', error);
+        if (isDbUnavailableError(error)) {
+            return res.status(503).json({ error: DB_UNAVAILABLE_MESSAGE });
+        }
         res.status(500).json({ error: 'Server error' });
     }
 });

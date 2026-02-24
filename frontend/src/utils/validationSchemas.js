@@ -89,6 +89,7 @@ export const serviceBookingSchema = Yup.object({
         .matches(/^[0-9]{6}$/, 'Enter a valid 6-digit pincode')
         .required('Pincode is required'),
     date: Yup.string().required('Preferred date is required'),
+    timeSlot: Yup.string().required('Preferred time slot is required'),
     description: Yup.string().optional(),
     deviceType: Yup.string().optional(),
     deviceBrand: Yup.string().optional(),

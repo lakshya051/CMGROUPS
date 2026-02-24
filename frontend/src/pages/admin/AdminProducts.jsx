@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, Search, Plus, Trash2, Edit, X, Save, Image } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { productsAPI, categoriesAPI } from '../../lib/api';
+import SectionLoader from '../../components/ui/SectionLoader';
 import { useFormik } from 'formik';
 import { addProductSchema } from '../../utils/validationSchemas';
 
@@ -25,7 +26,13 @@ const emptyProductValues = {
 const AdminProducts = () => {
     const [products, setProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalProducts, setTotalProducts] = useState(0);
     const [categoriesList, setCategoriesList] = useState([]);
 
     // Modal state
@@ -103,11 +110,18 @@ const AdminProducts = () => {
                         await productsAPI.addVariant(savedProduct.id, variant);
                     }
                     // Force refresh product list to get updated variants
-                    const updatedList = await productsAPI.getAll();
-                    setProducts(updatedList);
+                    const updatedRes = await productsAPI.getAll({ page, limit: 12, search: debouncedSearch || undefined });
+                    if (updatedRes && updatedRes.data) {
+                        setProducts(updatedRes.data);
+                        setTotalPages(updatedRes.pagination?.totalPages || 1);
+                        setTotalProducts(updatedRes.pagination?.total || updatedRes.data.length);
+                    } else if (Array.isArray(updatedRes)) {
+                        setProducts(updatedRes);
+                        setTotalPages(1);
+                        setTotalProducts(updatedRes.length);
+                    }
                 }
 
-                closeModal();
                 closeModal();
             } catch (err) {
                 setErrors({ submit: err.message || 'Failed to save product.' });
@@ -118,20 +132,56 @@ const AdminProducts = () => {
     });
 
     useEffect(() => {
-        Promise.all([
-            productsAPI.getAll(),
-            categoriesAPI.getAll()
-        ])
-            .then(([productsData, categoriesData]) => {
-                setProducts(productsData);
-                setCategoriesList(categoriesData);
-                setLoading(false);
-            })
-            .catch(err => {
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                // Fetch categories independently
+                categoriesAPI.getAll().then(setCategoriesList).catch(err => console.error('Categories load failed:', err));
+
+                // Fetch Products
+                const params = {
+                    page,
+                    limit: 12
+                };
+                if (debouncedSearch && debouncedSearch.trim()) {
+                    params.search = debouncedSearch.trim();
+                }
+
+                const productsRes = await productsAPI.getAll(params);
+                console.log('Admin Products API Response:', productsRes);
+
+                if (productsRes && productsRes.data) {
+                    setProducts(productsRes.data);
+                    setTotalPages(productsRes.pagination?.totalPages || 1);
+                    setTotalProducts(productsRes.pagination?.total || productsRes.data.length);
+                } else if (Array.isArray(productsRes)) {
+                    setProducts(productsRes);
+                    setTotalPages(1);
+                    setTotalProducts(productsRes.length);
+                } else {
+                    console.warn('Unexpected products API response structure:', productsRes);
+                    setProducts([]);
+                }
+            } catch (err) {
                 console.error('Failed to fetch data:', err);
+                setError('Failed to load products. Please check your connection.');
+            } finally {
                 setLoading(false);
-            });
-    }, []);
+            }
+        };
+
+        fetchData();
+    }, [page, debouncedSearch]);
 
     // Open modal for Adding
     const openAddModal = () => {
@@ -225,12 +275,19 @@ const AdminProducts = () => {
         }
     };
 
-    const filteredProducts = products.filter(product =>
-        product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Server-side filtering implemented above.
+    const displayProducts = products;
 
-    if (loading) return <div className="p-8 text-center text-text-muted">Loading Inventory...</div>;
+    if (loading) return <SectionLoader message="Loading inventory..." />;
+
+    if (error) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 glass-panel">
+                <p className="text-error font-medium mb-4">{error}</p>
+                <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -270,7 +327,7 @@ const AdminProducts = () => {
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-gray-100">
-                            {filteredProducts.map(product => (
+                            {displayProducts.map(product => (
                                 <tr key={product.id} className="hover:bg-gray-50 transition-colors text-text-main">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
@@ -328,7 +385,7 @@ const AdminProducts = () => {
                                     </td>
                                 </tr>
                             ))}
-                            {filteredProducts.length === 0 && (
+                            {displayProducts.length === 0 && (
                                 <tr>
                                     <td colSpan="5" className="p-8 text-center text-text-muted">
                                         No products found.
@@ -339,6 +396,29 @@ const AdminProducts = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 bg-surface p-4 rounded-xl border border-gray-100">
+                    <button
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 hover:bg-gray-50'}`}
+                        disabled={page === 1 || loading}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                    >
+                        Previous
+                    </button>
+                    <span className="text-sm font-bold text-text-main">
+                        Page {page} of {totalPages} ({totalProducts} total)
+                    </span>
+                    <button
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary/90'}`}
+                        disabled={page === totalPages || loading}
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
 
             {/* Add/Edit Product Modal */}
             {showModal && (

@@ -37,6 +37,10 @@ export default defineConfig(({ mode }) => ({
                     'vendor-framer': ['framer-motion'],
                     // Icon library
                     'vendor-lucide': ['lucide-react'],
+                    // Forms & Validation
+                    'vendor-forms': ['formik', 'yup'],
+                    // UI Utils
+                    'vendor-utils': ['clsx', 'tailwind-merge', 'react-hot-toast'],
                 },
             },
         },

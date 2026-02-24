@@ -1,16 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { X, ArrowRight } from 'lucide-react';
 import Button from '../ui/Button';
+import { productsAPI } from '../../lib/api';
 
 const CompareWidget = () => {
-    const { compareList, removeFromCompare, clearCompare, getProduct } = useShop();
+    const { compareList, removeFromCompare, clearCompare } = useShop();
+    const [products, setProducts] = useState([]);
     const navigate = useNavigate();
 
-    if (compareList.length === 0) return null;
+    useEffect(() => {
+        if (compareList.length === 0) {
+            setProducts([]);
+            return;
+        }
+        Promise.all(compareList.map(id => productsAPI.getById(id).catch(() => null)))
+            .then(results => setProducts(results.filter(Boolean)));
+    }, [compareList]);
 
-    const products = compareList.map(id => getProduct(id)).filter(Boolean);
+    if (compareList.length === 0) return null;
 
     return (
         <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">

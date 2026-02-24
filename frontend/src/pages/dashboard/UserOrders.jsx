@@ -21,7 +21,7 @@ const UserOrders = () => {
     const handleReorder = (order) => {
         order.items.forEach(item => {
             if (item.product) {
-                addToCart(item.product.id, item.quantity);
+                addToCart(item.product, item.quantity);
             }
         });
         toast.success('Items added to cart!');
@@ -193,7 +193,13 @@ const UserOrders = () => {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-200">
                                 <div className="flex items-center gap-4">
                                     <span className="text-text-muted text-sm">
-                                        {order.paymentMethod === 'pay_at_store' ? '🏪 Pay at Store' : '🚚 Cash on Delivery'}
+                                        {order.paymentMethod === 'pay_at_store'
+                                            ? 'Pay at Store'
+                                            : order.paymentMethod === 'cod'
+                                                ? 'Cash on Delivery'
+                                                : order.paymentMethod === 'wallet'
+                                                    ? 'Wallet'
+                                                    : order.paymentMethod}
                                     </span>
                                     <span className="font-bold text-lg">₹{order.total.toLocaleString()}</span>
                                 </div>
@@ -253,13 +259,13 @@ const UserOrders = () => {
                                     </button>
 
                                     {/* Existing OTP Button */}
-                                    {!order.isPaid && order.paymentMethod === 'pay_at_store' && order.status !== 'Cancelled' && (
+                                    {!order.isPaid && (order.paymentMethod === 'pay_at_store' || order.paymentMethod === 'cod') && order.status !== 'Cancelled' && order.paymentOtp && (
                                         <button
                                             onClick={() => setSelectedOtp(order.paymentOtp)}
                                             className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors text-sm"
                                         >
                                             <Shield size={14} />
-                                            View Pickup OTP
+                                            View Payment OTP
                                         </button>
                                     )}
                                 </div>
@@ -336,8 +342,8 @@ const UserOrders = () => {
                             </div>
 
                             <div>
-                                <h3 className="text-xl font-heading font-bold mb-1">Pickup OTP</h3>
-                                <p className="text-text-muted text-sm">Share this code with the delivery agent</p>
+                                <h3 className="text-xl font-heading font-bold mb-1">Payment OTP</h3>
+                                <p className="text-text-muted text-sm">Share this code with store staff or delivery agent</p>
                             </div>
 
                             <div
@@ -365,3 +371,4 @@ const UserOrders = () => {
 };
 
 export default UserOrders;
+

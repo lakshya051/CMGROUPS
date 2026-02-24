@@ -32,7 +32,7 @@ const ProductCard = ({ product }) => {
         if (hasMultipleVariants) {
             navigate(`/products/${product.id}`);
         } else {
-            addToCart(product.id); // Base standard variant handling logic handles single item fallback
+            addToCart(product); // Pass full product object
         }
     };
 

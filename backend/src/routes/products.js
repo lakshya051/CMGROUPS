@@ -9,14 +9,17 @@ const router = express.Router();
 // Supports:
 //   ?category=GPU  ?search=rtx  ?sort=price_asc  ?minPrice=  ?maxPrice=
 //   ?isSecondHand=true
-//   ?page=1  ?limit=20   (omit for full list — backward compat)
 router.get('/', async (req, res) => {
+    cache.flush(); // FORCE FLUSH for schema consistency
     try {
         const { category, search, sort, minPrice, maxPrice, isSecondHand, page, limit } = req.query;
 
         // Build where clause
         let where = {};
-        if (category) where.category = category;
+        if (category) {
+            const categories = category.split(',').map(c => c.trim()).filter(Boolean);
+            if (categories.length > 0) where.category = { in: categories };
+        }
         if (isSecondHand !== undefined) where.isSecondHand = isSecondHand === 'true';
         if (search) where.title = { contains: search, mode: 'insensitive' };
         if (minPrice || maxPrice) {
@@ -33,40 +36,38 @@ router.get('/', async (req, res) => {
         else orderBy = { id: 'desc' };
 
         // ── Cache key ──────────────────────────────────────────────────────────
-        // Include all query params so different filter combos get their own slot
-        const cacheKey = `products:${JSON.stringify(req.query)}`;
+        // Ensure pagination values are in cache key even if not provided by client
+        const cachePage = parseInt(page) || 1;
+        const cacheLimit = parseInt(limit) || 20;
+        const cacheKeyData = { ...req.query, page: cachePage, limit: cacheLimit };
+        const cacheKey = `products:${JSON.stringify(cacheKeyData)}`;
+
         const cached = cache.get(cacheKey);
         if (cached) {
             return res.json(cached);
         }
 
         // ── Pagination ─────────────────────────────────────────────────────────
-        const usePagination = page !== undefined || limit !== undefined;
-        const take = usePagination ? parseInt(limit) || 20 : undefined;
-        const skip = usePagination ? ((parseInt(page) || 1) - 1) * take : undefined;
+        const take = cacheLimit;
+        const skip = (cachePage - 1) * take;
 
-        if (usePagination) {
-            const [products, total] = await Promise.all([
-                prisma.product.findMany({ where, orderBy, take, skip, include: { variants: true } }),
-                prisma.product.count({ where }),
-            ]);
+        const [products, total] = await Promise.all([
+            prisma.product.findMany({ where, orderBy, take, skip, include: { variants: true } }),
+            prisma.product.count({ where }),
+        ]);
 
-            const result = {
-                data: products,
+        const result = {
+            data: products,
+            pagination: {
                 total,
-                page: parseInt(page) || 1,
+                page: cachePage,
                 limit: take,
-                totalPages: Math.ceil(total / take),
-            };
+                totalPages: Math.ceil(total / take)
+            }
+        };
 
-            cache.set(cacheKey, result);
-            return res.json(result);
-        }
-
-        // ── No pagination — return full list (backward compat for ShopContext) ─
-        const products = await prisma.product.findMany({ where, orderBy, include: { variants: true } });
-        cache.set(cacheKey, products);
-        res.json(products);
+        cache.set(cacheKey, result);
+        res.json(result);
 
     } catch (error) {
         console.error('Get products error:', error);

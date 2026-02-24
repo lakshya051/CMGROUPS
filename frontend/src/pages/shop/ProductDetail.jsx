@@ -2,22 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
-import { alertsAPI } from '../../lib/api';
+import { alertsAPI, productsAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight } from 'lucide-react';
 import ReviewSection from '../../components/shop/ReviewSection';
 
 const ProductDetail = () => {
     const { id } = useParams();
-    const { getProduct, addToCart, toggleWishlist, wishlist, addToCompare } = useShop();
+    const { addToCart, toggleWishlist, wishlist, addToCompare } = useShop();
     const { user } = useAuth();
-    const product = getProduct(id);
+
+    const [product, setProduct] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [isStockAlertSet, setIsStockAlertSet] = useState(false);
     const [isPriceAlertSet, setIsPriceAlertSet] = useState(false);
     const [shake, setShake] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+
+    useEffect(() => {
+        productsAPI.getById(id)
+            .then(setProduct)
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [id]);
 
     useEffect(() => {
         if (user && product) {
@@ -42,6 +51,8 @@ const ProductDetail = () => {
             alert('Failed to update alert');
         }
     };
+
+    if (loading) return <div className="container mx-auto py-20 text-center">Loading product...</div>;
 
     if (!product) {
         return <div className="container mx-auto py-20 text-center">Product not found</div>;

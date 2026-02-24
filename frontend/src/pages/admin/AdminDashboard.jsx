@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { DollarSign, ShoppingBag, Users, Activity, Package, Wrench, ArrowUpRight } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
+import SectionLoader from '../../components/ui/SectionLoader';
 
 const AdminStatCard = ({ title, value, icon, subtext, color = "text-primary" }) => (
     <div className="glass-panel p-6 hover:border-primary/20 transition-colors">
@@ -60,7 +61,7 @@ const AdminDashboard = () => {
     }, []);
 
     if (loading) {
-        return <div className="p-8 text-center text-text-muted">Loading dashboard analytics...</div>;
+        return <SectionLoader message="Loading dashboard analytics..." />;
     }
 
     return (

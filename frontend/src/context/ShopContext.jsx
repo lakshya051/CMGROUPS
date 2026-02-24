@@ -8,8 +8,6 @@ export const useShop = () => useContext(ShopContext);
 
 export const ShopProvider = ({ children }) => {
     const { user } = useAuth();
-    const [products, setProducts] = useState([]);
-    const [productsLoading, setProductsLoading] = useState(true);
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState(() => {
         try {
@@ -30,18 +28,8 @@ export const ShopProvider = ({ children }) => {
         }
     });
 
-    // Fetch products from backend
-    useEffect(() => {
-        productsAPI.getAll()
-            .then(data => {
-                setProducts(data);
-                setProductsLoading(false);
-            })
-            .catch(err => {
-                console.error('Failed to fetch products:', err);
-                setProductsLoading(false);
-            });
-    }, []);
+    // Removed global products fetch to improve performance.
+    // Components must fetch their own products via productsAPI
 
     // Fetch wishlist from backend if logged in
     useEffect(() => {
@@ -66,19 +54,27 @@ export const ShopProvider = ({ children }) => {
         localStorage.setItem('compareList', JSON.stringify(compareList));
     }, [compareList]);
 
-    const getProduct = (id) => products.find(p => p.id === parseInt(id) || p.id === id);
-
     const addToCart = (productObj, quantity = 1, variant = null) => {
         setCart(prev => {
-            // we expect productObj to be the full product now if variant is provided, 
-            // since we can't just fetch from local 'products' list easily if it's dynamic
-            const numId = typeof productObj === 'object' ? productObj.id : (typeof productObj === 'string' ? parseInt(productObj) : productObj);
-            const baseProduct = typeof productObj === 'object' ? productObj : getProduct(numId);
+            const isIdOnly = typeof productObj === 'string' || typeof productObj === 'number';
 
+            if (isIdOnly) {
+                const searchId = String(productObj);
+                const existing = prev.find(item => item.uniqueId === searchId || String(item.id) === searchId);
+                if (existing) {
+                    return prev.map(item =>
+                        (item.uniqueId === searchId || String(item.id) === searchId) ? { ...item, quantity: item.quantity + quantity } : item
+                    );
+                }
+                console.error("Product not in cart and full object not provided to addToCart");
+                return prev;
+            }
+
+            const baseProduct = productObj;
             if (!baseProduct) return prev;
 
             const variantId = variant ? variant.id : null;
-            const uniqueId = variantId ? `${numId}-${variantId}` : `${numId}`;
+            const uniqueId = variantId ? `${baseProduct.id}-${variantId}` : `${baseProduct.id}`;
 
             const existing = prev.find(item => item.uniqueId === uniqueId);
             if (existing) {
@@ -180,9 +176,6 @@ export const ShopProvider = ({ children }) => {
 
     return (
         <ShopContext.Provider value={{
-            products,
-            productsLoading,
-            getProduct,
             cart,
             addToCart,
             removeFromCart,

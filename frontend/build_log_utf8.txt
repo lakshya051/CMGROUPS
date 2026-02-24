@@ -1,0 +1,127 @@
+﻿
+> frontend@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 58 modules transformed.
+node.exe : 
+[31mΓ£ù[39m Build 
+failed in 21.81s
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: ([31mΓ£ù[39m   
+  Build failed in 2    
+1.81s:String) [],     
+RemoteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+[31merror during 
+build:
+[31m[vite:esbuild] 
+Transform failed with 
+2 errors:
+D:/website/frontend/src
+/pages/admin/AdminUsers
+.jsx:317:34: ERROR: 
+Unexpected closing 
+"tbody" tag does not 
+match opening 
+"React.Fragment" tag
+D:/website/frontend/src
+/pages/admin/AdminUsers
+.jsx:318:28: ERROR: 
+Unterminated regular 
+expression[31m
+file: [36mD:/website/f
+rontend/src/pages/admin
+/AdminUsers.jsx:317:34
+[31m
+[33m
+[33mUnexpected 
+closing "tbody" tag 
+does not match opening 
+"React.Fragment" 
+tag[33m
+315 |                  
+                       
+ </tr>
+316 |                  
+                    )}
+317 |                  
+                
+</tbody>
+    |                  
+                  ^
+318 |                  
+    </table>
+319 |                  
+</div>
+
+[33mUnterminated 
+regular expression[33m
+316 |                  
+                    )}
+317 |                  
+                
+</tbody>
+318 |                  
+    </table>
+    |                  
+            ^
+319 |                  
+</div>
+320 |              
+</div>
+[31m
+    at 
+failureErrorWithLog (D:
+\website\frontend\node_
+modules\esbuild\lib\mai
+n.js:1467:15)
+    at D:\website\front
+end\node_modules\esbuil
+d\lib\main.js:736:50
+    at responseCallback
+s.<computed> (D:\websit
+e\frontend\node_modules
+\esbuild\lib\main.js:60
+3:9)
+    at 
+handleIncomingPacket (D
+:\website\frontend\node
+_modules\esbuild\lib\ma
+in.js:658:12)
+    at 
+Socket.readFromStdout (
+D:\website\frontend\nod
+e_modules\esbuild\lib\m
+ain.js:581:7)
+    at Socket.emit 
+(node:events:508:28)
+    at addChunk (node:i
+nternal/streams/readabl
+e:559:12)
+    at readableAddChunk
+PushByteMode (node:inte
+rnal/streams/readable:5
+10:3)
+    at Readable.push (n
+ode:internal/streams/re
+adable:390:5)
+    at 
+Pipe.onStreamRead (node
+:internal/stream_base_c
+ommons:189:23)[39m

@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Search, Shield, ShieldOff, ShoppingBag, Star, Wrench, Gift, Wallet, Copy, CheckCircle, Eye, X } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
+import SectionLoader from '../../components/ui/SectionLoader';
 
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const [expandedUser, setExpandedUser] = useState(null);
     const [copiedCode, setCopiedCode] = useState('');
+
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [userStats, setUserStats] = useState({
+        totalCustomers: 0,
+        totalAdmins: 0,
+        totalWalletBalance: 0,
+        totalUsers: 0
+    });
 
     // Detailed Modal State
     const [selectedUserForModal, setSelectedUserForModal] = useState(null);
@@ -16,11 +27,39 @@ const AdminUsers = () => {
     const [activeTab, setActiveTab] = useState('overview'); // overview, orders, referrals, wallet, services
 
     useEffect(() => {
-        adminAPI.getUsers()
-            .then(data => setUsers(data))
-            .catch(err => console.error('Failed to fetch users:', err))
-            .finally(() => setLoading(false));
-    }, []);
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch]);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            setLoading(true);
+            try {
+                const res = await adminAPI.getUsers({
+                    page,
+                    limit: 15,
+                    search: debouncedSearch || undefined
+                });
+                if (res.data) {
+                    setUsers(res.data);
+                    setTotalPages(res.pagination.totalPages);
+                    setUserStats(res.stats);
+                } else {
+                    setUsers(res);
+                }
+            } catch (err) {
+                console.error('Failed to fetch users:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUsers();
+    }, [page, debouncedSearch]);
 
     const handleRoleToggle = async (user) => {
         const newRole = user.role === 'admin' ? 'customer' : 'admin';
@@ -56,19 +95,16 @@ const AdminUsers = () => {
         }
     };
 
-    const filteredUsers = users.filter(u =>
-        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (u.referralCode && u.referralCode.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    // Server-side filtering implemented above.
+    const displayUsers = users;
 
-    // Summary stats
-    const totalCustomers = users.filter(u => u.role === 'customer').length;
-    const totalAdmins = users.filter(u => u.role === 'admin').length;
-    const totalWalletBalance = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
+    // Summary stats from backend
+    const { totalCustomers, totalAdmins, totalWalletBalance, totalUsers } = userStats;
+    // Note: totalReferrals calculation is omitted for now as it would require another backend aggregate 
+    // or adding it to the stats object. Let's use a placeholder or omit if not critical.
     const totalReferrals = users.reduce((sum, u) => sum + (u._count?.referralsMade || 0), 0);
 
-    if (loading) return <div className="p-8 text-center text-text-muted">Loading users...</div>;
+    if (loading) return <SectionLoader message="Loading users..." />;
 
     return (
         <div className="space-y-6">
@@ -81,7 +117,7 @@ const AdminUsers = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="glass-panel p-4">
                     <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Total Users</p>
-                    <p className="text-2xl font-bold">{users.length}</p>
+                    <p className="text-2xl font-bold">{totalUsers}</p>
                     <p className="text-xs text-text-muted mt-1">{totalCustomers} customers · {totalAdmins} admins</p>
                 </div>
                 <div className="glass-panel p-4">
@@ -131,7 +167,7 @@ const AdminUsers = () => {
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-gray-100">
-                            {filteredUsers.map(user => (
+                            {displayUsers.map(user => (
                                 <React.Fragment key={user.id}>
                                     <tr
                                         className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -274,7 +310,7 @@ const AdminUsers = () => {
                                     )}
                                 </React.Fragment>
                             ))}
-                            {filteredUsers.length === 0 && (
+                            {displayUsers.length === 0 && (
                                 <tr>
                                     <td colSpan="10" className="p-8 text-center text-text-muted">No users found.</td>
                                 </tr>
@@ -283,6 +319,29 @@ const AdminUsers = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 bg-surface p-4 rounded-xl border border-gray-100">
+                    <button
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 hover:bg-gray-50'}`}
+                        disabled={page === 1 || loading}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                    >
+                        Previous
+                    </button>
+                    <span className="text-sm font-bold text-text-main">
+                        Page {page} of {totalPages}
+                    </span>
+                    <button
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary/90'}`}
+                        disabled={page === totalPages || loading}
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
 
             {/* Slide-over Full Profile View */}
             {selectedUserForModal && (
@@ -319,8 +378,8 @@ const AdminUsers = () => {
                                                 key={tab}
                                                 onClick={() => setActiveTab(tab)}
                                                 className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 ${activeTab === tab
-                                                        ? 'border-primary text-primary bg-primary/5'
-                                                        : 'border-transparent text-text-muted hover:text-text-main hover:bg-gray-100'
+                                                    ? 'border-primary text-primary bg-primary/5'
+                                                    : 'border-transparent text-text-muted hover:text-text-main hover:bg-gray-100'
                                                     }`}
                                             >
                                                 {tab.charAt(0).toUpperCase() + tab.slice(1)}

@@ -8,12 +8,45 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-async function sendOrderConfirmationEmail(email, orderId, total) {
+async function sendOrderConfirmationEmail(email, orderId, total, options = {}) {
+    const { paymentOtp = null, paymentMethod = null, isPaid = false } = options;
+    const shouldShowOtp = Boolean(paymentOtp) && !isPaid;
+    const paymentModeLabel = paymentMethod === 'pay_at_store'
+        ? 'Pay at Store'
+        : paymentMethod === 'cod'
+            ? 'Cash on Delivery'
+            : paymentMethod === 'wallet'
+                ? 'Wallet'
+                : (paymentMethod || 'Order Payment');
+
+    const otpTitle = paymentMethod === 'pay_at_store'
+        ? 'Store Payment OTP'
+        : 'Delivery Payment OTP';
+
+    const otpHint = paymentMethod === 'pay_at_store'
+        ? 'Show this OTP at the store while making payment.'
+        : 'Share this OTP with the delivery agent while making payment.';
+
+    const otpBlock = shouldShowOtp
+        ? `
+                <div style="background-color: #FEF3C7; color: #92400E; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                    <p style="margin: 0 0 8px 0; font-weight: 700;">${otpTitle}</p>
+                    <p style="margin: 0 0 10px 0;">Use this OTP to verify payment for your order.</p>
+                    <div style="font-size: 28px; letter-spacing: 6px; font-weight: 700; text-align: center; margin: 12px 0;">${paymentOtp}</div>
+                    <p style="margin: 0;">${otpHint}</p>
+                </div>
+            `
+        : '';
+
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.log('\n[LOCAL DEV MOCK: Order Confirmation Email]');
         console.log(`To: ${email}`);
         console.log(`Subject: Order Confirmed - TechNova #${orderId}`);
         console.log(`Total: Rs.${total}`);
+        if (shouldShowOtp) {
+            console.log(`Payment Method: ${paymentModeLabel}`);
+            console.log(`Payment OTP: ${paymentOtp}`);
+        }
         console.log('----------------------------------------\n');
         return true; // Pretend it sent
     }
@@ -28,6 +61,8 @@ async function sendOrderConfirmationEmail(email, orderId, total) {
                 <p style="color: #555; line-height: 1.6;">Hello,</p>
                 <p style="color: #555; line-height: 1.6;">Thank you for shopping with TechNova!</p>
                 <p style="color: #555; line-height: 1.6;">Your order <strong>#${orderId}</strong> for <strong>Rs.${total}</strong> has been confirmed.</p>
+                <p style="color: #555; line-height: 1.6;">Payment mode: <strong>${paymentModeLabel}</strong></p>
+                ${otpBlock}
                 <div style="background-color: #E0E7FF; color: #3730A3; padding: 15px; border-radius: 6px; margin: 20px 0;">
                     We are currently processing your order and will notify you once it's shipped or ready for pickup.
                 </div>

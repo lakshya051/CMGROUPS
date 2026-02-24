@@ -4,24 +4,91 @@ const { protect, adminOnly } = require('../middleware/auth');
 
 const router = express.Router();
 
+const DEFAULT_SERVICE_SETTINGS = {
+    timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
+    maxBookingsPerSlot: 2
+};
+
+const getDefaultServiceSettings = () => ({
+    timeSlots: [...DEFAULT_SERVICE_SETTINGS.timeSlots],
+    maxBookingsPerSlot: DEFAULT_SERVICE_SETTINGS.maxBookingsPerSlot
+});
+
+const hasServiceSettingsModel = () =>
+    prisma.serviceSettings && typeof prisma.serviceSettings.findFirst === 'function';
+
+const buildServiceSettingsPayload = (timeSlots, maxBookingsPerSlot, currentSettings = getDefaultServiceSettings()) => {
+    const parsedMax = Number.parseInt(maxBookingsPerSlot, 10);
+
+    return {
+        timeSlots: Array.isArray(timeSlots) && timeSlots.length > 0 ? timeSlots : currentSettings.timeSlots,
+        maxBookingsPerSlot: Number.isFinite(parsedMax) ? parsedMax : currentSettings.maxBookingsPerSlot
+    };
+};
+
 // GET /api/admin/users (Admin - list all users)
 router.get('/users', protect, adminOnly, async (req, res) => {
     try {
-        const users = await prisma.user.findMany({
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                role: true,
-                referralCode: true,
-                walletBalance: true,
-                createdAt: true,
-                _count: { select: { orders: true, reviews: true, bookings: true, referralsMade: true } }
+        const { page = 1, limit = 20, search } = req.query;
+        const take = parseInt(limit);
+        const skip = (parseInt(page) - 1) * take;
+
+        const where = {};
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { referralCode: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        const [users, total, stats] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                take,
+                skip,
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    role: true,
+                    referralCode: true,
+                    walletBalance: true,
+                    createdAt: true,
+                    _count: { select: { orders: true, reviews: true, bookings: true, referralsMade: true } }
+                },
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.user.count({ where }),
+            prisma.user.aggregate({
+                _sum: { walletBalance: true },
+                _count: { id: true }
+            })
+        ]);
+
+        // Separate counts for roles because where clause might filter them out in the main query
+        // But the UI shows global stats. Let's provide global role counts.
+        const [totalCustomers, totalAdmins] = await Promise.all([
+            prisma.user.count({ where: { role: 'customer' } }),
+            prisma.user.count({ where: { role: 'admin' } })
+        ]);
+
+        res.json({
+            data: users,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: take,
+                totalPages: Math.ceil(total / take)
             },
-            orderBy: { createdAt: 'desc' }
+            stats: {
+                totalCustomers,
+                totalAdmins,
+                totalWalletBalance: stats._sum.walletBalance || 0,
+                totalUsers: stats._count.id
+            }
         });
-        res.json(users);
     } catch (error) {
         console.error('Get users error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -99,28 +166,41 @@ router.patch('/users/:id/role', protect, adminOnly, async (req, res) => {
 // GET /api/admin/stats (Admin - dashboard stats)
 router.get('/stats', protect, adminOnly, async (req, res) => {
     try {
-        const [totalUsers, totalOrders, totalProducts, pendingBookings, orders, totalReferrals, rewardedReferrals] = await Promise.all([
+        const [totalUsers, totalOrders, totalProducts, pendingBookings, totalReferrals, rewardedReferrals, revenueResult, paidOrdersCount] = await Promise.all([
             prisma.user.count(),
             prisma.order.count(),
             prisma.product.count(),
             prisma.serviceBooking.count({ where: { status: 'Pending' } }),
-            prisma.order.findMany({ select: { total: true, isPaid: true, createdAt: true } }),
             prisma.referral.count(),
-            prisma.referral.count({ where: { status: 'rewarded' } })
+            prisma.referral.count({ where: { status: 'rewarded' } }),
+            prisma.order.aggregate({
+                _sum: { total: true },
+                where: { isPaid: true }
+            }),
+            prisma.order.count({ where: { isPaid: true } })
         ]);
 
-        const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-        const paidOrders = orders.filter(o => o.isPaid).length;
+        const totalRevenue = revenueResult._sum.total || 0;
+        const paidOrders = paidOrdersCount;
 
         // Revenue Chart Data (Last 7 Days)
         const revenueChart = [];
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        const recentOrdersForChart = await prisma.order.findMany({
+            where: { isPaid: true, createdAt: { gte: sevenDaysAgo } },
+            select: { total: true, createdAt: true }
+        });
+
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
             const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
             const dayDate = d.toISOString().split('T')[0];
 
-            const dayRevenue = orders
+            const dayRevenue = recentOrdersForChart
                 .filter(o => o.createdAt.toISOString().startsWith(dayDate))
                 .reduce((sum, o) => sum + o.total, 0);
 
@@ -271,13 +351,14 @@ router.put('/referral-settings', protect, adminOnly, async (req, res) => {
 // GET /api/admin/service-settings
 router.get('/service-settings', protect, adminOnly, async (req, res) => {
     try {
+        if (!hasServiceSettingsModel()) {
+            return res.json(getDefaultServiceSettings());
+        }
+
         let settings = await prisma.serviceSettings.findFirst();
         if (!settings) {
             settings = await prisma.serviceSettings.create({
-                data: {
-                    timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
-                    maxBookingsPerSlot: 2
-                }
+                data: getDefaultServiceSettings()
             });
         }
         res.json(settings);
@@ -292,21 +373,21 @@ router.put('/service-settings', protect, adminOnly, async (req, res) => {
     try {
         const { timeSlots, maxBookingsPerSlot } = req.body;
 
+        if (!hasServiceSettingsModel()) {
+            return res.json(buildServiceSettingsPayload(timeSlots, maxBookingsPerSlot));
+        }
+
         let settings = await prisma.serviceSettings.findFirst();
         if (settings) {
+            const data = buildServiceSettingsPayload(timeSlots, maxBookingsPerSlot, settings);
             settings = await prisma.serviceSettings.update({
                 where: { id: settings.id },
-                data: {
-                    timeSlots: timeSlots || settings.timeSlots,
-                    maxBookingsPerSlot: maxBookingsPerSlot !== undefined ? parseInt(maxBookingsPerSlot) : settings.maxBookingsPerSlot
-                }
+                data
             });
         } else {
+            const data = buildServiceSettingsPayload(timeSlots, maxBookingsPerSlot);
             settings = await prisma.serviceSettings.create({
-                data: {
-                    timeSlots: timeSlots || ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
-                    maxBookingsPerSlot: maxBookingsPerSlot !== undefined ? parseInt(maxBookingsPerSlot) : 2
-                }
+                data
             });
         }
         res.json(settings);

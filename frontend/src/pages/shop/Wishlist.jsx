@@ -1,14 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useShop } from '../../context/ShopContext';
 import ProductCard from '../../components/shop/ProductCard';
 import { Heart, ShoppingBag } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
+import { productsAPI } from '../../lib/api';
 
 const Wishlist = () => {
-    const { wishlist, products } = useShop();
+    const { wishlist } = useShop();
+    const [wishlistItems, setWishlistItems] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const wishlistItems = products.filter(p => wishlist.includes(p.id));
+    useEffect(() => {
+        if (wishlist.length === 0) {
+            setWishlistItems([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        Promise.all(wishlist.map(id => productsAPI.getById(id).catch(() => null)))
+            .then(results => setWishlistItems(results.filter(Boolean)))
+            .finally(() => setLoading(false));
+    }, [wishlist]);
+
+    if (loading) {
+        return <div className="container mx-auto py-20 text-center">Loading wishlist...</div>;
+    }
 
     return (
         <div className="container mx-auto px-4 py-8">

@@ -9,8 +9,8 @@ const Home = () => {
     const [categories, setCategories] = useState([]);
 
     useEffect(() => {
-        productsAPI.getAll()
-            .then(data => setFeaturedProducts(data.slice(0, 4)))
+        productsAPI.getAll({ limit: 4 })
+            .then(res => setFeaturedProducts(res.data))
             .catch(err => console.error('Failed to fetch products:', err));
 
         categoriesAPI.getAll()

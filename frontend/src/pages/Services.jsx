@@ -26,11 +26,14 @@ const Services = () => {
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [slotsLoading, setSlotsLoading] = useState(false);
 
     const [pageLoading, setPageLoading] = useState(true);
 
     const deviceTypes = ['Laptop', 'Desktop', 'Printer', 'Monitor', 'Other'];
     const deviceBrands = ['HP', 'Dell', 'Lenovo', 'Asus', 'Acer', 'Apple', 'Samsung', 'MSI', 'Other'];
+    const fallbackTimeSlots = ['10:00 AM - 12:00 PM', '12:00 PM - 02:00 PM', '02:00 PM - 04:00 PM', '04:00 PM - 06:00 PM'];
 
     useEffect(() => {
         serviceTypesAPI.getAll()
@@ -56,6 +59,7 @@ const Services = () => {
             pincode: '',
             landmark: '',
             date: '',
+            timeSlot: '',
             description: '',
         },
         validationSchema: serviceBookingSchema,
@@ -77,6 +81,38 @@ const Services = () => {
         },
     });
 
+    useEffect(() => {
+        if (!selectedService || !formik.values.date) {
+            setAvailableSlots([]);
+            return;
+        }
+
+        let mounted = true;
+        setSlotsLoading(true);
+
+        servicesAPI.getAvailableSlots(formik.values.date)
+            .then((slots) => {
+                if (!mounted) return;
+                if (Array.isArray(slots) && slots.length > 0) {
+                    setAvailableSlots(slots);
+                    return;
+                }
+
+                setAvailableSlots(fallbackTimeSlots.map((time) => ({ time, available: true })));
+            })
+            .catch(() => {
+                if (!mounted) return;
+                setAvailableSlots(fallbackTimeSlots.map((time) => ({ time, available: true })));
+            })
+            .finally(() => {
+                if (mounted) setSlotsLoading(false);
+            });
+
+        return () => {
+            mounted = false;
+        };
+    }, [selectedService, formik.values.date]);
+
     const openBooking = (service) => {
         formik.resetForm({
             values: {
@@ -89,6 +125,7 @@ const Services = () => {
                 pincode: '',
                 landmark: '',
                 date: '',
+                timeSlot: '',
                 description: '',
             }
         });
@@ -232,9 +269,45 @@ const Services = () => {
                                         <label className="block text-sm font-medium mb-1">Preferred Date *</label>
                                         <div className="relative">
                                             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                            <input name="date" type="date" className={`input-field pl-10 ${formik.touched.date && formik.errors.date ? 'border-red-500' : ''}`} value={formik.values.date} onChange={formik.handleChange} onBlur={formik.handleBlur} />
+                                            <input
+                                                name="date"
+                                                type="date"
+                                                className={`input-field pl-10 ${formik.touched.date && formik.errors.date ? 'border-red-500' : ''}`}
+                                                value={formik.values.date}
+                                                onChange={(e) => {
+                                                    formik.handleChange(e);
+                                                    formik.setFieldValue('timeSlot', '');
+                                                }}
+                                                onBlur={formik.handleBlur}
+                                            />
                                         </div>
                                         <ErrMsg name="date" />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Preferred Time Slot *</label>
+                                        <select
+                                            name="timeSlot"
+                                            className={`input-field ${formik.touched.timeSlot && formik.errors.timeSlot ? 'border-red-500' : ''}`}
+                                            value={formik.values.timeSlot}
+                                            onChange={formik.handleChange}
+                                            onBlur={formik.handleBlur}
+                                            disabled={!formik.values.date || slotsLoading}
+                                        >
+                                            <option value="">
+                                                {!formik.values.date
+                                                    ? 'Select date first'
+                                                    : slotsLoading
+                                                        ? 'Loading time slots...'
+                                                        : 'Select a time slot'}
+                                            </option>
+                                            {availableSlots.map((slot) => (
+                                                <option key={slot.time} value={slot.time} disabled={!slot.available}>
+                                                    {slot.time}{slot.available ? '' : ' (Full)'}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ErrMsg name="timeSlot" />
                                     </div>
 
                                     <div>

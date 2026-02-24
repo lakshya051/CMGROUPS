@@ -1,14 +1,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useShop } from '../../context/ShopContext';
 import ProductCard from '../../components/shop/ProductCard';
 import { Filter, Search } from 'lucide-react';
-import { categoriesAPI } from '../../lib/api';
+import { categoriesAPI, productsAPI } from '../../lib/api';
+import SectionLoader from '../../components/ui/SectionLoader';
 
 const Products = () => {
     const location = useLocation();
-    const { products } = useShop();
+    const [products, setProducts] = useState([]);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [priceRange, setPriceRange] = useState({ min: 0, max: 500000 });
     const [conditionFilter, setConditionFilter] = useState('All');
@@ -28,12 +35,61 @@ const Products = () => {
         }
     }, [location.search]);
 
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Reset page to 1 on filter change
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearchTerm, selectedCategories, priceRange, conditionFilter, sortBy]);
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            setLoading(true);
+            try {
+                const params = {
+                    page,
+                    limit: 12
+                };
+
+                if (debouncedSearchTerm) params.search = debouncedSearchTerm;
+                if (selectedCategories.length > 0) params.category = selectedCategories.join(',');
+                if (priceRange.min > 0) params.minPrice = priceRange.min;
+                if (priceRange.max < 500000) params.maxPrice = priceRange.max;
+                if (conditionFilter === 'New') params.isSecondHand = 'false';
+                else if (conditionFilter === 'PreOwned') params.isSecondHand = 'true';
+                if (sortBy) params.sort = sortBy;
+
+                const res = await productsAPI.getAll(params);
+                console.log('Shop products response:', res);
+                if (res && res.data) {
+                    setProducts(res.data);
+                    setTotalProducts(res.pagination?.total || res.data.length);
+                    setTotalPages(res.pagination?.totalPages || 1);
+                } else if (Array.isArray(res)) {
+                    setProducts(res);
+                    setTotalProducts(res.length);
+                    setTotalPages(1);
+                } else {
+                    setProducts([]);
+                }
+            } catch (err) {
+                console.error("Failed to fetch products:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProducts();
+    }, [page, debouncedSearchTerm, selectedCategories, priceRange, conditionFilter, sortBy]);
+
     // Derived Categories
     const categories = useMemo(() => {
-        const dbCatNames = dbCategories.map(c => c.name);
-        const productCats = products.map(p => p.category);
-        return [...new Set([...dbCatNames, ...productCats])].filter(c => c !== 'All').sort();
-    }, [products, dbCategories]);
+        return dbCategories.map(c => c.name).sort();
+    }, [dbCategories]);
 
     // Toggle Category
     const toggleCategory = (category) => {
@@ -44,28 +100,7 @@ const Products = () => {
         );
     };
 
-    // Filter & Sort Logic
-    const filteredProducts = useMemo(() => {
-        return products
-            .filter(p => {
-                const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase());
-                const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(p.category);
-                const matchesPrice = p.price >= priceRange.min && p.price <= priceRange.max;
-                const matchesCondition = conditionFilter === 'All'
-                    ? true
-                    : conditionFilter === 'New' ? !p.isSecondHand : p.isSecondHand;
-                return matchesSearch && matchesCategory && matchesPrice && matchesCondition;
-            })
-            .sort((a, b) => {
-                switch (sortBy) {
-                    case 'price-low': return a.price - b.price;
-                    case 'price-high': return b.price - a.price;
-                    case 'rating': return b.rating - a.rating;
-                    case 'name': return a.title.localeCompare(b.title);
-                    default: return 0; // Newest (assuming default order is newest or random)
-                }
-            });
-    }, [products, searchTerm, selectedCategories, priceRange, sortBy, conditionFilter]);
+    // Filter & Sort Logic removed, backend handles it directly.
 
     return (
         <div className="container mx-auto px-4 py-8">
@@ -207,7 +242,9 @@ const Products = () => {
 
                 {/* Product Grid */}
                 <div className="flex-grow">
-                    {filteredProducts.length === 0 ? (
+                    {loading ? (
+                        <SectionLoader message="Fetching products..." />
+                    ) : products.length === 0 ? (
                         <div className="text-center py-20 bg-surface/50 rounded-xl border border-dashed border-gray-700">
                             <p className="text-text-muted text-lg">No products found for your filters.</p>
                             <button
@@ -223,14 +260,37 @@ const Products = () => {
                         </div>
                     ) : (
                         <div>
-                            <p className="text-sm text-text-muted mb-4">Showing {filteredProducts.length} results</p>
+                            <p className="text-sm text-text-muted mb-4">Showing {products.length} of {totalProducts} results</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filteredProducts.map(product => (
+                                {products.map(product => (
                                     <div key={product.id} className="h-full">
                                         <ProductCard product={product} />
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex justify-center items-center gap-2 mt-12 bg-surface/50 p-4 rounded-xl border border-gray-100">
+                                    <button
+                                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 hover:bg-gray-50'}`}
+                                        disabled={page === 1 || loading}
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="text-sm font-bold px-4 text-text-main">
+                                        Page {page} of {totalPages}
+                                    </span>
+                                    <button
+                                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-primary text-primary-content hover:bg-primary/90'}`}
+                                        disabled={page === totalPages || loading}
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

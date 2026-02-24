@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Search, Eye, CheckCircle, Truck, XCircle, Shield, X } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { ordersAPI } from '../../lib/api';
+import SectionLoader from '../../components/ui/SectionLoader';
 
 const AdminOrders = () => {
     const [orders, setOrders] = useState([]);
@@ -9,15 +10,48 @@ const AdminOrders = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalOrders, setTotalOrders] = useState(0);
+
     // Verification state
     const [verifyingOrderId, setVerifyingOrderId] = useState(null);
+    const [otpInput, setOtpInput] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
 
     useEffect(() => {
-        ordersAPI.getAll()
-            .then(data => setOrders(data))
-            .catch(err => console.error('Failed to fetch orders:', err))
-            .finally(() => setLoading(false));
-    }, []);
+        const fetchOrders = async () => {
+            setLoading(true);
+            try {
+                const params = {
+                    page,
+                    limit: 15,
+                    status: filter !== 'All' ? filter : undefined,
+                    search: searchTerm || undefined
+                };
+                const res = await ordersAPI.getAll(params);
+                // The API returns { data, total, page, limit, totalPages } for paginated requests
+                if (res.data) {
+                    setOrders(res.data);
+                    setTotalPages(res.totalPages);
+                    setTotalOrders(res.total);
+                } else {
+                    setOrders(res);
+                }
+            } catch (err) {
+                console.error('Failed to fetch orders:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchOrders();
+    }, [page, filter, searchTerm]);
+
+    // Reset page on filter change
+    useEffect(() => {
+        setPage(1);
+    }, [filter, searchTerm]);
 
     const handleStatusUpdate = async (orderId, newStatus) => {
         try {
@@ -30,27 +64,32 @@ const AdminOrders = () => {
         }
     };
 
-    const handleVerifyPayment = async (orderId) => {
-        if (!window.confirm(`Are you sure you want to mark Order #${orderId} as PAID?`)) return;
+    const handleVerifyPayment = async () => {
+        if (!otpInput) {
+            alert('Please enter the OTP');
+            return;
+        }
 
+        setIsVerifying(true);
         try {
-            await ordersAPI.verifyPayment(orderId); // The backend no longer requires OTP in the body
+            await ordersAPI.verifyPayment(verifyingOrderId, otpInput);
             setOrders(prev => prev.map(order =>
-                order.id === orderId
+                order.id === verifyingOrderId
                     ? { ...order, isPaid: true, status: order.status === 'Processing' ? 'Confirmed' : order.status }
                     : order
             ));
             alert('Payment verified! Order confirmed.');
+            setVerifyingOrderId(null);
+            setOtpInput('');
         } catch (err) {
             alert(err.message || 'Failed to verify payment');
+        } finally {
+            setIsVerifying(false);
         }
     };
 
-    const filteredOrders = orders.filter(order => {
-        const matchesFilter = filter === 'All' || order.status === filter || (filter === 'Returns' && order.returnStatus === 'Requested');
-        const matchesSearch = String(order.id).includes(searchTerm);
-        return matchesFilter && matchesSearch;
-    });
+    // Filter & Sort Logic removed, backend handles it directly.
+    const displayOrders = orders;
 
     const handleRefund = async (orderId, action) => {
         if (!window.confirm(`Are you sure you want to ${action} this return?`)) return;
@@ -81,7 +120,7 @@ const AdminOrders = () => {
     };
 
     if (loading) {
-        return <div className="text-center py-12 text-text-muted">Loading orders...</div>;
+        return <SectionLoader message="Loading orders..." />;
     }
 
     return (
@@ -137,8 +176,8 @@ const AdminOrders = () => {
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-gray-100">
-                            {filteredOrders.length > 0 ? (
-                                filteredOrders.map(order => (
+                            {displayOrders.length > 0 ? (
+                                displayOrders.map(order => (
                                     <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50/30 transition-colors">
                                         <td className="p-4 font-mono text-sm">#{order.id}</td>
                                         <td className="p-4">
@@ -206,7 +245,7 @@ const AdminOrders = () => {
 
                                                 {!order.isPaid && (order.paymentMethod === 'pay_at_store' || order.paymentMethod === 'cod') && order.status !== 'Cancelled' && (
                                                     <button
-                                                        onClick={() => handleVerifyPayment(order.id)}
+                                                        onClick={() => setVerifyingOrderId(order.id)}
                                                         className="p-2 text-primary hover:bg-primary/10 rounded tooltip"
                                                         title="Mark as Paid"
                                                     >
@@ -229,7 +268,86 @@ const AdminOrders = () => {
                 </div>
             </div>
 
-            {/* OTP Modal Removed */}
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 bg-surface p-4 rounded-xl border border-gray-100">
+                    <button
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 hover:bg-gray-50'}`}
+                        disabled={page === 1 || loading}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                    >
+                        Previous
+                    </button>
+                    <span className="text-sm font-bold text-text-main">
+                        Page {page} of {totalPages} ({totalOrders} total)
+                    </span>
+                    <button
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary/90'}`}
+                        disabled={page === totalPages || loading}
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
+
+            {/* OTP Modal */}
+            {verifyingOrderId && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <div>
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Shield className="text-primary" size={24} />
+                                    Verify Payment
+                                </h2>
+                                <p className="text-xs text-text-muted">Order #{verifyingOrderId}</p>
+                            </div>
+                            <button
+                                onClick={() => { setVerifyingOrderId(null); setOtpInput(''); }}
+                                className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-8">
+                            <label className="block text-sm font-semibold mb-3">Enter 6-Digit Payment OTP</label>
+                            <input
+                                type="text"
+                                maxLength="6"
+                                placeholder="000000"
+                                className="w-full text-center text-3xl tracking-[0.5em] font-mono py-4 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 transition-all outline-none"
+                                value={otpInput}
+                                onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                                autoFocus
+                            />
+                            <p className="text-xs text-text-muted mt-4 text-center">
+                                Ask the customer for the verification code sent to them during checkout.
+                            </p>
+                        </div>
+
+                        <div className="p-6 bg-gray-50 flex gap-3">
+                            <Button
+                                variant="secondary"
+                                className="flex-1"
+                                onClick={() => { setVerifyingOrderId(null); setOtpInput(''); }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="primary"
+                                className="flex-1 px-8 py-3"
+                                onClick={handleVerifyPayment}
+                                isLoading={isVerifying}
+                                disabled={otpInput.length !== 6}
+                            >
+                                Verify & Confirm
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
