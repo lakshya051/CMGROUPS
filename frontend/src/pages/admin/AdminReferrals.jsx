@@ -13,27 +13,10 @@ const AdminReferrals = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    const getCalculatedRewards = (ref) => {
-        if (!ref?.order?.items?.length) {
-            return {
-                referrerReward: ref.rewardAmount || 0,
-                refereeReward: ref.refereeReward || 0
-            };
-        }
-
-        return ref.order.items.reduce((totals, item) => {
-            const referrerPoints = item?.product?.referrerPoints;
-            const refereePoints = item?.product?.refereePoints;
-
-            if (referrerPoints == null || referrerPoints === 0) {
-                return totals;
-            }
-
-            totals.referrerReward += referrerPoints;
-            totals.refereeReward += (refereePoints != null ? refereePoints : Math.round(referrerPoints / 2));
-            return totals;
-        }, { referrerReward: 0, refereeReward: 0 });
-    };
+    const getCalculatedRewards = (ref) => ({
+        referrerReward: ref.rewardAmount || 0,
+        refereeReward: ref.refereeReward || 0
+    });
 
     const totalRewarded = referrals.filter(r => r.status === 'rewarded').length;
     const totalPending = referrals.filter(r => r.status === 'pending').length;
