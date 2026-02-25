@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext';
 import { ShopContext } from './ShopContext';
 
 export const ShopProvider = ({ children }) => {
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState(() => {
         try {
@@ -114,6 +114,10 @@ export const ShopProvider = ({ children }) => {
                 orderData.walletUsed || 0
             );
             clearCart();
+            // Refresh user so wallet balance is up-to-date in the UI
+            if (orderData.useWallet && refreshUser) {
+                await refreshUser();
+            }
             return order;
         } catch (error) {
             throw error;

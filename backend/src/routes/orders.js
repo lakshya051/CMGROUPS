@@ -46,10 +46,13 @@ router.post('/', optionalProtect, async (req, res) => {
         }
 
         const parsedTotal = parseFloat(total);
-        if (!Number.isFinite(parsedTotal) || parsedTotal <= 0) {
+        const parsedWalletUsed = Number(walletUsed) > 0 ? Number(walletUsed) : 0;
+        if (!Number.isFinite(parsedTotal) || parsedTotal < 0) {
             return res.status(400).json({ error: 'Invalid order total' });
         }
-        const parsedWalletUsed = Number(walletUsed) > 0 ? Number(walletUsed) : 0;
+        if (parsedTotal === 0 && parsedWalletUsed === 0) {
+            return res.status(400).json({ error: 'Order must have a non-zero payment amount' });
+        }
 
         const normalizedPaymentMethod = paymentMethod || 'pay_at_store';
 
@@ -155,15 +158,6 @@ router.post('/', optionalProtect, async (req, res) => {
                     where: { id: req.user.id },
                     data: { walletBalance: { decrement: parsedWalletUsed } }
                 });
-
-                await tx.walletTransaction.create({
-                    data: {
-                        userId: req.user.id,
-                        amount: parsedWalletUsed,
-                        type: 'DEBIT',
-                        description: 'Used for order placement'
-                    }
-                });
             }
 
             // 2. Decrement stock once per unique product/variant (race-condition safe)
@@ -202,6 +196,7 @@ router.post('/', optionalProtect, async (req, res) => {
                 data: {
                     userId: req.user ? req.user.id : null,
                     total: parsedTotal,
+                    walletUsed: parsedWalletUsed,
                     status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
                     paymentMethod: normalizedPaymentMethod,
                     paymentOtp,
@@ -246,6 +241,19 @@ router.post('/', optionalProtect, async (req, res) => {
                     }
                 }
             });
+
+            // 4. Record wallet debit transaction (after order creation so orderId is available)
+            if (useWallet && parsedWalletUsed > 0 && req.user) {
+                await tx.walletTransaction.create({
+                    data: {
+                        userId: req.user.id,
+                        amount: parsedWalletUsed,
+                        type: 'DEBIT',
+                        description: `Used for Order #${createdOrder.id}`,
+                        orderId: createdOrder.id
+                    }
+                });
+            }
 
             return createdOrder;
         }, {
@@ -769,30 +777,39 @@ router.post('/:id/cancel', protect, async (req, res) => {
         const result = await prisma.$transaction(async (tx) => {
             let walletTx = null;
 
-            // 1. Refund wallet if paid
-            if (order.isPaid) {
+            // 1. Refund wallet portion regardless of isPaid
+            // (wallet is deducted at placement even for partial wallet + COD orders)
+            const walletRefundAmount = order.walletUsed || 0;
+            if (walletRefundAmount > 0 && order.userId) {
                 await tx.user.update({
                     where: { id: order.userId },
-                    data: { walletBalance: { increment: order.total } }
+                    data: { walletBalance: { increment: walletRefundAmount } }
                 });
 
                 walletTx = await tx.walletTransaction.create({
                     data: {
                         userId: order.userId,
-                        amount: order.total,
+                        amount: walletRefundAmount,
                         type: 'CREDIT',
-                        description: `Refund for Cancelled Order #${order.id}`,
+                        description: `Wallet refund for Cancelled Order #${order.id}`,
                         orderId: order.id
                     }
                 });
             }
 
-            // 2. Restore stock for all items
+            // 2. Restore stock for all items (variant-aware)
             for (const item of order.items) {
-                await tx.product.update({
-                    where: { id: item.productId },
-                    data: { stock: { increment: item.quantity } }
-                });
+                if (item.variantId) {
+                    await tx.productVariant.update({
+                        where: { id: item.variantId },
+                        data: { stock: { increment: item.quantity } }
+                    });
+                } else {
+                    await tx.product.update({
+                        where: { id: item.productId },
+                        data: { stock: { increment: item.quantity } }
+                    });
+                }
             }
 
             // 3. Update order status
@@ -801,8 +818,8 @@ router.post('/:id/cancel', protect, async (req, res) => {
                 data: {
                     status: 'Cancelled',
                     cancelReason: reason,
-                    refundStatus: order.isPaid ? 'Processed' : 'None',
-                    refundAmount: order.isPaid ? order.total : 0
+                    refundStatus: walletRefundAmount > 0 ? 'Processed' : 'None',
+                    refundAmount: walletRefundAmount
                 }
             });
 
@@ -889,30 +906,38 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
             return res.json(updatedOrder);
         }
 
-        // Approve Return -> Refund to Wallet + optional stock restore
+        // Approve Return -> Refund full amount (cash portion + wallet portion) to Wallet
+        const fullRefundAmount = (order.total || 0) + (order.walletUsed || 0);
         await prisma.$transaction(async (tx) => {
             await tx.user.update({
                 where: { id: order.userId },
-                data: { walletBalance: { increment: order.total } }
+                data: { walletBalance: { increment: fullRefundAmount } }
             });
 
             await tx.walletTransaction.create({
                 data: {
                     userId: order.userId,
-                    amount: order.total,
+                    amount: fullRefundAmount,
                     type: 'CREDIT',
                     description: `Refund for Returned Order #${order.id}`,
                     orderId: order.id
                 }
             });
 
-            // Restore stock if admin says the items are not defective
+            // Restore stock if admin says the items are not defective (variant-aware)
             if (restoreStock) {
                 for (const item of order.items) {
-                    await tx.product.update({
-                        where: { id: item.productId },
-                        data: { stock: { increment: item.quantity } }
-                    });
+                    if (item.variantId) {
+                        await tx.productVariant.update({
+                            where: { id: item.variantId },
+                            data: { stock: { increment: item.quantity } }
+                        });
+                    } else {
+                        await tx.product.update({
+                            where: { id: item.productId },
+                            data: { stock: { increment: item.quantity } }
+                        });
+                    }
                 }
             }
         });
@@ -922,7 +947,7 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
             data: {
                 returnStatus: 'Completed',
                 refundStatus: 'Processed',
-                refundAmount: order.total
+                refundAmount: fullRefundAmount
             }
         });
 

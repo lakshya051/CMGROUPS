@@ -229,6 +229,7 @@ model Order {
   userId          Int?
   user            User?       @relation(fields: [userId], references: [id])
   total           Float
+  walletUsed      Float       @default(0)
   status          String      @default("Processing")
   paymentMethod   String      @default("pay_at_store")
   paymentOtp      String?

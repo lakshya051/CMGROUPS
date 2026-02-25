@@ -54,6 +54,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
     };
 
+    const refreshUser = async () => {
+        try {
+            const data = await authAPI.getMe();
+            setUser(data.user);
+        } catch {
+            // silently fail; user session intact
+        }
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -63,6 +72,7 @@ export const AuthProvider = ({ children }) => {
                 login,
                 register,
                 logout,
+                refreshUser,
             }}
         >
             {!loading && children}
