@@ -149,17 +149,16 @@ router.post('/book', protect, async (req, res) => {
             }
         }));
 
+        // Respond immediately — email and notification fire in background
+        res.status(201).json({ ...booking });
 
-        // Send booking confirmation with OTP
-        const user = await withDbRetry(() => prisma.user.findUnique({ where: { id: req.user.id } }));
-        if (user) {
+        // Background: send confirmation email + in-app notification (non-blocking)
+        const userEmail = req.user?.email;
+        Promise.resolve().then(async () => {
             try {
-                if (user.email) {
-                    await sendServiceBookingEmail(user.email, booking.id, null);
+                if (userEmail) {
+                    await sendServiceBookingEmail(userEmail, booking.id, null);
                 }
-                // SMS logic removed
-
-                // Send In-App Notification
                 await prisma.notification.create({
                     data: {
                         userId: req.user.id,
@@ -169,14 +168,9 @@ router.post('/book', protect, async (req, res) => {
                         link: `/dashboard/services`
                     }
                 });
-
             } catch (notifErr) {
                 console.error('Service notification error (non-blocking):', notifErr);
             }
-        }
-
-        res.status(201).json({
-            ...booking
         });
     } catch (error) {
         console.error('Book service error:', error);
