@@ -97,7 +97,8 @@ router.post('/book', protect, async (req, res) => {
             serviceType, description, date, timeSlot,
             deviceType, deviceBrand,
             customerName, customerPhone,
-            address, city, pincode, landmark
+            address, city, pincode, landmark,
+            referralCode
         } = req.body;
 
         if (!serviceType || !date || !timeSlot || !customerName || !customerPhone || !address || !city || !pincode) {
@@ -128,6 +129,20 @@ router.post('/book', protect, async (req, res) => {
             return res.status(400).json({ error: 'Selected time slot is no longer available.' });
         }
 
+        // Validate referral code if provided
+        let referrer = null;
+        if (referralCode && referralCode.trim()) {
+            referrer = await prisma.user.findFirst({
+                where: { referralCode: referralCode.trim().toUpperCase() }
+            });
+            if (!referrer) {
+                return res.status(400).json({ error: 'Invalid referral code' });
+            }
+            if (referrer.id === req.user.id) {
+                return res.status(400).json({ error: 'You cannot use your own referral code' });
+            }
+        }
+
         // Generated OTP logic removed
 
         const booking = await withDbRetry(() => prisma.serviceBooking.create({
@@ -145,7 +160,8 @@ router.post('/book', protect, async (req, res) => {
                 address,
                 city,
                 pincode,
-                landmark: landmark || null
+                landmark: landmark || null,
+                referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null
             }
         }));
 
@@ -268,14 +284,26 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 include: { user: { select: { id: true, name: true, email: true, phone: true, referredById: true } } }
             });
 
-            if (fullBooking && fullBooking.user && fullBooking.user.referredById) {
+            if (fullBooking && fullBooking.user) {
                 try {
+                    // Prefer referralCodeUsed on the booking, fall back to referredById at signup
+                    let referrerId = null;
+                    if (fullBooking.referralCodeUsed) {
+                        const codeOwner = await prisma.user.findFirst({
+                            where: { referralCode: fullBooking.referralCodeUsed }
+                        });
+                        referrerId = codeOwner?.id || null;
+                    } else if (fullBooking.user.referredById) {
+                        referrerId = fullBooking.user.referredById;
+                    }
+
+                    if (referrerId && referrerId !== fullBooking.userId) {
                     // Prevent duplicate rewards
                     const existingReferral = await prisma.referral.findFirst({
                         where: {
                             refereeId: fullBooking.userId,
-                            referrerId: fullBooking.user.referredById,
-                            source: 'shopping' // service referrals use 'shopping' source
+                            referrerId,
+                            source: 'shopping'
                         }
                     });
 
@@ -291,7 +319,6 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                             });
 
                             if (rewardAmount > 0) {
-                                const referrerId = fullBooking.user.referredById;
 
                                 // Credit referrer
                                 await tx.user.update({
@@ -342,6 +369,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                             }
                         });
                     }
+                    } // end if (referrerId)
                 } catch (err) {
                     console.error('Service referral/tier error:', err);
                 }

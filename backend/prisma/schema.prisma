@@ -294,6 +294,7 @@ model ServiceBooking {
   date           DateTime
   timeSlot       String?
   status         String   @default("Pending")
+  referralCodeUsed String?
   // Customer details
   customerName   String?
   customerPhone  String?

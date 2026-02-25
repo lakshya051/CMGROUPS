@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../components/ui/Button';
-import { Wrench, Monitor, Cpu, CheckCircle, Calendar, X, MapPin, Phone, User, Printer, HardDrive, Settings } from 'lucide-react';
+import { Wrench, Monitor, Cpu, CheckCircle, Calendar, X, MapPin, Phone, User, Printer, HardDrive, Settings, Gift } from 'lucide-react';
 import { servicesAPI, serviceTypesAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useFormik } from 'formik';
@@ -61,6 +61,7 @@ const Services = () => {
             date: '',
             timeSlot: '',
             description: '',
+            referralCode: '',
         },
         validationSchema: serviceBookingSchema,
         validateOnBlur: true,
@@ -127,6 +128,7 @@ const Services = () => {
                 date: '',
                 timeSlot: '',
                 description: '',
+                referralCode: '',
             }
         });
         setIsSubmitted(false);
@@ -313,6 +315,24 @@ const Services = () => {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Describe Your Issue</label>
                                         <textarea name="description" className="input-field h-24 pt-2" value={formik.values.description} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="Tell us what's wrong with your device..." />
+                                    </div>
+
+                                    {/* Referral Code */}
+                                    <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                                        <div className="flex items-center gap-2 text-primary">
+                                            <Gift size={18} />
+                                            <h4 className="font-bold text-sm">Have a Referral Code?</h4>
+                                            <span className="text-xs text-text-muted">(optional)</span>
+                                        </div>
+                                        <input
+                                            name="referralCode"
+                                            type="text"
+                                            className="input-field uppercase"
+                                            placeholder="Enter code e.g. TNAB3F7E"
+                                            value={formik.values.referralCode}
+                                            onChange={formik.handleChange}
+                                        />
+                                        <p className="text-xs text-text-muted">Enter a friend's referral code to give them store credit when your service is completed!</p>
                                     </div>
 
                                     <Button type="submit" className="w-full" disabled={formik.isSubmitting}>

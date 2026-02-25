@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Search, CheckCircle, Clock, X, Calendar, MapPin, Phone, User, IndianRupee, Settings, Key, ChevronDown, ChevronUp, Truck, Package, AlertCircle } from 'lucide-react';
+import { Wrench, Search, CheckCircle, Clock, X, Calendar, MapPin, Phone, User, IndianRupee, Settings, Key, ChevronDown, ChevronUp, Truck, Package, AlertCircle, Gift } from 'lucide-react';
 import { servicesAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
 
@@ -180,6 +180,15 @@ const AdminServices = () => {
                                                             <div className="border-t border-gray-100 pt-3">
                                                                 <p className="text-xs uppercase tracking-wider text-text-muted mb-1">Issue Description</p>
                                                                 <p className="text-sm">{booking.description}</p>
+                                                            </div>
+                                                        )}
+                                                        {booking.referralCodeUsed && (
+                                                            <div className="border-t border-gray-100 pt-3 flex items-center gap-2">
+                                                                <Gift size={14} className="text-primary flex-shrink-0" />
+                                                                <div>
+                                                                    <p className="text-xs uppercase tracking-wider text-text-muted">Referral Code Used</p>
+                                                                    <span className="font-mono text-xs bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20 font-bold">{booking.referralCodeUsed}</span>
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>

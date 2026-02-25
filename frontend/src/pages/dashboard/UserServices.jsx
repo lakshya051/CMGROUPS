@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Calendar, Clock, CheckCircle, XCircle, MapPin, Phone, Cpu, IndianRupee, User as UserIcon, Truck, Settings, Package } from 'lucide-react';
+import { Wrench, Calendar, Clock, CheckCircle, XCircle, MapPin, Phone, Cpu, IndianRupee, User as UserIcon, Truck, Settings, Package, Gift } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
 import { servicesAPI } from '../../lib/api';
@@ -183,6 +183,18 @@ const UserServices = () => {
                                         <div>
                                             <h4 className="font-bold text-sm text-text-muted mb-1">Issue Description</h4>
                                             <p className="text-sm bg-white p-3 rounded-lg border border-gray-100">{booking.description}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Referral Code Applied */}
+                                    {booking.referralCodeUsed && (
+                                        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl p-3">
+                                            <Gift size={16} className="text-primary flex-shrink-0" />
+                                            <div>
+                                                <p className="text-xs text-text-muted">Referral Code Applied</p>
+                                                <span className="font-mono text-sm font-bold text-primary">{booking.referralCodeUsed}</span>
+                                                <p className="text-xs text-text-muted mt-0.5">Your friend will receive store credit when this service is completed.</p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
