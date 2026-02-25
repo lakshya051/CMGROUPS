@@ -22,13 +22,14 @@ async function calculateOrderReferralPoints(items = []) {
 
     for (const item of items) {
         const product = item.product || {};
+        const quantity = item.quantity || 1;
         const { referrerPoints, refereePoints } = await calculateReferralReward({
             referrerPoints: product.referrerPoints,
             refereePoints: product.refereePoints
         });
 
-        totalReferrerPoints += referrerPoints;
-        totalRefereePoints += refereePoints;
+        totalReferrerPoints += referrerPoints * quantity;
+        totalRefereePoints += refereePoints * quantity;
     }
 
     return { referrerPoints: totalReferrerPoints, refereePoints: totalRefereePoints };
