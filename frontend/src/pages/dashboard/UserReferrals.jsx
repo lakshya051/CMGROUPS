@@ -44,7 +44,7 @@ const UserReferrals = () => {
     if (loading) return <div className="p-8 text-center text-text-muted">Loading referral data...</div>;
 
     const referralCode = stats?.referralCode || user?.referralCode || '';
-    const referralLink = stats?.referralLink || `${window.location.origin}/signup?ref=${referralCode}`;
+    const referralLink = stats?.referralLink || `${window.location.origin}/sign-up?ref=${referralCode}`;
 
     // Client-side filter for tabs
     const filtered = tab === 'all' ? allReferrals

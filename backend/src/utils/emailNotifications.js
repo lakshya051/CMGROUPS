@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import { sendVerificationEmail } from './nodemailer.js';
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -118,4 +117,4 @@ export async function sendServiceBookingEmail(email, bookingId) {
     }
 }
 
-export { transporter, sendVerificationEmail };
+export { transporter };

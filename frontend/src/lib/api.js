@@ -32,31 +32,6 @@ const apiFetch = async (endpoint, options = {}) => {
 
 // ============ AUTH ============
 export const authAPI = {
-    login: (identifier, password) =>
-        apiFetch('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ identifier, password })
-        }),
-
-    register: (name, email, password, phone, referralCode) =>
-        apiFetch('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ name, email, password, phone, referralCode })
-        }),
-
-    verifyEmail: (email, otp) =>
-        apiFetch('/auth/verify-email', {
-            method: 'POST',
-            body: JSON.stringify({ email, otp })
-        }),
-
-    // Backward-compatible alias for older callers.
-    resendOTP: (email) =>
-        apiFetch('/auth/resend-verification', {
-            method: 'POST',
-            body: JSON.stringify({ email })
-        }),
-
     getMe: () => apiFetch('/auth/me'),
 
     updateProfile: (data) =>
@@ -64,12 +39,6 @@ export const authAPI = {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-
-    resendVerification: (email) =>
-        apiFetch('/auth/resend-verification', {
-            method: 'POST',
-            body: JSON.stringify({ email })
-        })
 };
 
 // ============ PRODUCTS ============
