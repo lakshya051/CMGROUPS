@@ -7,22 +7,50 @@ export default {
     theme: {
         extend: {
             colors: {
-                background: "#f8f9fc",   // Bright off-white
-                surface: "#ffffff",       // Pure white
-                primary: "#e91e63",       // Vibrant GoGo Pink
-                secondary: "#7c3aed",    // Electric Violet
-                accent: "#ff6d00",       // Energetic Orange
-                success: "#00c853",      // Vivid Green
-                warning: "#ffab00",      // Bright Amber
-                error: "#d50000",        // Bold Red
+                background: "#f8f9fc",
+                surface: "#ffffff",
+                primary: "#e91e63",
+                secondary: "#7c3aed",
+                accent: "#ff6d00",
+                success: "#00c853",
+                warning: "#ffab00",
+                error: "#d50000",
                 text: {
-                    main: "#1a1a2e",       // Deep Navy
-                    muted: "#6b7280"       // Cool Gray
-                }
+                    main: "#1a1a2e",
+                    muted: "#6b7280"
+                },
+                'buy-primary':          '#FFD814',
+                'buy-primary-hover':    '#F7CA00',
+                'buy-secondary':        '#FF9F00',
+                'buy-secondary-hover':  '#E8920A',
+                'urgency':              '#C7511F',
+                'deal':                 '#CC0C39',
+                'trust':                '#007185',
+                'page-bg':              '#EAEDED',
+                'surface-hover':        '#F7FAFA',
+                'border-default':       '#DDDDDD',
+                'text-primary':         '#0F1111',
+                'text-secondary':       '#565959',
+                'text-muted':           '#767676',
+                'badge-bestseller':     '#FF6D00',
+                'badge-choice':         '#1a1a1a',
+                'badge-choice-text':    '#C7A33A',
             },
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],
                 heading: ['Outfit', 'sans-serif'],
+            },
+            fontSize: {
+                'price':    ['1.5rem',   { lineHeight: '1', fontWeight: '700' }],
+                'price-lg': ['1.875rem', { lineHeight: '1', fontWeight: '700' }],
+                'price-xl': ['2.25rem',  { lineHeight: '1', fontWeight: '700' }],
+            },
+            spacing: {
+                'xs': '4px',  'sm': '8px',   'md': '12px',
+                'lg': '16px', 'xl': '24px',  '2xl': '32px',
+            },
+            transitionDuration: {
+                'fast': '100ms', 'base': '150ms', 'smooth': '250ms', 'slow': '400ms',
             },
             boxShadow: {
                 'glow': '0 0 20px rgba(233, 30, 99, 0.35)',
