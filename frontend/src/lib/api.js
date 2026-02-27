@@ -215,6 +215,7 @@ export const servicesAPI = {
 export const coursesAPI = {
     getAll: () => apiFetch('/courses'),
     getById: (id) => apiFetch(`/courses/${id}`),
+    getCoursePlayer: (id) => apiFetch(`/courses/${id}/player`),
 
     // Student
     apply: (data) => apiFetch('/courses/apply', { method: 'POST', body: JSON.stringify(data) }),

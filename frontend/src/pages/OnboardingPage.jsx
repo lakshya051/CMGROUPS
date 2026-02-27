@@ -23,7 +23,7 @@ export default function OnboardingPage() {
     setLoading(true)
     try {
       const token = await getToken()
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const API_BASE = import.meta.env.VITE_API_URL;
       const res = await fetch(`${API_BASE}/auth/onboarding`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

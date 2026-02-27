@@ -186,6 +186,39 @@ router.post('/apply', protect, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// STUDENT — Get Course Player Data
+// ─────────────────────────────────────────────
+router.get('/:id/player', protect, async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.id);
+        const application = await prisma.courseApplication.findFirst({
+            where: { courseId, userId: req.user.id, status: { in: ['Approved', 'Enrolled', 'Completed'] } }
+        });
+        if (!application) {
+            // Also check legacy enrollment just in case
+            const legacyEnc = await prisma.enrollment.findFirst({
+                where: { courseId, userId: req.user.id }
+            });
+            if (!legacyEnc) return res.status(403).json({ error: 'You do not have access to this course. Please enroll first.' });
+        }
+
+        const course = await prisma.course.findUnique({
+            where: { id: courseId },
+            include: { materials: { orderBy: { createdAt: 'asc' } } }
+        });
+
+        let progress = 0;
+        if (application?.status === 'Completed') progress = 100;
+        else if (application?.status === 'Enrolled') progress = 15;
+
+        res.json({ course, enrollment: { progress } });
+    } catch (error) {
+        console.error('Course player error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────
 // STUDENT — Download Certificate
 // ─────────────────────────────────────────────
 router.get('/:id/certificate', protect, async (req, res) => {

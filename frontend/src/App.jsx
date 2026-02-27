@@ -36,6 +36,7 @@ const Checkout = lazy(() => import('./pages/shop/Checkout'));
 // Courses
 const Courses = lazy(() => import('./pages/courses/Courses'));
 const CourseDetail = lazy(() => import('./pages/courses/CourseDetail'));
+const CoursePlayer = lazy(() => import('./pages/courses/CoursePlayer'));
 
 // User Dashboard
 const UserDashboard = lazy(() => import('./pages/dashboard/UserDashboard'));
@@ -86,6 +87,9 @@ function App() {
                             } />
                             <Route path="courses" element={<Courses />} />
                             <Route path="courses/:id" element={<CourseDetail />} />
+                            <Route path="courses/:id/player" element={
+                                <ProtectedRoute><CoursePlayer /></ProtectedRoute>
+                            } />
                             <Route path="tally-erp" element={<TallyERP />} />
                         </Route>
 
