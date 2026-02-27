@@ -1,6 +1,6 @@
-const express = require('express');
-const prisma = require('../lib/prisma');
-const { protect, adminOnly } = require('../middleware/auth');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -109,8 +109,7 @@ router.get('/users/:id', protect, adminOnly, async (req, res) => {
                 role: true,
                 referralCode: true,
                 walletBalance: true,
-                isVerified: true,
-                createdAt: true,
+                    createdAt: true,
                 orders: {
                     select: { id: true, total: true, status: true, isPaid: true, createdAt: true },
                     orderBy: { createdAt: 'desc' }
@@ -412,4 +411,4 @@ router.put('/service-settings', protect, adminOnly, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

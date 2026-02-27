@@ -1,14 +1,14 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // App password, not regular password
+        pass: process.env.EMAIL_PASS
     }
 });
 
-async function sendVerificationEmail(email, verificationToken) {
+export async function sendVerificationEmail(email, verificationToken) {
     const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}`;
 
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -16,7 +16,7 @@ async function sendVerificationEmail(email, verificationToken) {
         console.log(`To: ${email}`);
         console.log(`Link: ${verificationLink}`);
         console.log('----------------------------------------\n');
-        return true; // Pretend it sent for local dev routing
+        return true;
     }
 
     const mailOptions = {
@@ -47,4 +47,4 @@ async function sendVerificationEmail(email, verificationToken) {
     }
 }
 
-module.exports = { sendVerificationEmail };
+export { transporter };

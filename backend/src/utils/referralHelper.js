@@ -1,11 +1,11 @@
-const prisma = require('../lib/prisma');
+import prisma from '../lib/prisma.js';
 
 /**
  * Calculate referral reward strictly based on item overrides
  * @param {Object} overrides - { referrerPoints, refereePoints }
  * @returns {Promise<{ referrerPoints: number, refereePoints: number }>}
  */
-async function calculateReferralReward(overrides = {}) {
+export async function calculateReferralReward(overrides = {}) {
     const referrerPoints = overrides.referrerPoints;
     const refereePoints = overrides.refereePoints;
 
@@ -18,5 +18,3 @@ async function calculateReferralReward(overrides = {}) {
         refereePoints: refereePoints != null ? refereePoints : Math.round(referrerPoints / 2)
     };
 }
-
-module.exports = { calculateReferralReward };

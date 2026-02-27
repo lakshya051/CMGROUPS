@@ -1,4 +1,4 @@
-const dotenv = require('dotenv');
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -6,8 +6,8 @@ if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_SECRET_KEY.trim()) {
     throw new Error('FATAL: CLERK_SECRET_KEY environment variable is not set. Cannot start server.');
 }
 
-const app = require('./app');
-require('./cron/referrals'); // Start daily referral cron job
+import app from './app.js';
+import './cron/referrals.js';
 
 const PORT = process.env.PORT || 5000;
 

@@ -1,11 +1,10 @@
-const express = require('express');
-const crypto = require('crypto');
-const prisma = require('../lib/prisma');
-const { protect, adminOnly, optionalProtect } = require('../middleware/auth');
-const { sendOrderConfirmationEmail } = require('../utils/emailNotifications');
-// SMS imports removed
-const { generateInvoice } = require('../utils/invoiceGenerator');
-const { calculateReferralReward } = require('../utils/referralHelper');
+import express from 'express';
+import crypto from 'crypto';
+import prisma from '../lib/prisma.js';
+import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
+import { sendOrderConfirmationEmail } from '../utils/emailNotifications.js';
+import { generateInvoice } from '../utils/invoiceGenerator.js';
+import { calculateReferralReward } from '../utils/referralHelper.js';
 
 const router = express.Router();
 
@@ -235,7 +234,6 @@ router.post('/', optionalProtect, async (req, res) => {
                             role: true,
                             referralCode: true,
                             walletBalance: true,
-                            isVerified: true,
                             createdAt: true
                         }
                     }
@@ -610,7 +608,6 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                         role: true,
                         referralCode: true,
                         walletBalance: true,
-                        isVerified: true,
                         createdAt: true
                     }
                 },
@@ -756,7 +753,6 @@ router.post('/:id/cancel', protect, async (req, res) => {
                         role: true,
                         referralCode: true,
                         walletBalance: true,
-                        isVerified: true,
                         createdAt: true
                     }
                 },
@@ -993,4 +989,4 @@ router.get('/:id/invoice', protect, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

@@ -1,8 +1,7 @@
-const cron = require('node-cron');
-const prisma = require('../lib/prisma');
-const { calculateReferralReward } = require('../utils/referralHelper');
+import cron from 'node-cron';
+import prisma from '../lib/prisma.js';
+import { calculateReferralReward } from '../utils/referralHelper.js';
 
-// Run daily at midnight
 cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Running daily referral reward processor...');
     try {
@@ -75,7 +74,6 @@ cron.schedule('0 0 * * *', async () => {
                             });
                         }
 
-                        // Tier system
                         const tierSettings = await prisma.referralSettings.findFirst();
                         if (tierSettings && tierSettings.tierSystemEnabled) {
                             const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
@@ -110,4 +108,4 @@ cron.schedule('0 0 * * *', async () => {
     }
 });
 
-module.exports = cron;
+export default cron;

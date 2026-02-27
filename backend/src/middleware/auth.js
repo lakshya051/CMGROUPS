@@ -1,6 +1,6 @@
-const { getAuth } = require('@clerk/express');
-const crypto = require('crypto');
-const prisma = require('../lib/prisma');
+import { getAuth } from '@clerk/express';
+import crypto from 'crypto';
+import prisma from '../lib/prisma.js';
 
 const SAFE_USER_SELECT = {
     id: true,
@@ -45,7 +45,7 @@ async function findOrCreateUser(clerkUserId) {
     return user;
 }
 
-const protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
     try {
         const { userId } = getAuth(req);
         if (!userId) {
@@ -60,7 +60,7 @@ const protect = async (req, res, next) => {
     }
 };
 
-const adminOnly = (req, res, next) => {
+export const adminOnly = (req, res, next) => {
     if (req.user && req.user.role === 'admin') {
         next();
     } else {
@@ -68,7 +68,7 @@ const adminOnly = (req, res, next) => {
     }
 };
 
-const optionalProtect = async (req, res, next) => {
+export const optionalProtect = async (req, res, next) => {
     try {
         const { userId } = getAuth(req);
         if (userId) {
@@ -79,5 +79,3 @@ const optionalProtect = async (req, res, next) => {
         next();
     }
 };
-
-module.exports = { protect, adminOnly, optionalProtect };

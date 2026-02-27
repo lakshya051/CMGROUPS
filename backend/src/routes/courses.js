@@ -1,10 +1,11 @@
-const express = require('express');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import cache from '../lib/cache.js';
+import { protect, adminOnly } from '../middleware/auth.js';
+import { generateCertificate } from '../utils/certificateGenerator.js';
+import { calculateReferralReward } from '../utils/referralHelper.js';
+
 const router = express.Router();
-const prisma = require('../lib/prisma');
-const cache = require('../lib/cache');
-const { protect, adminOnly } = require('../middleware/auth');
-const { generateCertificate } = require('../utils/certificateGenerator');
-const { calculateReferralReward } = require('../utils/referralHelper');
 
 // ─────────────────────────────────────────────
 // STUDENT — Get my applications (with fee ledger)
@@ -517,4 +518,4 @@ router.delete('/batches/:id', protect, adminOnly, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

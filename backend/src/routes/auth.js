@@ -1,7 +1,7 @@
-const express = require('express');
-const crypto = require('crypto');
-const prisma = require('../lib/prisma');
-const { protect } = require('../middleware/auth');
+import express from 'express';
+import crypto from 'crypto';
+import prisma from '../lib/prisma.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -133,4 +133,4 @@ router.put('/profile', protect, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

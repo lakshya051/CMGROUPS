@@ -1,14 +1,15 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
+import { sendVerificationEmail } from './nodemailer.js';
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // App password, not regular password
+        pass: process.env.EMAIL_PASS
     }
 });
 
-async function sendOrderConfirmationEmail(email, orderId, total, options = {}) {
+export async function sendOrderConfirmationEmail(email, orderId, total, options = {}) {
     const { paymentOtp = null, paymentMethod = null, isPaid = false } = options;
     const shouldShowOtp = Boolean(paymentOtp) && !isPaid;
     const paymentModeLabel = paymentMethod === 'pay_at_store'
@@ -48,7 +49,7 @@ async function sendOrderConfirmationEmail(email, orderId, total, options = {}) {
             console.log(`Payment OTP: ${paymentOtp}`);
         }
         console.log('----------------------------------------\n');
-        return true; // Pretend it sent
+        return true;
     }
 
     const mailOptions = {
@@ -81,14 +82,13 @@ async function sendOrderConfirmationEmail(email, orderId, total, options = {}) {
     }
 }
 
-async function sendServiceBookingEmail(email, bookingId) {
+export async function sendServiceBookingEmail(email, bookingId) {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.log('\n[LOCAL DEV MOCK: Service Booking Email]');
         console.log(`To: ${email}`);
         console.log(`Subject: Service Booking Confirmed - TechNova #${bookingId}`);
-
         console.log('----------------------------------------\n');
-        return true; // Pretend it sent
+        return true;
     }
 
     const mailOptions = {
@@ -118,9 +118,4 @@ async function sendServiceBookingEmail(email, bookingId) {
     }
 }
 
-module.exports = {
-    transporter,
-    sendVerificationEmail: require('./nodemailer').sendVerificationEmail,
-    sendOrderConfirmationEmail,
-    sendServiceBookingEmail
-};
+export { transporter, sendVerificationEmail };
