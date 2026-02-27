@@ -14,17 +14,13 @@ model User {
   id             Int      @id @default(autoincrement())
   clerkId        String?  @unique
   email          String   @unique
-  password       String?
   name           String
   phone          String?
-  referralCode   String?  @unique // Code this user shares
+  referralCode   String?  @unique
   walletBalance  Float    @default(0)
-  isVerified     Boolean  @default(true)
   tier           String   @default("Bronze")
   tierPoints     Float    @default(0)
-  otp            String?
-  otpExpires     DateTime?
-  referredById   Int?     // Who referred this user
+  referredById   Int?
   referredBy     User?    @relation("UserReferrals", fields: [referredById], references: [id])
   role           String   @default("customer")
   createdAt      DateTime @default(now())
