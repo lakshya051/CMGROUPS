@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const rateLimit = require('express-rate-limit');
+const { clerkMiddleware } = require('@clerk/express');
 
 dotenv.config();
 
@@ -9,28 +10,30 @@ const app = express();
 
 // Rate Limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 500, // Limit each IP to 500 requests per `window` (here, per 15 minutes).
+    windowMs: 15 * 60 * 1000,
+    limit: 500,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Too many requests from this IP, please try again after 15 minutes' }
 });
 
 const authLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour window
-    limit: 20, // Limit each IP to 20 auth requests per window
+    windowMs: 60 * 60 * 1000,
+    limit: 20,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Too many login attempts from this IP, please try again after an hour' }
 });
 
 // Middleware
-app.use(limiter); // apply standard rate limiter to all requests
+app.use(limiter);
 app.use(cors({
     origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'https://cmgroups.vercel.app'],
     credentials: true
 }));
+
 app.use(express.json());
+app.use(clerkMiddleware());
 
 // API Routes
 app.use('/api/auth', authLimiter, require('./routes/auth'));

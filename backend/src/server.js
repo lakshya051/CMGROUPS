@@ -2,8 +2,8 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-if (!process.env.JWT_SECRET || !process.env.JWT_SECRET.trim()) {
-    throw new Error('FATAL: JWT_SECRET environment variable is not set. Cannot start server.');
+if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_SECRET_KEY.trim()) {
+    throw new Error('FATAL: CLERK_SECRET_KEY environment variable is not set. Cannot start server.');
 }
 
 const app = require('./app');
