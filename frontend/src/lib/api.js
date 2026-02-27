@@ -77,10 +77,10 @@ export const productsAPI = {
 
 // ============ ORDERS ============
 export const ordersAPI = {
-    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0) =>
+    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0) =>
         apiFetch('/orders', {
             method: 'POST',
-            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed })
+            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount })
         }),
 
     getMyOrders: () => apiFetch('/orders/my-orders'),

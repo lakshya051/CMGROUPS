@@ -14,6 +14,16 @@ export const ShopProvider = ({ children }) => {
             return [];
         }
     });
+
+    const [coupon, setCoupon] = useState(() => {
+        try {
+            const saved = localStorage.getItem('appliedCoupon');
+            return saved ? JSON.parse(saved) : null;
+        } catch (error) {
+            console.error("Failed to parse coupon", error);
+            return null;
+        }
+    });
     const [wishlist, setWishlist] = useState(() => {
         try {
             const saved = localStorage.getItem('wishlist');
@@ -58,6 +68,15 @@ export const ShopProvider = ({ children }) => {
     useEffect(() => {
         localStorage.setItem('cart', JSON.stringify(cart));
     }, [cart]);
+
+    // Persist coupon locally
+    useEffect(() => {
+        if (coupon) {
+            localStorage.setItem('appliedCoupon', JSON.stringify(coupon));
+        } else {
+            localStorage.removeItem('appliedCoupon');
+        }
+    }, [coupon]);
 
     // DB cart sync
     useEffect(() => {
@@ -127,7 +146,18 @@ export const ShopProvider = ({ children }) => {
         });
     };
 
-    const clearCart = () => setCart([]);
+    const clearCart = () => {
+        setCart([]);
+        setCoupon(null);
+    };
+
+    const applyCoupon = (couponData) => {
+        setCoupon(couponData);
+    };
+
+    const removeCoupon = () => {
+        setCoupon(null);
+    };
 
     const placeOrder = async (orderData) => {
         try {
@@ -144,7 +174,9 @@ export const ShopProvider = ({ children }) => {
                 orderData.shippingAddress || null,
                 orderData.referralCode || null,
                 orderData.useWallet || false,
-                orderData.walletUsed || 0
+                orderData.walletUsed || 0,
+                coupon?.code || null,
+                coupon?.discount || 0
             );
             clearCart();
             if (user) {
@@ -227,7 +259,10 @@ export const ShopProvider = ({ children }) => {
             compareList,
             addToCompare,
             removeFromCompare,
-            clearCompare
+            clearCompare,
+            coupon,
+            applyCoupon,
+            removeCoupon
         }}>
             {children}
         </ShopContext.Provider>

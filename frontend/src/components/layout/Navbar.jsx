@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { useShop } from '../../context/ShopContext';
@@ -14,6 +14,9 @@ const Navbar = () => {
     const [showCatMenu, setShowCatMenu] = useState(false);
     const [showNotifMenu, setShowNotifMenu] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const [searchQuery, setSearchQuery] = useState('');
     const { user, logout } = useAuth();
     const { cart } = useShop();
 
@@ -26,6 +29,17 @@ const Navbar = () => {
             }).catch(console.error);
         }
     }, [user]);
+
+    useEffect(() => {
+        setSearchQuery(searchParams.get('q') || '');
+    }, [searchParams]);
+
+    const handleSearch = (e) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    };
 
     const handleMarkAllRead = async () => {
         try {
@@ -45,12 +59,28 @@ const Navbar = () => {
         <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-gray-100">
             <div className="container mx-auto px-4 h-16 flex items-center justify-between">
                 {/* Logo */}
-                <Link to="/" className="text-2xl font-heading font-bold text-text-main">
+                <Link to="/" className="text-2xl font-heading font-bold text-text-main flex-shrink-0">
                     CM<span className="text-primary">GROUPS</span>
                 </Link>
 
+                {/* Desktop Search Bar */}
+                <div className="hidden md:flex flex-1 max-w-md mx-8">
+                    <form onSubmit={handleSearch} className="relative w-full">
+                        <input
+                            type="text"
+                            placeholder="Search products..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-4 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                        <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors">
+                            <Search size={18} />
+                        </button>
+                    </form>
+                </div>
+
                 {/* Desktop Nav */}
-                <nav className="hidden md:flex items-center gap-8">
+                <nav className="hidden md:flex items-center gap-6 flex-shrink-0">
                     <Link to="/" className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-primary' : 'text-text-muted hover:text-text-main'}`}>
                         Home
                     </Link>

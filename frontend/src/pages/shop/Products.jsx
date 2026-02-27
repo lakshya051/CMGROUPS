@@ -5,7 +5,7 @@ import FilterSidebar from '../../components/shop/FilterSidebar'
 import { SkeletonCard, EmptyState } from '../../components/ui/index'
 import { useShop } from '../../context/ShopContext'
 import {
-    Filter, SearchX, X, ArrowLeftRight, ChevronLeft, ChevronRight,
+    Filter, SearchX, Search, X, ArrowLeftRight, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { categoriesAPI, productsAPI } from '../../lib/api'
 
@@ -59,6 +59,15 @@ const Products = () => {
     useEffect(() => {
         categoriesAPI.getAll().then(setDbCategories).catch(console.error)
     }, [])
+
+    // ─── Sync URL changes to local state ────────────────────────
+    useEffect(() => {
+        const urlQ = searchParams.get('q') || '';
+        if (urlQ !== searchTerm) {
+            setSearchTerm(urlQ);
+            setDebouncedSearchTerm(urlQ);
+        }
+    }, [searchParams]);
 
     // ─── Debounce search ────────────────────────────────────────
     useEffect(() => {
@@ -202,6 +211,18 @@ const Products = () => {
                 </div>
 
                 <div className="flex items-center gap-md">
+                    {/* Local Search Input */}
+                    <div className="hidden md:flex relative">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                            type="text"
+                            placeholder="Search currently..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 pr-4 py-sm bg-surface border border-border-default rounded-lg text-sm focus:outline-none focus:border-trust transition-colors duration-fast w-64"
+                        />
+                    </div>
+
                     {/* Mobile filter toggle */}
                     <button
                         className="lg:hidden flex items-center gap-sm bg-surface border border-border-default px-md py-sm rounded-lg text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors duration-fast"

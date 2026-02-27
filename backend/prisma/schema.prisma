@@ -254,6 +254,8 @@ model Order {
   shippingAddress Json?
   guestInfo       Json?
   referralCodeUsed String?
+  couponCode      String?
+  discountAmount  Float       @default(0)
   createdAt       DateTime    @default(now())
   
   // Cancellation & Return Fields

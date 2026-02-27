@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import Button from '../components/ui/Button';
-import { ArrowRight, Cpu, ShieldCheck, Zap, Truck } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowRight, Cpu, ShieldCheck, Zap, Truck, Search } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { productsAPI, categoriesAPI } from '../lib/api';
 
 const Home = () => {
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const navigate = useNavigate();
+
+    const handleSearch = (e) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+        }
+    };
 
     useEffect(() => {
         productsAPI.getAll({ limit: 4 })
@@ -44,9 +53,37 @@ const Home = () => {
                             A conglomerate of excellence in Technology, Services, and Education. Powering your digital future through our specialized divisions.
                         </p>
 
-                        <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
+                        <div className="max-w-xl mx-auto lg:mx-0 pt-2">
+                            <form onSubmit={handleSearch} className="relative flex items-center">
+                                <Search className="absolute left-4 text-text-muted" size={20} />
+                                <input
+                                    type="text"
+                                    placeholder="Search for laptops, GPUs, monitors..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-12 pr-32 py-4 rounded-xl border-2 border-primary/20 bg-surface/80 backdrop-blur-sm focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all text-text-main shadow-lg"
+                                />
+                                <Button type="submit" className="absolute right-2 top-2 bottom-2 px-6">
+                                    Search
+                                </Button>
+                            </form>
+                            <div className="flex flex-wrap items-center gap-2 mt-4 text-sm">
+                                <span className="text-text-muted font-medium">Popular:</span>
+                                {['RTX 4090', 'Gaming Laptop', 'Ryzen 9', 'Monitor', 'SSD'].map(tag => (
+                                    <Link
+                                        key={tag}
+                                        to={`/products?q=${encodeURIComponent(tag)}`}
+                                        className="px-3 py-1 bg-surface border border-border-default rounded-full text-text-secondary hover:text-primary hover:border-primary/30 transition-colors"
+                                    >
+                                        {tag}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-4 justify-center lg:justify-start pt-4">
                             <a href="#divisions">
-                                <Button size="lg" className="gap-2">
+                                <Button size="lg" variant="outline" className="gap-2 bg-surface/50 backdrop-blur-sm">
                                     Explore Divisions <ArrowRight size={20} />
                                 </Button>
                             </a>
