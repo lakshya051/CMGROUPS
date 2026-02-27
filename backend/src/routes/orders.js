@@ -159,6 +159,29 @@ router.post('/', optionalProtect, async (req, res) => {
                 });
             }
 
+            // 1.5 Real-time Stock Validation
+            for (const [variantId, quantityValue] of Object.entries(totalRequestedVariants)) {
+                const quantity = parseInt(quantityValue, 10);
+                const currentVariant = await tx.productVariant.findUnique({
+                    where: { id: parseInt(variantId, 10) },
+                    select: { stock: true, name: true }
+                });
+                if (!currentVariant || currentVariant.stock < quantity) {
+                    throw new Error(`Insufficient stock for "${currentVariant?.name || 'Variant ' + variantId}". Available: ${currentVariant?.stock || 0}, Requested: ${quantity}`);
+                }
+            }
+
+            for (const [productId, quantityValue] of Object.entries(totalRequestedProducts)) {
+                const quantity = parseInt(quantityValue, 10);
+                const currentProduct = await tx.product.findUnique({
+                    where: { id: parseInt(productId, 10) },
+                    select: { stock: true, title: true }
+                });
+                if (!currentProduct || currentProduct.stock < quantity) {
+                    throw new Error(`Insufficient stock for "${currentProduct?.title || 'Product ' + productId}". Available: ${currentProduct?.stock || 0}, Requested: ${quantity}`);
+                }
+            }
+
             // 2. Decrement stock once per unique product/variant (race-condition safe)
             for (const [variantId, quantityValue] of Object.entries(totalRequestedVariants)) {
                 const quantity = parseInt(quantityValue, 10);

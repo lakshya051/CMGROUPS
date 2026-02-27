@@ -72,7 +72,11 @@ const Checkout = () => {
             setPaymentOtp(order.paymentOtp);
             setStep(3);
         } catch (err) {
-            setOrderError(err.message || 'Failed to place order. Please try again.');
+            const errorMessage = err.message || 'Failed to place order. Please try again.';
+            setOrderError(errorMessage);
+            if (errorMessage.includes('Insufficient stock')) {
+                setTimeout(() => navigate('/cart'), 3500);
+            }
         } finally {
             setIsProcessing(false);
         }

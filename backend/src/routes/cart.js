@@ -1,10 +1,10 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
-import { requireAuth } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
-// Apply requireAuth middleware to all cart routes
-router.use(requireAuth);
+// Apply protect middleware to all cart routes
+router.use(protect);
 
 // GET /api/cart
 // Fetch the user's current cart from the database
