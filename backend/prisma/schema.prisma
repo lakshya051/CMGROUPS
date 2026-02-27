@@ -35,6 +35,7 @@ model User {
   productAlerts      ProductAlert[]
   notifications      Notification[]
   wishlists          Wishlist[]
+  cartItems          CartItem[]
   
   // Education Module
   courseApplications CourseApplication[]
@@ -205,6 +206,7 @@ model Product {
   alerts      ProductAlert[]
   wishlists   Wishlist[]
   variants    ProductVariant[]
+  cartItems   CartItem[]
 
   @@index([category])
   @@index([isSecondHand])
@@ -221,6 +223,23 @@ model Wishlist {
 
   @@unique([userId, productId])
 }
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId, variantId])
+  @@index([userId])
+}
+
 
 model Order {
   id              Int         @id @default(autoincrement())
@@ -377,6 +396,7 @@ model ProductVariant {
   updatedAt   DateTime @updatedAt
 
   orderItems  OrderItem[] // so order items can reference a variant
+  cartItems   CartItem[]
 }
 
 model ProductAlert {

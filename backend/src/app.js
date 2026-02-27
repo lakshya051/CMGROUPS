@@ -20,6 +20,7 @@ import applicationRoutes from './routes/applications.js';
 import wishlistRoutes from './routes/wishlist.js';
 import tallyRoutes from './routes/tally.js';
 import webhookRoutes from './routes/webhooks.js';
+import cartRoutes from './routes/cart.js';
 
 dotenv.config();
 
@@ -68,6 +69,8 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/tally', tallyRoutes);
+app.use('/api/cart', cartRoutes);
+
 
 app.get('/', (req, res) => {
     res.json({ status: 'TechNova API is running', version: '1.0.0' });

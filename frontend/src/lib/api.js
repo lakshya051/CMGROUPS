@@ -142,6 +142,17 @@ export const ordersAPI = {
     }
 };
 
+// ============ CART ============
+export const cartAPI = {
+    get: () => apiFetch('/cart'),
+    sync: (items) => apiFetch('/cart/sync', {
+        method: 'POST',
+        body: JSON.stringify({ items })
+    }),
+    clear: () => apiFetch('/cart', { method: 'DELETE' })
+};
+
+
 // ============ WISHLIST ============
 export const wishlistAPI = {
     get: () => apiFetch('/wishlist'),

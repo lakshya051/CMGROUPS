@@ -12,7 +12,7 @@ export default {
                 primary: "#e91e63",
                 secondary: "#7c3aed",
                 accent: "#ff6d00",
-                success: "#00c853",
+                success: "#007600",
                 warning: "#ffab00",
                 error: "#d50000",
                 text: {
@@ -60,6 +60,13 @@ export default {
             }
         },
     },
+    safelist: [
+        'bg-buy-primary',
+        'bg-success',
+        'bg-deal',
+        'bg-urgency',
+        'bg-trust',
+    ],
     plugins: [
         require("tailwindcss-animate"),
     ],
