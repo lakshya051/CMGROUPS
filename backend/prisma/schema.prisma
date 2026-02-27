@@ -12,14 +12,16 @@ datasource db {
 
 model User {
   id             Int      @id @default(autoincrement())
+  clerkId        String?  @unique
   email          String   @unique
-  password       String
+  password       String?
   name           String
   phone          String?
   referralCode   String?  @unique // Code this user shares
   walletBalance  Float    @default(0)
   isVerified     Boolean  @default(true)
   tier           String   @default("Bronze")
+  tierPoints     Float    @default(0)
   otp            String?
   otpExpires     DateTime?
   referredById   Int?     // Who referred this user
@@ -317,11 +319,15 @@ model ServiceBooking {
 }
 
 model Coupon {
-  id           Int      @id @default(autoincrement())
-  code         String   @unique
-  discountType String   // "percent" or "fixed"
-  value        Float
-  active       Boolean  @default(true)
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  discountType   String    // "percent" or "fixed"
+  value          Float
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  minOrderAmount Float?
+  maxUses        Int?
+  usedCount      Int       @default(0)
 }
 
 model Referral {
@@ -420,6 +426,13 @@ model ReferralSettings {
   updatedAt                 DateTime @updatedAt
   
   @@unique([id]) // Single settings record
+}
+
+model TierConfig {
+  id        Int    @id @default(autoincrement())
+  tierName  String @unique
+  minPoints Float
+  color     String @default("#CD7F32")
 }
 
 model TallyEnquiry {

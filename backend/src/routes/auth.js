@@ -54,10 +54,18 @@ router.post('/onboarding', protect, async (req, res) => {
             updateData.referralCode = newCode;
         }
 
-        const updatedUser = await prisma.user.update({
-            where: { id: req.user.id },
-            data: updateData
-        });
+        let updatedUser;
+        try {
+            updatedUser = await prisma.user.update({
+                where: { id: req.user.id },
+                data: updateData
+            });
+        } catch (err) {
+            if (err.code === 'P2002' && err.meta?.target?.includes('referralCode')) {
+                return res.status(409).json({ error: 'Referral code collision, please try again.' });
+            }
+            throw err;
+        }
 
         res.json({
             success: true,
@@ -85,7 +93,17 @@ router.put('/profile', protect, async (req, res) => {
 
         const updateData = {};
         if (name) updateData.name = name;
-        if (phone !== undefined) updateData.phone = phone || null;
+        if (phone !== undefined && phone) {
+            const existingPhone = await prisma.user.findFirst({
+                where: { phone, NOT: { id: req.user.id } }
+            });
+            if (existingPhone) {
+                return res.status(400).json({ error: 'Phone number already registered to another account' });
+            }
+            updateData.phone = phone;
+        } else if (phone !== undefined) {
+            updateData.phone = null;
+        }
 
         if (Object.keys(updateData).length === 0) {
             return res.status(400).json({ error: 'No changes to save' });
