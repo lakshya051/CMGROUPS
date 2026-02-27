@@ -1,18 +1,25 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { ClerkProvider } from '@clerk/clerk-react'
 import App from './App.jsx'
 import './index.css'
 import ErrorBoundary from './components/ErrorBoundary';
 
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
+if (!PUBLISHABLE_KEY) {
+    throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in .env')
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
         <ErrorBoundary>
-            <BrowserRouter>
-                <App />
-            </BrowserRouter>
+            <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+                <BrowserRouter>
+                    <App />
+                </BrowserRouter>
+            </ClerkProvider>
         </ErrorBoundary>
     </React.StrictMode>,
 )

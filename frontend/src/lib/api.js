@@ -1,19 +1,24 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Helper to get auth headers
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
+let _tokenGetter = null;
+
+export const setTokenGetter = (fn) => {
+    _tokenGetter = fn;
+};
+
+const getAuthHeaders = async () => {
+    const token = _tokenGetter ? await _tokenGetter() : null;
     return {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` })
     };
 };
 
-// Generic fetch wrapper
 const apiFetch = async (endpoint, options = {}) => {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
-        headers: { ...getAuthHeaders(), ...options.headers }
+        headers: { ...headers, ...options.headers }
     });
 
     const data = await response.json();
@@ -146,11 +151,9 @@ export const ordersAPI = {
         }),
 
     downloadInvoice: async (id) => {
-        const token = localStorage.getItem('token');
+        const headers = await getAuthHeaders();
         const response = await fetch(`${API_BASE}/orders/${id}/invoice`, {
-            headers: {
-                ...(token && { Authorization: `Bearer ${token}` })
-            }
+            headers
         });
 
         if (!response.ok) {
@@ -260,9 +263,9 @@ export const coursesAPI = {
 
     // Certificate
     downloadCertificate: async (courseId) => {
-        const token = localStorage.getItem('token');
+        const headers = await getAuthHeaders();
         const response = await fetch(`${API_BASE}/courses/${courseId}/certificate`, {
-            headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+            headers
         });
         if (!response.ok) {
             const data = await response.json();

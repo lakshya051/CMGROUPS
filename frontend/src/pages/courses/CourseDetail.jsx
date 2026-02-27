@@ -149,7 +149,7 @@ const CourseDetail = () => {
                                             ) : (
                                                 <div className="text-center p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                                                     <p className="text-text-muted font-bold mb-3">Login to apply for this course</p>
-                                                    <Button onClick={() => navigate('/login')}>Login / Register</Button>
+                                                    <Button onClick={() => navigate('/sign-in')}>Login / Register</Button>
                                                 </div>
                                             )}
                                         </div>

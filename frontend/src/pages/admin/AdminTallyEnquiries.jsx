@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, RefreshCw, Filter } from 'lucide-react';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const STATUS_STYLES = {
     new: 'bg-blue-100 text-blue-700 border border-blue-200',
@@ -18,6 +19,7 @@ const AdminTallyEnquiries = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('All');
     const [updating, setUpdating] = useState(null);
+    const { getToken } = useClerkAuth();
 
     const load = async (status) => {
         setLoading(true);
@@ -25,7 +27,7 @@ const AdminTallyEnquiries = () => {
             const url = status && status !== 'All'
                 ? `${API_BASE}/tally/admin/enquiries?status=${status}`
                 : `${API_BASE}/tally/admin/enquiries`;
-            const token = localStorage.getItem('token');
+            const token = await getToken();
             const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
@@ -44,7 +46,7 @@ const AdminTallyEnquiries = () => {
     const updateStatus = async (id, status) => {
         setUpdating(id);
         try {
-            const token = localStorage.getItem('token');
+            const token = await getToken();
             const res = await fetch(`${API_BASE}/tally/admin/enquiries/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

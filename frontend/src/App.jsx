@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { SignIn, SignUp } from '@clerk/clerk-react';
 import SharedLayout from './components/layout/SharedLayout';
 import DashboardLayout from './components/layout/DashboardLayout';
 import { AuthProvider } from './context/AuthProvider';
@@ -9,7 +10,6 @@ import { useDataSeeder } from './hooks/useDataSeeder';
 import { Toaster } from 'react-hot-toast';
 import CompareWidget from './components/shop/CompareWidget';
 
-// ─── Spinner (shown while lazy chunks load) ───────────────────────────
 const PageLoader = () => (
     <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -19,14 +19,11 @@ const PageLoader = () => (
     </div>
 );
 
-// ─── Lazy page imports ─────────────────────────────────────────────────
 // Public
 const Home = lazy(() => import('./pages/Home'));
-const Login = lazy(() => import('./pages/Login'));
-const Signup = lazy(() => import('./pages/Signup'));
-const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const Services = lazy(() => import('./pages/Services'));
 const TallyERP = lazy(() => import('./pages/TallyERP'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 
 // Shop
 const Products = lazy(() => import('./pages/shop/Products'));
@@ -63,7 +60,6 @@ const AdminCourses = lazy(() => import('./pages/admin/AdminCourses'));
 const AdminEnrollments = lazy(() => import('./pages/admin/AdminEnrollments'));
 const AdminTallyEnquiries = lazy(() => import('./pages/admin/AdminTallyEnquiries'));
 
-// ─── App ───────────────────────────────────────────────────────────────
 function App() {
     useDataSeeder();
 
@@ -124,10 +120,18 @@ function App() {
                             <Route path="tally-enquiries" element={<AdminTallyEnquiries />} />
                         </Route>
 
-                        {/* Auth */}
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/signup" element={<Signup />} />
-                        <Route path="/verify-email" element={<VerifyEmail />} />
+                        {/* Auth — Clerk managed */}
+                        <Route path="/sign-in/*" element={
+                            <div className="min-h-screen bg-page-bg flex items-center justify-center p-lg">
+                                <SignIn routing="path" path="/sign-in" />
+                            </div>
+                        } />
+                        <Route path="/sign-up/*" element={
+                            <div className="min-h-screen bg-page-bg flex items-center justify-center p-lg">
+                                <SignUp routing="path" path="/sign-up" />
+                            </div>
+                        } />
+                        <Route path="/onboarding" element={<OnboardingPage />} />
                     </Routes>
                 </Suspense>
             </ShopProvider>

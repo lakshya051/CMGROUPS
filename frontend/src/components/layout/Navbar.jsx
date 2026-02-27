@@ -173,7 +173,7 @@ const Navbar = () => {
                             </Link>
                         </div>
                     ) : (
-                        <Link to="/login">
+                        <Link to="/sign-in">
                             <Button variant="outline" size="sm">Login</Button>
                         </Link>
                     )}
@@ -224,7 +224,7 @@ const Navbar = () => {
                             </button>
                         </>
                     ) : (
-                        <Link to="/login" onClick={() => setIsOpen(false)}>
+                        <Link to="/sign-in" onClick={() => setIsOpen(false)}>
                             <Button className="w-full">Login</Button>
                         </Link>
                     )}

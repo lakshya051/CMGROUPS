@@ -29,7 +29,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
+        navigate('/');
     };
 
     const customerLinks = [
