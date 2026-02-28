@@ -411,4 +411,147 @@ router.put('/service-settings', protect, adminOnly, async (req, res) => {
     }
 });
 
+// ==================== BANNER MANAGEMENT ====================
+
+// GET /api/admin/banners — all banners (including inactive), sorted by displayOrder
+router.get('/banners', protect, adminOnly, async (req, res) => {
+    try {
+        const banners = await prisma.banner.findMany({
+            orderBy: { displayOrder: 'asc' },
+        });
+        res.json(banners);
+    } catch (error) {
+        console.error('Get admin banners error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/banners — create a new banner
+router.post('/banners', protect, adminOnly, async (req, res) => {
+    try {
+        const { title, subtitle, ctaLabel, ctaLink, image, gradient, displayOrder, active } = req.body;
+
+        if (!title) {
+            return res.status(400).json({ error: 'Title is required' });
+        }
+
+        const maxOrder = await prisma.banner.aggregate({ _max: { displayOrder: true } });
+        const nextOrder = displayOrder != null ? parseInt(displayOrder) : (maxOrder._max.displayOrder ?? -1) + 1;
+
+        const banner = await prisma.banner.create({
+            data: {
+                title,
+                subtitle: subtitle || null,
+                ctaLabel: ctaLabel || 'Shop Now',
+                ctaLink: ctaLink || '/products',
+                image: image || null,
+                gradient: gradient || null,
+                displayOrder: nextOrder,
+                active: active !== false,
+            },
+        });
+
+        res.status(201).json(banner);
+    } catch (error) {
+        console.error('Create banner error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/banners/reorder — reorder banners
+// Must be defined before :id routes to avoid matching "reorder" as an id
+router.patch('/banners/reorder', protect, adminOnly, async (req, res) => {
+    try {
+        const { orderedIds } = req.body;
+
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+            return res.status(400).json({ error: 'orderedIds array is required' });
+        }
+
+        const updates = orderedIds.map((id, index) =>
+            prisma.banner.update({
+                where: { id: parseInt(id) },
+                data: { displayOrder: index },
+            })
+        );
+
+        await prisma.$transaction(updates);
+
+        const banners = await prisma.banner.findMany({ orderBy: { displayOrder: 'asc' } });
+        res.json(banners);
+    } catch (error) {
+        console.error('Reorder banners error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/banners/:id — update any field on a banner
+router.patch('/banners/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const bannerId = parseInt(req.params.id);
+        const { title, subtitle, ctaLabel, ctaLink, image, gradient, displayOrder, active } = req.body;
+
+        const data = {};
+        if (title !== undefined) data.title = title;
+        if (subtitle !== undefined) data.subtitle = subtitle || null;
+        if (ctaLabel !== undefined) data.ctaLabel = ctaLabel;
+        if (ctaLink !== undefined) data.ctaLink = ctaLink;
+        if (image !== undefined) data.image = image || null;
+        if (gradient !== undefined) data.gradient = gradient || null;
+        if (displayOrder !== undefined) data.displayOrder = parseInt(displayOrder);
+        if (active !== undefined) data.active = active;
+
+        const banner = await prisma.banner.update({
+            where: { id: bannerId },
+            data,
+        });
+
+        res.json(banner);
+    } catch (error) {
+        console.error('Update banner error:', error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Banner not found' });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/banners/:id/toggle — toggle active/inactive
+router.patch('/banners/:id/toggle', protect, adminOnly, async (req, res) => {
+    try {
+        const bannerId = parseInt(req.params.id);
+
+        const existing = await prisma.banner.findUnique({ where: { id: bannerId } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Banner not found' });
+        }
+
+        const banner = await prisma.banner.update({
+            where: { id: bannerId },
+            data: { active: !existing.active },
+        });
+
+        res.json(banner);
+    } catch (error) {
+        console.error('Toggle banner error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/admin/banners/:id — delete a banner
+router.delete('/banners/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const bannerId = parseInt(req.params.id);
+
+        await prisma.banner.delete({ where: { id: bannerId } });
+        res.json({ success: true, message: 'Banner deleted' });
+    } catch (error) {
+        console.error('Delete banner error:', error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Banner not found' });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 export default router;

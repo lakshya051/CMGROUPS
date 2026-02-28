@@ -21,6 +21,7 @@ import wishlistRoutes from './routes/wishlist.js';
 import tallyRoutes from './routes/tally.js';
 import webhookRoutes from './routes/webhooks.js';
 import cartRoutes from './routes/cart.js';
+import bannerRoutes from './routes/banners.js';
 
 dotenv.config();
 
@@ -71,6 +72,7 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/tally', tallyRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/banners', bannerRoutes);
 
 
 app.get('/', (req, res) => {

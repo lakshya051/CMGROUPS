@@ -60,6 +60,7 @@ const AdminReferralSettings = lazy(() => import('./pages/admin/AdminReferralSett
 const AdminCourses = lazy(() => import('./pages/admin/AdminCourses'));
 const AdminEnrollments = lazy(() => import('./pages/admin/AdminEnrollments'));
 const AdminTallyEnquiries = lazy(() => import('./pages/admin/AdminTallyEnquiries'));
+const AdminBanners = lazy(() => import('./pages/admin/AdminBanners'));
 
 function App() {
     useDataSeeder();
@@ -122,6 +123,7 @@ function App() {
                             <Route path="courses" element={<AdminCourses />} />
                             <Route path="enrollments" element={<AdminEnrollments />} />
                             <Route path="tally-enquiries" element={<AdminTallyEnquiries />} />
+                            <Route path="banners" element={<AdminBanners />} />
                         </Route>
 
                         {/* Auth — Clerk managed */}

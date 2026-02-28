@@ -19,7 +19,8 @@ import {
     ClipboardList,
     FileText,
     Menu,
-    X
+    X,
+    Image
 } from 'lucide-react';
 
 const DashboardLayout = ({ role = 'customer' }) => {
@@ -48,6 +49,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
 
     const adminLinks = [
         { name: 'Dashboard', path: '/admin', icon: <BarChart3 size={20} />, end: true },
+        { name: 'Banners', path: '/admin/banners', icon: <Image size={20} /> },
         { name: 'Products', path: '/admin/products', icon: <Package size={20} /> },
         { name: 'Categories', path: '/admin/categories', icon: <Store size={20} /> },
         { name: 'Orders', path: '/admin/orders', icon: <ShoppingBag size={20} /> },

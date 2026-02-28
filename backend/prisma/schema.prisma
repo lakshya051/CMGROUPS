@@ -475,3 +475,17 @@ model ServiceSettings {
   updatedAt          DateTime @updatedAt
 }
 
+model Banner {
+  id           Int      @id @default(autoincrement())
+  title        String
+  subtitle     String?
+  ctaLabel     String   @default("Shop Now")
+  ctaLink      String   @default("/products")
+  image        String?
+  gradient     String?
+  displayOrder Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+

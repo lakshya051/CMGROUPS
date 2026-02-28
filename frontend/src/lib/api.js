@@ -350,6 +350,37 @@ export const adminAPI = {
         })
 };
 
+// ============ BANNERS ============
+export const bannersAPI = {
+    getPublic: () => apiFetch('/banners'),
+
+    getAll: () => apiFetch('/admin/banners'),
+
+    create: (data) =>
+        apiFetch('/admin/banners', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    update: (id, data) =>
+        apiFetch(`/admin/banners/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        }),
+
+    toggle: (id) =>
+        apiFetch(`/admin/banners/${id}/toggle`, { method: 'PATCH' }),
+
+    reorder: (orderedIds) =>
+        apiFetch('/admin/banners/reorder', {
+            method: 'PATCH',
+            body: JSON.stringify({ orderedIds }),
+        }),
+
+    delete: (id) =>
+        apiFetch(`/admin/banners/${id}`, { method: 'DELETE' }),
+};
+
 // ============ REFERRALS ============
 export const referralsAPI = {
     getMyStats: () => apiFetch('/referrals/my-stats'),
