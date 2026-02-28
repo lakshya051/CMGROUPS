@@ -36,6 +36,16 @@ export const ShopProvider = ({ children }) => {
         }
     });
 
+    const fetchCart = useCallback(async () => {
+        if (!user) return;
+        try {
+            const dbCart = await cartAPI.get();
+            setCart(dbCart);
+        } catch (err) {
+            console.error('Failed to fetch cart:', err);
+        }
+    }, [user]);
+
     // Fetch cart from DB when user logs in, clear when logged out
     useEffect(() => {
         if (!user) {
@@ -46,9 +56,9 @@ export const ShopProvider = ({ children }) => {
         let cancelled = false;
         setCartLoading(true);
 
-        // Migrate any leftover localStorage cart items to DB, then fetch
         const initCart = async () => {
             try {
+                // One-time migration: push any leftover localStorage items to DB
                 let localItems = [];
                 try {
                     localItems = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -76,6 +86,16 @@ export const ShopProvider = ({ children }) => {
         initCart();
         return () => { cancelled = true; };
     }, [user?.id]);
+
+    // Re-fetch cart from DB when the user switches back to this tab/window
+    // so changes made on another device show up without a full page reload
+    useEffect(() => {
+        if (!user) return;
+
+        const onFocus = () => { fetchCart(); };
+        window.addEventListener('focus', onFocus);
+        return () => window.removeEventListener('focus', onFocus);
+    }, [user, fetchCart]);
 
     // Fetch wishlist from backend if logged in
     useEffect(() => {
