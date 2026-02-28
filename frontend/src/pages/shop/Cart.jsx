@@ -7,7 +7,7 @@ import { couponsAPI, productsAPI } from '../../lib/api'
 import { FREE_DELIVERY_THRESHOLD, EMI_MINIMUM_ORDER, SAVED_LATER_STORAGE_KEY } from '../../constants'
 
 const Cart = () => {
-    const { cart, addToCart, removeFromCart } = useShop()
+    const { cart, addToCart, removeFromCart, updateCartQuantity } = useShop()
     const navigate = useNavigate()
 
     const [couponCode, setCouponCode] = useState('')
@@ -95,10 +95,11 @@ const Cart = () => {
     }
 
     const handleQuantityChange = (uniqueId, newQty) => {
-        const item = cart.find(i => i.uniqueId === uniqueId)
-        if (!item) return
-        const diff = newQty - item.quantity
-        addToCart(uniqueId, diff)
+        if (newQty <= 0) {
+            removeFromCart(uniqueId)
+            return
+        }
+        updateCartQuantity(uniqueId, newQty)
     }
 
     const handleSaveForLater = (item) => {

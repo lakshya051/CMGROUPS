@@ -3,158 +3,211 @@ import prisma from '../lib/prisma.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
-// Apply protect middleware to all cart routes
 router.use(protect);
 
-// GET /api/cart
-// Fetch the user's current cart from the database
+const formatCartItem = (item) => {
+    const base = item.product;
+    const variant = item.variant;
+    const variantId = variant ? variant.id : null;
+
+    return {
+        ...base,
+        uniqueId: variantId ? `${base.id}-${variantId}` : `${base.id}`,
+        variantId,
+        variantName: variant ? variant.name : null,
+        price: variant ? variant.price : base.price,
+        stock: variant ? variant.stock : base.stock,
+        quantity: item.quantity,
+        cartItemId: item.id,
+    };
+};
+
+const fetchFullCart = async (userId) => {
+    const items = await prisma.cartItem.findMany({
+        where: { userId },
+        include: { product: true, variant: true },
+        orderBy: { createdAt: 'asc' },
+    });
+    return items.map(formatCartItem);
+};
+
+// GET /api/cart — fetch full cart from DB
 router.get('/', async (req, res) => {
     try {
-        const cartItems = await prisma.cartItem.findMany({
-            where: { userId: req.user.id },
-            include: {
-                product: true,
-                variant: true
-            }
-        });
-
-        // Format items to match the frontend expected structure
-        const formattedCart = cartItems.map(item => {
-            const baseProduct = item.product;
-            const variant = item.variant;
-
-            const variantId = variant ? variant.id : null;
-            const uniqueId = variantId ? `${baseProduct.id}-${variantId}` : `${baseProduct.id}`;
-
-            return {
-                ...baseProduct,
-                uniqueId,
-                variantId,
-                variantName: variant ? variant.name : null,
-                price: variant ? variant.price : baseProduct.price,
-                stock: variant ? variant.stock : baseProduct.stock,
-                quantity: item.quantity,
-                cartItemId: item.id // Keep track of the DB id if needed
-            };
-        });
-
-        res.json(formattedCart);
+        const cart = await fetchFullCart(req.user.id);
+        res.json(cart);
     } catch (error) {
         console.error('Fetch cart error:', error);
         res.status(500).json({ error: 'Failed to fetch cart' });
     }
 });
 
-// POST /api/cart/sync
-// Sync local cart items with the database. Merges the two, keeping the higher quantity.
-router.post('/sync', async (req, res) => {
+// POST /api/cart/items — add item or increment quantity
+router.post('/items', async (req, res) => {
     try {
-        const { items } = req.body; // Array of items from frontend localStorage
+        const { productId, variantId = null, quantity = 1 } = req.body;
         const userId = req.user.id;
 
-        // Fetch current DB cart
-        const dbItems = await prisma.cartItem.findMany({
-            where: { userId }
+        if (!productId) {
+            return res.status(400).json({ error: 'productId is required' });
+        }
+
+        const product = await prisma.product.findUnique({ where: { id: Number(productId) } });
+        if (!product) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        const existing = await prisma.cartItem.findUnique({
+            where: {
+                userId_productId_variantId: {
+                    userId,
+                    productId: Number(productId),
+                    variantId: variantId ? Number(variantId) : null,
+                },
+            },
         });
 
-        // Map DB items by a unique key for easy lookup
-        const dbItemsMap = new Map();
-        dbItems.forEach(item => {
-            const key = item.variantId ? `${item.productId}-${item.variantId}` : `${item.productId}-null`;
-            dbItemsMap.set(key, item);
+        if (existing) {
+            await prisma.cartItem.update({
+                where: { id: existing.id },
+                data: { quantity: existing.quantity + Number(quantity) },
+            });
+        } else {
+            await prisma.cartItem.create({
+                data: {
+                    userId,
+                    productId: Number(productId),
+                    variantId: variantId ? Number(variantId) : null,
+                    quantity: Number(quantity),
+                },
+            });
+        }
+
+        const cart = await fetchFullCart(userId);
+        res.json({ success: true, cart });
+    } catch (error) {
+        console.error('Add to cart error:', error);
+        res.status(500).json({ error: 'Failed to add item to cart' });
+    }
+});
+
+// PATCH /api/cart/items — set exact quantity for an item
+router.patch('/items', async (req, res) => {
+    try {
+        const { productId, variantId = null, quantity } = req.body;
+        const userId = req.user.id;
+
+        if (!productId || quantity == null) {
+            return res.status(400).json({ error: 'productId and quantity are required' });
+        }
+
+        const numQuantity = Number(quantity);
+
+        if (numQuantity <= 0) {
+            await prisma.cartItem.deleteMany({
+                where: {
+                    userId,
+                    productId: Number(productId),
+                    variantId: variantId ? Number(variantId) : null,
+                },
+            });
+        } else {
+            await prisma.cartItem.updateMany({
+                where: {
+                    userId,
+                    productId: Number(productId),
+                    variantId: variantId ? Number(variantId) : null,
+                },
+                data: { quantity: numQuantity },
+            });
+        }
+
+        const cart = await fetchFullCart(userId);
+        res.json({ success: true, cart });
+    } catch (error) {
+        console.error('Update cart item error:', error);
+        res.status(500).json({ error: 'Failed to update cart item' });
+    }
+});
+
+// DELETE /api/cart/items — remove a specific item
+router.delete('/items', async (req, res) => {
+    try {
+        const { productId, variantId = null } = req.body;
+        const userId = req.user.id;
+
+        if (!productId) {
+            return res.status(400).json({ error: 'productId is required' });
+        }
+
+        await prisma.cartItem.deleteMany({
+            where: {
+                userId,
+                productId: Number(productId),
+                variantId: variantId ? Number(variantId) : null,
+            },
         });
 
-        const updatedDbItems = [];
+        const cart = await fetchFullCart(userId);
+        res.json({ success: true, cart });
+    } catch (error) {
+        console.error('Remove cart item error:', error);
+        res.status(500).json({ error: 'Failed to remove item from cart' });
+    }
+});
 
-        // Process incoming items from frontend
+// POST /api/cart/sync — merge local cart with DB (kept for backward compat)
+router.post('/sync', async (req, res) => {
+    try {
+        const { items } = req.body;
+        const userId = req.user.id;
+
         if (items && Array.isArray(items)) {
             for (const localItem of items) {
-                const productId = Number(localItem.id) || Number(localItem.productId); // Depends on how frontend sends it, usually localItem.id is the product id
+                const productId = Number(localItem.id) || Number(localItem.productId);
                 if (!productId) continue;
 
                 const variantId = localItem.variantId ? Number(localItem.variantId) : null;
                 const quantity = Number(localItem.quantity) || 1;
-                const key = variantId ? `${productId}-${variantId}` : `${productId}-null`;
 
-                if (dbItemsMap.has(key)) {
-                    // Item exists in DB, update quantity to whichever is higher
-                    const dbItem = dbItemsMap.get(key);
-                    const newQuantity = Math.max(dbItem.quantity, quantity);
+                const existing = await prisma.cartItem.findUnique({
+                    where: {
+                        userId_productId_variantId: { userId, productId, variantId },
+                    },
+                });
 
-                    if (newQuantity !== dbItem.quantity) {
+                if (existing) {
+                    const newQty = Math.max(existing.quantity, quantity);
+                    if (newQty !== existing.quantity) {
                         await prisma.cartItem.update({
-                            where: { id: dbItem.id },
-                            data: { quantity: newQuantity }
+                            where: { id: existing.id },
+                            data: { quantity: newQty },
                         });
-                        dbItem.quantity = newQuantity; // Update local map object
                     }
-                    updatedDbItems.push(dbItem);
-                    dbItemsMap.delete(key); // Remove from map so we know what's left
                 } else {
-                    // Item doesn't exist in DB, create it
                     try {
-                        const newItem = await prisma.cartItem.create({
-                            data: {
-                                userId,
-                                productId,
-                                variantId,
-                                quantity
-                            }
+                        await prisma.cartItem.create({
+                            data: { userId, productId, variantId, quantity },
                         });
-                        updatedDbItems.push(newItem);
                     } catch (err) {
-                        console.error(`Failed to add item to DB cart. ProductId: ${productId}`, err);
+                        console.error(`Failed to sync cart item productId=${productId}:`, err.message);
                     }
                 }
             }
         }
 
-        // Add remaining DB items that weren't in the local cart
-        updatedDbItems.push(...dbItemsMap.values());
-
-        // Fetch the fully populated cart to return to the frontend
-        const finalCartItems = await prisma.cartItem.findMany({
-            where: { userId },
-            include: {
-                product: true,
-                variant: true
-            }
-        });
-
-        // Format
-        const formattedCart = finalCartItems.map(item => {
-            const baseProduct = item.product;
-            const variant = item.variant;
-
-            const variantId = variant ? variant.id : null;
-            const uniqueId = variantId ? `${baseProduct.id}-${variantId}` : `${baseProduct.id}`;
-
-            return {
-                ...baseProduct,
-                uniqueId,
-                variantId,
-                variantName: variant ? variant.name : null,
-                price: variant ? variant.price : baseProduct.price,
-                stock: variant ? variant.stock : baseProduct.stock,
-                quantity: item.quantity,
-                cartItemId: item.id
-            };
-        });
-
-        res.json({ success: true, cart: formattedCart });
+        const cart = await fetchFullCart(userId);
+        res.json({ success: true, cart });
     } catch (error) {
         console.error('Sync cart error:', error);
         res.status(500).json({ error: 'Failed to sync cart' });
     }
 });
 
-// DELETE /api/cart
-// Clear the entire cart for a user (called after order placement)
+// DELETE /api/cart — clear entire cart
 router.delete('/', async (req, res) => {
     try {
-        await prisma.cartItem.deleteMany({
-            where: { userId: req.user.id }
-        });
+        await prisma.cartItem.deleteMany({ where: { userId: req.user.id } });
         res.json({ success: true, message: 'Cart cleared' });
     } catch (error) {
         console.error('Clear cart error:', error);

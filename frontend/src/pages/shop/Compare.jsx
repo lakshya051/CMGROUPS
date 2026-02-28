@@ -89,7 +89,7 @@ const Compare = () => {
                                             size="sm"
                                             className="w-full gap-2"
                                             disabled={p.stock === 0}
-                                            onClick={() => addToCart(p.id)}
+                                            onClick={() => addToCart(p)}
                                         >
                                             <ShoppingCart size={16} />
                                             {p.stock === 0 ? 'Out of Stock' : 'Add to Cart'}

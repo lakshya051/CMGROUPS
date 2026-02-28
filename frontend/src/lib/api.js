@@ -145,11 +145,31 @@ export const ordersAPI = {
 // ============ CART ============
 export const cartAPI = {
     get: () => apiFetch('/cart'),
+
+    addItem: (productId, variantId = null, quantity = 1) =>
+        apiFetch('/cart/items', {
+            method: 'POST',
+            body: JSON.stringify({ productId, variantId, quantity }),
+        }),
+
+    updateItem: (productId, variantId = null, quantity) =>
+        apiFetch('/cart/items', {
+            method: 'PATCH',
+            body: JSON.stringify({ productId, variantId, quantity }),
+        }),
+
+    removeItem: (productId, variantId = null) =>
+        apiFetch('/cart/items', {
+            method: 'DELETE',
+            body: JSON.stringify({ productId, variantId }),
+        }),
+
     sync: (items) => apiFetch('/cart/sync', {
         method: 'POST',
-        body: JSON.stringify({ items })
+        body: JSON.stringify({ items }),
     }),
-    clear: () => apiFetch('/cart', { method: 'DELETE' })
+
+    clear: () => apiFetch('/cart', { method: 'DELETE' }),
 };
 
 
