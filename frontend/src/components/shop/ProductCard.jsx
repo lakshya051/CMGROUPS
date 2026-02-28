@@ -39,7 +39,7 @@ const ProductCard = ({ product }) => {
     return (
         <div className="glass-panel group relative flex flex-col overflow-hidden h-full">
             {/* Image Area */}
-            <div className="relative aspect-square bg-gray-50 flex items-center justify-center p-6 transition-colors group-hover:bg-gray-100/80">
+            <div className="relative aspect-square bg-page-bg flex items-center justify-center p-6 transition-colors group-hover:bg-surface-hover/80">
                 <img
                     src={product.image}
                     alt={product.title}
@@ -93,7 +93,7 @@ const ProductCard = ({ product }) => {
                         {product.title}
                     </h3>
                     {hasMultipleVariants && (
-                        <span className="inline-block mt-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                        <span className="inline-block mt-1 text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
                             {product.variants.length} options available
                         </span>
                     )}
@@ -109,7 +109,7 @@ const ProductCard = ({ product }) => {
                     </div>
                     <div className="flex items-center gap-2">
                         <button
-                            className="rounded-full h-10 w-10 p-0 flex items-center justify-center border border-gray-200 text-text-muted hover:text-primary hover:border-primary shrink-0 transition-colors"
+                            className="rounded-full h-10 w-10 p-0 flex items-center justify-center border border-border-default text-text-muted hover:text-primary hover:border-primary shrink-0 transition-colors"
                             onClick={(e) => { e.preventDefault(); addToCompare(product.id); }}
                             title="Compare"
                         >
@@ -118,7 +118,7 @@ const ProductCard = ({ product }) => {
                         <Button
                             size="sm"
                             disabled={isOutOfStock}
-                            className={`rounded-full h-10 w-10 p-0 flex items-center justify-center shrink-0 ${isOutOfStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-primary'}`}
+                            className={`rounded-full h-10 w-10 p-0 flex items-center justify-center shrink-0 ${isOutOfStock ? 'bg-border-default text-text-muted cursor-not-allowed' : 'bg-surface-hover hover:bg-buy-primary text-text-primary hover:text-white'}`}
                             onClick={handleAddToCart}
                             title={isOutOfStock ? "Out of Stock" : hasMultipleVariants ? "Select Option" : "Add to Cart"}
                         >

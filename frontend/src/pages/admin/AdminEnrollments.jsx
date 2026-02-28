@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 const STATUS_STYLES = {
     Pending: 'bg-warning/10 text-warning border border-warning/20',
-    Approved: 'bg-blue-100 text-blue-700 border border-blue-200',
+    Approved: 'bg-primary/10 text-primary border border-primary/20',
     Rejected: 'bg-error/10 text-error border border-error/20',
     Enrolled: 'bg-success/10 text-success border border-success/20',
     Completed: 'bg-purple-100 text-purple-700 border border-purple-200'
@@ -74,12 +74,12 @@ const AdminEnrollments = () => {
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Total', value: stats.total, color: 'bg-blue-50 text-blue-700' },
+                    { label: 'Total', value: stats.total, color: 'bg-primary/5 text-primary' },
                     { label: 'Pending', value: stats.pending, color: 'bg-warning/10 text-warning' },
                     { label: 'Enrolled', value: stats.enrolled, color: 'bg-success/10 text-success' },
                     { label: 'Completed', value: stats.completed, color: 'bg-purple-50 text-purple-700' },
                 ].map(s => (
-                    <div key={s.label} className={`rounded-2xl p-5 ${s.color}`}>
+                    <div key={s.label} className={`rounded-lg p-5 ${s.color}`}>
                         <div className="text-3xl font-black">{s.value}</div>
                         <div className="text-sm font-bold mt-1">{s.label}</div>
                     </div>
@@ -92,7 +92,7 @@ const AdminEnrollments = () => {
                     <button
                         key={s}
                         onClick={() => setStatusFilter(s)}
-                        className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${statusFilter === s ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'bg-surface border border-gray-200 text-text-muted hover:border-primary hover:text-primary'}`}
+                        className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${statusFilter === s ? 'bg-primary text-white shadow-sm' : 'bg-surface border border-border-default text-text-muted hover:border-primary hover:text-primary'}`}
                     >
                         {s}
                     </button>
@@ -100,8 +100,8 @@ const AdminEnrollments = () => {
             </div>
 
             {filtered.length === 0 ? (
-                <div className="text-center py-16 bg-surface rounded-2xl border border-dashed border-gray-200">
-                    <BookOpen size={48} className="mx-auto text-gray-300 mb-4" />
+                <div className="text-center py-16 bg-surface rounded-lg border border-dashed border-border-default">
+                    <BookOpen size={48} className="mx-auto text-text-muted/50 mb-4" />
                     <p className="text-text-muted font-bold">No applications in this status.</p>
                 </div>
             ) : (
@@ -112,7 +112,7 @@ const AdminEnrollments = () => {
                         const balance = totalFee - totalPaid;
 
                         return (
-                            <div key={app.id} className="bg-surface rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div key={app.id} className="bg-surface rounded-lg border border-border-default shadow-sm overflow-hidden">
                                 {/* Header */}
                                 <div className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                                     <button className="flex items-center gap-3 text-left flex-1 min-w-0" onClick={() => toggle(app.id)}>
@@ -141,7 +141,7 @@ const AdminEnrollments = () => {
 
                                 {/* Expanded Details */}
                                 {expanded[app.id] && (
-                                    <div className="border-t border-gray-100 p-5 bg-gray-50/50 space-y-5">
+                                    <div className="border-t border-border-default p-5 bg-page-bg space-y-5">
                                         {/* Action Buttons */}
                                         <div className="flex flex-wrap gap-2">
                                             {app.status === 'Pending' && (
@@ -184,7 +184,7 @@ const AdminEnrollments = () => {
                                                 {/* Add Fee Payment Form */}
                                                 {(app.status === 'Approved' || app.status === 'Enrolled') && (
                                                     feeForm.id === app.id ? (
-                                                        <form onSubmit={recordFee} className="space-y-2 p-3 bg-surface rounded-xl border border-gray-200">
+                                                        <form onSubmit={recordFee} className="space-y-2 p-3 bg-surface rounded-xl border border-border-default">
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <input required type="number" min="1" placeholder="Amount (₹)" value={feeForm.amount} onChange={e => setFeeForm(f => ({ ...f, amount: e.target.value }))} className="input-field text-sm py-2" />
                                                                 <input placeholder="Note (optional)" value={feeForm.note} onChange={e => setFeeForm(f => ({ ...f, note: e.target.value }))} className="input-field text-sm py-2" />
@@ -211,7 +211,7 @@ const AdminEnrollments = () => {
                                                     </div>
                                                 )}
                                                 {app.message && (
-                                                    <div className="text-xs p-2.5 bg-gray-50 border border-gray-100 rounded-lg text-text-muted">
+                                                    <div className="text-xs p-2.5 bg-page-bg border border-border-default rounded-lg text-text-muted">
                                                         <span className="font-bold text-text-main">Message:</span> {app.message}
                                                     </div>
                                                 )}

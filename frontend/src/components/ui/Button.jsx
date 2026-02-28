@@ -8,14 +8,14 @@ const Button = ({
     className,
     ...props
 }) => {
-    const baseStyles = "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none";
+    const baseStyles = "inline-flex items-center justify-center rounded transition-colors duration-base disabled:opacity-50 disabled:pointer-events-none";
 
     const variants = {
-        primary: "bg-primary text-white hover:bg-pink-600 shadow-lg hover:shadow-pink-500/40",
-        secondary: "bg-secondary text-white hover:bg-violet-700 shadow-md",
-        outline: "border border-gray-300 hover:border-primary hover:text-primary bg-transparent",
-        ghost: "hover:bg-gray-100 text-text-muted hover:text-text-main",
-        danger: "bg-error text-white hover:bg-red-600",
+        primary: "bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold",
+        secondary: "border border-border-default text-text-primary bg-surface hover:bg-surface-hover",
+        outline: "border border-border-default text-text-primary bg-surface hover:bg-surface-hover",
+        ghost: "hover:bg-surface-hover text-text-primary bg-transparent",
+        danger: "text-deal hover:underline font-medium bg-transparent",
     };
 
     const sizes = {

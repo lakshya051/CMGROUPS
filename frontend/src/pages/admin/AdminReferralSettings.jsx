@@ -98,7 +98,7 @@ const AdminReferralSettings = () => {
 
                 {/* Economic Rules Section */}
                 <section>
-                    <h2 className="text-xl font-bold mb-4 border-b border-gray-100 pb-2">Economic Rules</h2>
+                    <h2 className="text-xl font-bold mb-4 border-b border-border-default pb-2">Economic Rules</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-text-muted">Point to Rupee Rate (Points = ₹10)</label>
@@ -127,8 +127,8 @@ const AdminReferralSettings = () => {
 
                 {/* Feature Toggles */}
                 <section>
-                    <h2 className="text-xl font-bold mb-4 border-b border-gray-100 pb-2">Features</h2>
-                    <div className="flex items-center justify-between bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                    <h2 className="text-xl font-bold mb-4 border-b border-border-default pb-2">Features</h2>
+                    <div className="flex items-center justify-between bg-page-bg p-4 rounded-xl border border-border-default">
                         <div>
                             <h3 className="font-bold">Tier System</h3>
                             <p className="text-sm text-text-muted">Enable Bronze, Silver, Gold tiers based on user points</p>
@@ -141,7 +141,7 @@ const AdminReferralSettings = () => {
                                 checked={settings.tierSystemEnabled}
                                 onChange={handleChange}
                             />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            <div className="w-11 h-6 bg-border-default peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border-default after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                         </label>
                     </div>
                 </section>

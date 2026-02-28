@@ -1,11 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { ordersAPI, wishlistAPI } from '../lib/api';
+import { ordersAPI, wishlistAPI, cartAPI } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { ShopContext } from './ShopContext';
 
 export const ShopProvider = ({ children }) => {
     const { user, refreshUser } = useAuth();
-    const [cart, setCart] = useState([]);
+    const [cart, setCart] = useState(() => {
+        try {
+            const saved = localStorage.getItem('cart');
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error("Failed to parse cart", error);
+            return [];
+        }
+    });
+
+    const [coupon, setCoupon] = useState(() => {
+        try {
+            const saved = localStorage.getItem('appliedCoupon');
+            return saved ? JSON.parse(saved) : null;
+        } catch (error) {
+            console.error("Failed to parse coupon", error);
+            return null;
+        }
+    });
     const [wishlist, setWishlist] = useState(() => {
         try {
             const saved = localStorage.getItem('wishlist');
@@ -45,6 +63,40 @@ export const ShopProvider = ({ children }) => {
     useEffect(() => {
         localStorage.setItem('wishlist', JSON.stringify(wishlist));
     }, [wishlist]);
+
+    // Persist cart locally
+    useEffect(() => {
+        localStorage.setItem('cart', JSON.stringify(cart));
+    }, [cart]);
+
+    // Persist coupon locally
+    useEffect(() => {
+        if (coupon) {
+            localStorage.setItem('appliedCoupon', JSON.stringify(coupon));
+        } else {
+            localStorage.removeItem('appliedCoupon');
+        }
+    }, [coupon]);
+
+    // DB cart sync
+    useEffect(() => {
+        const syncCart = async () => {
+            if (user) {
+                try {
+                    // Try to sync with existing local cart
+                    // The backend returns the merged cart
+                    const response = await cartAPI.sync(cart);
+                    if (response.success && response.cart) {
+                        setCart(response.cart);
+                        localStorage.setItem('cart', JSON.stringify(response.cart));
+                    }
+                } catch (error) {
+                    console.error('Failed to sync cart with server:', error);
+                }
+            }
+        };
+        syncCart();
+    }, [user?.id]); // Only trigger when user logs in/out, avoid infinite loops with 'cart' 
 
     // Persist compare list locally
     useEffect(() => {
@@ -94,7 +146,18 @@ export const ShopProvider = ({ children }) => {
         });
     };
 
-    const clearCart = () => setCart([]);
+    const clearCart = () => {
+        setCart([]);
+        setCoupon(null);
+    };
+
+    const applyCoupon = (couponData) => {
+        setCoupon(couponData);
+    };
+
+    const removeCoupon = () => {
+        setCoupon(null);
+    };
 
     const placeOrder = async (orderData) => {
         try {
@@ -111,9 +174,18 @@ export const ShopProvider = ({ children }) => {
                 orderData.shippingAddress || null,
                 orderData.referralCode || null,
                 orderData.useWallet || false,
-                orderData.walletUsed || 0
+                orderData.walletUsed || 0,
+                coupon?.code || null,
+                coupon?.discount || 0
             );
             clearCart();
+            if (user) {
+                try {
+                    await cartAPI.clear();
+                } catch (error) {
+                    console.error('Failed to clear cart on server', error);
+                }
+            }
             // Refresh user so wallet balance is up-to-date in the UI
             if (orderData.useWallet && refreshUser) {
                 await refreshUser();
@@ -187,7 +259,10 @@ export const ShopProvider = ({ children }) => {
             compareList,
             addToCompare,
             removeFromCompare,
-            clearCompare
+            clearCompare,
+            coupon,
+            applyCoupon,
+            removeCoupon
         }}>
             {children}
         </ShopContext.Provider>

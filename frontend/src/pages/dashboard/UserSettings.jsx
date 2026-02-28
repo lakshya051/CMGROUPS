@@ -58,10 +58,10 @@ const UserSettings = () => {
     });
 
     return (
-        <div className="max-w-3xl">
-            <div className="mb-8">
-                <h1 className="text-3xl font-heading font-bold mb-1">Account Settings</h1>
-                <p className="text-text-muted">Manage your profile and preferences.</p>
+        <div className="max-w-3xl space-y-lg">
+            <div>
+                <h1 className="text-2xl font-bold text-text-primary mb-1">Account Settings</h1>
+                <p className="text-sm text-text-secondary">Manage your profile and preferences.</p>
             </div>
 
             {message && (
@@ -75,11 +75,11 @@ const UserSettings = () => {
                 </div>
             )}
 
-            <form onSubmit={formik.handleSubmit} className="space-y-8">
+            <form onSubmit={formik.handleSubmit} className="space-y-lg">
                 {/* Profile Section */}
-                <div className="glass-panel p-6">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <User size={20} className="text-primary" /> Profile Information
+                <div className="bg-surface border border-border-default rounded-lg shadow-sm p-lg">
+                    <h2 className="text-xl font-bold mb-md flex items-center gap-2 text-text-primary">
+                        <User size={20} className="text-trust" /> Profile Information
                     </h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -137,9 +137,9 @@ const UserSettings = () => {
                 </div>
 
                 {/* Security Section */}
-                <div className="glass-panel p-6">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <Lock size={20} className="text-primary" /> Change Password
+                <div className="bg-surface border border-border-default rounded-lg shadow-sm p-lg">
+                    <h2 className="text-xl font-bold mb-md flex items-center gap-2 text-text-primary">
+                        <Lock size={20} className="text-trust" /> Change Password
                     </h2>
 
                     <div className="space-y-4">

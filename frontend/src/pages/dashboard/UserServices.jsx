@@ -30,17 +30,17 @@ const StatusTimeline = ({ currentStatus }) => {
                     <React.Fragment key={step}>
                         <div className="flex flex-col items-center min-w-[60px]">
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${isComplete
-                                    ? 'bg-primary border-primary text-white'
-                                    : 'bg-white border-gray-300 text-gray-400'
-                                } ${isCurrent ? 'ring-4 ring-primary/20 scale-110' : ''}`}>
+                                ? 'bg-buy-primary border-buy-primary text-text-primary'
+                                : 'bg-page-bg border-border-default text-text-muted'
+                                } ${isCurrent ? 'ring-4 ring-buy-primary/20 scale-110' : ''}`}>
                                 {isComplete ? '✓' : idx + 1}
                             </div>
-                            <span className={`text-[10px] mt-1 text-center leading-tight ${isComplete ? 'text-primary font-bold' : 'text-gray-400'}`}>
+                            <span className={`text-[10px] mt-1 text-center leading-tight ${isComplete ? 'text-text-primary font-bold' : 'text-text-muted'}`}>
                                 {step}
                             </span>
                         </div>
                         {idx < STATUS_STEPS.length - 1 && (
-                            <div className={`flex-1 h-0.5 min-w-[16px] ${idx < currentIdx ? 'bg-primary' : 'bg-gray-200'}`} />
+                            <div className={`flex-1 h-0.5 min-w-[16px] ${idx < currentIdx ? 'bg-buy-primary' : 'bg-border-default'}`} />
                         )}
                     </React.Fragment>
                 );
@@ -66,11 +66,11 @@ const UserServices = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-lg">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-heading font-bold mb-1">My Service Requests</h1>
-                    <p className="text-text-muted">Track your repair and build appointments.</p>
+                    <h1 className="text-2xl font-bold text-text-primary mb-1">My Service Requests</h1>
+                    <p className="text-sm text-text-secondary">Track your repair and build appointments.</p>
                 </div>
                 <Link to="/services">
                     <Button>Book New Service</Button>
@@ -80,22 +80,22 @@ const UserServices = () => {
             <div className="grid grid-cols-1 gap-4">
                 {bookings.length > 0 ? (
                     bookings.map(booking => (
-                        <div key={booking.id} className="glass-panel overflow-hidden">
+                        <div key={booking.id} className="bg-surface border border-border-default rounded-lg shadow-sm overflow-hidden">
                             {/* Main Row */}
                             <div
-                                className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                                className="p-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:bg-surface-hover transition-colors"
                                 onClick={() => setExpandedId(expandedId === booking.id ? null : booking.id)}
                             >
                                 <div className="flex items-start gap-4">
-                                    <div className="p-3 rounded-lg bg-primary/10 text-primary">
+                                    <div className="p-sm rounded bg-trust/10 text-trust border border-trust/20">
                                         <Wrench size={24} />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="font-bold text-lg">{booking.serviceType}</h3>
-                                            <span className="font-mono text-xs text-text-muted opacity-50">SRV-{booking.id}</span>
+                                            <h3 className="font-bold text-lg text-text-primary">{booking.serviceType}</h3>
+                                            <span className="font-mono text-xs text-text-muted opacity-80">SRV-{booking.id}</span>
                                         </div>
-                                        <div className="flex flex-wrap items-center gap-3 text-sm text-text-muted">
+                                        <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary font-medium">
                                             <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(booking.date).toLocaleDateString()}</span>
                                             {booking.deviceType && (
                                                 <span className="flex items-center gap-1"><Cpu size={14} /> {booking.deviceType} {booking.deviceBrand && `(${booking.deviceBrand})`}</span>
@@ -114,10 +114,10 @@ const UserServices = () => {
                                             ) : null}
                                         </div>
                                     )}
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-2 ${booking.status === 'Completed' || booking.status === 'Delivered' ? 'text-success bg-success/10 border-success/20' :
-                                            booking.status === 'Cancelled' ? 'text-red-500 bg-red-500/10 border-red-500/20' :
-                                                booking.status === 'In Progress' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' :
-                                                    'text-blue-500 bg-blue-500/10 border-blue-500/20'
+                                    <span className={`px-3 py-1 rounded text-xs font-bold border flex items-center gap-2 ${booking.status === 'Completed' || booking.status === 'Delivered' ? 'text-success bg-success/10 border-success/20' :
+                                        booking.status === 'Cancelled' ? 'text-error bg-error/10 border-error/20' :
+                                            booking.status === 'In Progress' ? 'text-warning bg-warning/10 border-warning/20' :
+                                                'text-trust bg-trust/10 border-trust/20'
                                         }`}>
                                         {booking.status === 'Completed' || booking.status === 'Delivered' ? <CheckCircle size={14} /> :
                                             booking.status === 'Cancelled' ? <XCircle size={14} /> :
@@ -129,15 +129,15 @@ const UserServices = () => {
 
                             {/* Expanded Details */}
                             {expandedId === booking.id && (
-                                <div className="border-t border-gray-100 p-6 bg-gray-50/30 space-y-4 animate-in fade-in slide-in-from-top duration-200">
+                                <div className="border-t border-border-default p-md bg-page-bg space-y-md animate-in fade-in slide-in-from-top duration-200">
                                     {/* Status Timeline */}
                                     <StatusTimeline currentStatus={booking.status} />
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                                         {/* Address */}
-                                        <div className="space-y-2">
-                                            <h4 className="font-bold text-sm text-text-muted flex items-center gap-2"><MapPin size={14} /> Pickup Address</h4>
-                                            <p className="text-sm">
+                                        <div className="space-y-sm">
+                                            <h4 className="font-bold text-sm text-text-secondary flex items-center gap-2"><MapPin size={14} /> Pickup Address</h4>
+                                            <p className="text-sm font-medium text-text-primary">
                                                 {booking.address}<br />
                                                 {booking.city}, {booking.pincode}
                                                 {booking.landmark && <><br />Near: {booking.landmark}</>}
@@ -145,35 +145,35 @@ const UserServices = () => {
                                         </div>
 
                                         {/* Contact */}
-                                        <div className="space-y-2">
-                                            <h4 className="font-bold text-sm text-text-muted flex items-center gap-2"><Phone size={14} /> Contact</h4>
-                                            <p className="text-sm">{booking.customerName}</p>
-                                            <p className="text-sm">{booking.customerPhone}</p>
+                                        <div className="space-y-sm">
+                                            <h4 className="font-bold text-sm text-text-secondary flex items-center gap-2"><Phone size={14} /> Contact</h4>
+                                            <p className="text-sm font-medium text-text-primary">{booking.customerName}</p>
+                                            <p className="text-sm text-text-secondary">{booking.customerPhone}</p>
                                         </div>
 
                                         {/* Pickup OTP */}
                                         {booking.pickupOtp && booking.status !== 'Cancelled' && (
-                                            <div className="space-y-2">
-                                                <h4 className="font-bold text-sm text-text-muted">🔑 Pickup OTP</h4>
-                                                <p className="text-2xl font-mono font-bold tracking-widest text-primary">{booking.pickupOtp}</p>
+                                            <div className="space-y-sm">
+                                                <h4 className="font-bold text-sm text-text-secondary flex items-center gap-2">🔑 Pickup OTP</h4>
+                                                <p className="text-2xl font-mono font-bold tracking-widest text-trust">{booking.pickupOtp}</p>
                                                 <p className="text-xs text-text-muted">Share with technician during pickup</p>
                                             </div>
                                         )}
 
                                         {/* Pricing */}
                                         {(booking.estimatedPrice || booking.finalPrice) && (
-                                            <div className="space-y-2">
-                                                <h4 className="font-bold text-sm text-text-muted flex items-center gap-2"><IndianRupee size={14} /> Pricing</h4>
-                                                {booking.estimatedPrice && <p className="text-sm">Estimated: ₹{booking.estimatedPrice}</p>}
-                                                {booking.finalPrice && <p className="text-sm font-bold">Final: ₹{booking.finalPrice}</p>}
+                                            <div className="space-y-sm">
+                                                <h4 className="font-bold text-sm text-text-secondary flex items-center gap-2"><IndianRupee size={14} /> Pricing</h4>
+                                                {booking.estimatedPrice && <p className="text-sm font-medium text-text-primary">Estimated: ₹{booking.estimatedPrice}</p>}
+                                                {booking.finalPrice && <p className="text-sm font-bold text-text-primary">Final: ₹{booking.finalPrice}</p>}
                                             </div>
                                         )}
 
                                         {/* Assigned Technician */}
                                         {booking.assignedTo && (
-                                            <div className="space-y-2">
-                                                <h4 className="font-bold text-sm text-text-muted flex items-center gap-2"><UserIcon size={14} /> Assigned Technician</h4>
-                                                <p className="text-sm">{booking.assignedTo}</p>
+                                            <div className="space-y-sm">
+                                                <h4 className="font-bold text-sm text-text-secondary flex items-center gap-2"><UserIcon size={14} /> Assigned Technician</h4>
+                                                <p className="text-sm font-medium text-text-primary">{booking.assignedTo}</p>
                                             </div>
                                         )}
                                     </div>
@@ -181,8 +181,8 @@ const UserServices = () => {
                                     {/* Description */}
                                     {booking.description && (
                                         <div>
-                                            <h4 className="font-bold text-sm text-text-muted mb-1">Issue Description</h4>
-                                            <p className="text-sm bg-white p-3 rounded-lg border border-gray-100">{booking.description}</p>
+                                            <h4 className="font-bold text-sm text-text-secondary mb-2">Issue Description</h4>
+                                            <p className="text-sm bg-surface p-sm rounded border border-border-default text-text-primary">{booking.description}</p>
                                         </div>
                                     )}
 
@@ -202,12 +202,12 @@ const UserServices = () => {
                         </div>
                     ))
                 ) : (
-                    <div className="glass-panel p-12 text-center">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
+                    <div className="bg-surface border border-border-default rounded-lg shadow-sm p-xl text-center">
+                        <div className="w-16 h-16 bg-page-bg rounded-lg border border-border-default flex items-center justify-center mx-auto mb-md text-text-muted">
                             <Wrench size={32} />
                         </div>
-                        <h3 className="text-xl font-bold mb-2">No Service History</h3>
-                        <p className="text-text-muted mb-6">You haven't booked any services yet.</p>
+                        <h3 className="text-xl font-bold mb-2 text-text-primary">No Service History</h3>
+                        <p className="text-text-secondary mb-lg">You haven't booked any services yet.</p>
                         <Link to="/services">
                             <Button variant="outline">Browse Services</Button>
                         </Link>

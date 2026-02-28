@@ -27,23 +27,23 @@
 
 @layer components {
     .btn {
-        @apply px-4 py-2 rounded-lg font-medium transition-all duration-300 active:scale-95;
+        @apply px-4 py-2 rounded-lg font-medium transition-colors duration-base;
     }
 
     .btn-primary {
-        @apply bg-primary text-white hover:bg-pink-600 shadow-lg hover:shadow-pink-500/40;
+        @apply bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold;
     }
 
     .btn-outline {
-        @apply border border-gray-300 hover:border-primary hover:text-primary bg-transparent;
+        @apply border border-border-default bg-surface hover:bg-surface-hover text-text-primary;
     }
 
     .glass-panel {
-        @apply bg-white border border-gray-200 rounded-xl shadow-card;
+        @apply bg-surface border border-border-default rounded-lg shadow-sm hover:shadow-md transition-shadow duration-base;
     }
 
     .input-field {
-        @apply w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2.5 text-text-main placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-base;
+        @apply w-full bg-surface border border-border-default rounded-lg px-4 py-2 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-trust focus:ring-1 focus:ring-trust transition-colors text-sm;
         /* text-base prevents iOS auto-zoom on input focus */
     }
 

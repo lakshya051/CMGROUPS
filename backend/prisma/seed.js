@@ -1,29 +1,24 @@
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
     console.log('🌱 Seeding database...\n');
 
     // ============ ADMIN USER ============
-    const hashedPassword = await bcrypt.hash('admin123', 10);
     const admin = await prisma.user.upsert({
         where: { email: 'admin@cmgroups.in' },
         update: {},
         create: {
             email: 'admin@cmgroups.in',
             name: 'CM Admin',
-            password: hashedPassword,
             role: 'admin',
             phone: '9876543210',
-            isVerified: true,
             referralCode: 'CMADMIN'
         }
     });
     console.log('✅ Admin user ready');
 
     // ============ SAMPLE CUSTOMERS ============
-    const customerPassword = await bcrypt.hash('customer123', 10);
     const customers = [];
     const customerData = [
         { email: 'rahul@example.com', name: 'Rahul Sharma', phone: '9876500001', referralCode: 'RAHUL01' },
@@ -36,7 +31,7 @@ async function main() {
         const user = await prisma.user.upsert({
             where: { email: c.email },
             update: {},
-            create: { ...c, password: customerPassword, role: 'customer', isVerified: true }
+            create: { ...c, role: 'customer' }
         });
         customers.push(user);
     }
@@ -375,10 +370,8 @@ async function main() {
             create: {
                 email: `referee${i}@example.com`,
                 name: `Referee User ${i}`,
-                password: customerPassword,
                 role: 'customer',
-                isVerified: true,
-                referredById: customers[0].id // All referred by Rahul
+                referredById: customers[0].id
             }
         });
         dummyReferees.push(dummy);

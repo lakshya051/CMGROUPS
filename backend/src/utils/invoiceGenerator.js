@@ -1,6 +1,6 @@
-const PDFDocument = require('pdfkit');
+import PDFDocument from 'pdfkit';
 
-function generateInvoice(order, user, res) {
+export function generateInvoice(order, user, res) {
     const doc = new PDFDocument({ margin: 50 });
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -8,7 +8,6 @@ function generateInvoice(order, user, res) {
 
     doc.pipe(res);
 
-    // Header
     doc
         .fillColor('#444444')
         .fontSize(20)
@@ -19,7 +18,6 @@ function generateInvoice(order, user, res) {
         .text('GSTIN: 07AABCU9603R1ZX', 200, 80, { align: 'right' })
         .moveDown();
 
-    // Invoice Details
     doc
         .fillColor('#000000')
         .text(`Invoice Number: INV-${order.id}`, 50, 150)
@@ -29,7 +27,6 @@ function generateInvoice(order, user, res) {
         .text(`Phone: ${user.phone || 'N/A'}`, 50, 210)
         .moveDown();
 
-    // Table Header
     let y = 250;
     doc
         .fontSize(12)
@@ -45,7 +42,6 @@ function generateInvoice(order, user, res) {
         .lineTo(550, y + 15)
         .stroke();
 
-    // Table Body
     y += 30;
     let subtotal = 0;
     order.items.forEach(item => {
@@ -61,7 +57,6 @@ function generateInvoice(order, user, res) {
         y += 20;
     });
 
-    // Totals
     doc
         .strokeColor('#aaaaaa')
         .lineWidth(1)
@@ -70,7 +65,7 @@ function generateInvoice(order, user, res) {
         .stroke();
 
     y += 15;
-    const gstRate = 0.18; // 18% GST Example
+    const gstRate = 0.18;
     const taxableAmount = subtotal / (1 + gstRate);
     const gstAmount = subtotal - taxableAmount;
 
@@ -88,7 +83,6 @@ function generateInvoice(order, user, res) {
         .text('Total Amount:', 350, y, { width: 100, align: 'right' })
         .text(`Rs. ${order.total.toLocaleString()}`, 450, y, { align: 'right' });
 
-    // Footer
     doc
         .fontSize(10)
         .font('Helvetica')
@@ -96,5 +90,3 @@ function generateInvoice(order, user, res) {
 
     doc.end();
 }
-
-module.exports = { generateInvoice };

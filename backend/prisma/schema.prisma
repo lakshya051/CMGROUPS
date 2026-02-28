@@ -12,17 +12,15 @@ datasource db {
 
 model User {
   id             Int      @id @default(autoincrement())
+  clerkId        String?  @unique
   email          String   @unique
-  password       String
   name           String
   phone          String?
-  referralCode   String?  @unique // Code this user shares
+  referralCode   String?  @unique
   walletBalance  Float    @default(0)
-  isVerified     Boolean  @default(true)
   tier           String   @default("Bronze")
-  otp            String?
-  otpExpires     DateTime?
-  referredById   Int?     // Who referred this user
+  tierPoints     Float    @default(0)
+  referredById   Int?
   referredBy     User?    @relation("UserReferrals", fields: [referredById], references: [id])
   role           String   @default("customer")
   createdAt      DateTime @default(now())
@@ -37,6 +35,7 @@ model User {
   productAlerts      ProductAlert[]
   notifications      Notification[]
   wishlists          Wishlist[]
+  cartItems          CartItem[]
   
   // Education Module
   courseApplications CourseApplication[]
@@ -207,6 +206,7 @@ model Product {
   alerts      ProductAlert[]
   wishlists   Wishlist[]
   variants    ProductVariant[]
+  cartItems   CartItem[]
 
   @@index([category])
   @@index([isSecondHand])
@@ -224,6 +224,23 @@ model Wishlist {
   @@unique([userId, productId])
 }
 
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId, variantId])
+  @@index([userId])
+}
+
+
 model Order {
   id              Int         @id @default(autoincrement())
   userId          Int?
@@ -237,6 +254,8 @@ model Order {
   shippingAddress Json?
   guestInfo       Json?
   referralCodeUsed String?
+  couponCode      String?
+  discountAmount  Float       @default(0)
   createdAt       DateTime    @default(now())
   
   // Cancellation & Return Fields
@@ -318,11 +337,15 @@ model ServiceBooking {
 }
 
 model Coupon {
-  id           Int      @id @default(autoincrement())
-  code         String   @unique
-  discountType String   // "percent" or "fixed"
-  value        Float
-  active       Boolean  @default(true)
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  discountType   String    // "percent" or "fixed"
+  value          Float
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  minOrderAmount Float?
+  maxUses        Int?
+  usedCount      Int       @default(0)
 }
 
 model Referral {
@@ -376,6 +399,7 @@ model ProductVariant {
   updatedAt   DateTime @updatedAt
 
   orderItems  OrderItem[] // so order items can reference a variant
+  cartItems   CartItem[]
 }
 
 model ProductAlert {
@@ -421,6 +445,13 @@ model ReferralSettings {
   updatedAt                 DateTime @updatedAt
   
   @@unique([id]) // Single settings record
+}
+
+model TierConfig {
+  id        Int    @id @default(autoincrement())
+  tierName  String @unique
+  minPoints Float
+  color     String @default("#CD7F32")
 }
 
 model TallyEnquiry {

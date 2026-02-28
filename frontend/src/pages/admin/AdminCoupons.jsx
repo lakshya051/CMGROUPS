@@ -106,7 +106,7 @@ const AdminCoupons = () => {
                             </div>
                             <span className={`text-xs px-2 py-0.5 rounded border ${coupon.active
                                 ? 'text-success bg-success/10 border-success/20'
-                                : 'text-text-muted bg-gray-100 border-gray-200'
+                                : 'text-text-muted bg-page-bg border-border-default'
                                 }`}>
                                 {coupon.active ? 'Active' : 'Inactive'}
                             </span>
@@ -131,7 +131,7 @@ const AdminCoupons = () => {
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200 p-4">
                     <div className="glass-panel w-full max-w-md relative animate-in zoom-in duration-300">
-                        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <div className="p-6 border-b border-border-default flex items-center justify-between">
                             <h2 className="text-xl font-heading font-bold">Create Coupon</h2>
                             <button onClick={() => { setShowModal(false); formik.resetForm(); }} className="text-text-muted hover:text-text-main">
                                 <X size={20} />

@@ -1,5 +1,6 @@
-const { verifyToken } = require('../utils/jwt');
-const prisma = require('../lib/prisma');
+import { getAuth } from '@clerk/express';
+import crypto from 'crypto';
+import prisma from '../lib/prisma.js';
 
 const SAFE_USER_SELECT = {
     id: true,
@@ -9,38 +10,57 @@ const SAFE_USER_SELECT = {
     role: true,
     referralCode: true,
     walletBalance: true,
-    isVerified: true,
     createdAt: true
 };
 
-// Protect routes - require authentication
-const protect = async (req, res, next) => {
+function generateReferralCode() {
+    return 'TN' + crypto.randomBytes(3).toString('hex').toUpperCase();
+}
+
+async function findOrCreateUser(clerkUserId) {
+    let user = await prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: SAFE_USER_SELECT
+    });
+
+    if (!user) {
+        let referralCode;
+        let unique = false;
+        while (!unique) {
+            referralCode = generateReferralCode();
+            const found = await prisma.user.findFirst({ where: { referralCode } });
+            if (!found) unique = true;
+        }
+
+        user = await prisma.user.create({
+            data: {
+                clerkId: clerkUserId,
+                email: `pending_${clerkUserId}@clerk.dev`,
+                referralCode,
+            },
+            select: SAFE_USER_SELECT
+        });
+    }
+
+    return user;
+}
+
+export const protect = async (req, res, next) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        const { userId } = getAuth(req);
+        if (!userId) {
             return res.status(401).json({ error: 'Not authorized, no token' });
         }
 
-        const token = authHeader.split(' ')[1];
-        const decoded = verifyToken(token);
-
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: SAFE_USER_SELECT
-        });
-        if (!user) {
-            return res.status(401).json({ error: 'Not authorized, user not found' });
-        }
-
-        req.user = user;
+        req.user = await findOrCreateUser(userId);
         next();
     } catch (error) {
+        console.error('Auth middleware error:', error.message);
         return res.status(401).json({ error: 'Not authorized, invalid token' });
     }
 };
 
-// Admin only middleware
-const adminOnly = (req, res, next) => {
+export const adminOnly = (req, res, next) => {
     if (req.user && req.user.role === 'admin') {
         next();
     } else {
@@ -48,28 +68,14 @@ const adminOnly = (req, res, next) => {
     }
 };
 
-// Optional protect middleware
-const optionalProtect = async (req, res, next) => {
+export const optionalProtect = async (req, res, next) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return next();
-        }
-
-        const token = authHeader.split(' ')[1];
-        const decoded = verifyToken(token);
-
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: SAFE_USER_SELECT
-        });
-        if (user) {
-            req.user = user;
+        const { userId } = getAuth(req);
+        if (userId) {
+            req.user = await findOrCreateUser(userId);
         }
         next();
-    } catch (error) {
+    } catch {
         next();
     }
 };
-
-module.exports = { protect, adminOnly, optionalProtect };

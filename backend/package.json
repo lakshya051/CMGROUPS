@@ -15,21 +15,22 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
+    "@clerk/clerk-sdk-node": "^5.1.6",
+    "@clerk/express": "^1.7.75",
     "@prisma/client": "^5.22.0",
     "axios": "^1.13.5",
-    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
-    "jsonwebtoken": "^9.0.3",
     "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
     "pdfkit": "^0.17.2",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "svix": "^1.86.0"
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0",

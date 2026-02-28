@@ -1,9 +1,8 @@
-const express = require('express');
-const prisma = require('../lib/prisma');
-const { protect, adminOnly } = require('../middleware/auth');
-const { sendServiceBookingEmail } = require('../utils/emailNotifications');
-// SMS imports removed
-const { calculateReferralReward } = require('../utils/referralHelper');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import { protect, adminOnly } from '../middleware/auth.js';
+import { sendServiceBookingEmail } from '../utils/emailNotifications.js';
+import { calculateReferralReward } from '../utils/referralHelper.js';
 
 const router = express.Router();
 
@@ -388,4 +387,4 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
 // verify-otp removed
 
-module.exports = router;
+export default router;

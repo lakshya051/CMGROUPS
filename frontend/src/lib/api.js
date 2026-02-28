@@ -1,19 +1,24 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Helper to get auth headers
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
+let _tokenGetter = null;
+
+export const setTokenGetter = (fn) => {
+    _tokenGetter = fn;
+};
+
+const getAuthHeaders = async () => {
+    const token = _tokenGetter ? await _tokenGetter() : null;
     return {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` })
     };
 };
 
-// Generic fetch wrapper
 const apiFetch = async (endpoint, options = {}) => {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
-        headers: { ...getAuthHeaders(), ...options.headers }
+        headers: { ...headers, ...options.headers }
     });
 
     const data = await response.json();
@@ -27,31 +32,6 @@ const apiFetch = async (endpoint, options = {}) => {
 
 // ============ AUTH ============
 export const authAPI = {
-    login: (identifier, password) =>
-        apiFetch('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ identifier, password })
-        }),
-
-    register: (name, email, password, phone, referralCode) =>
-        apiFetch('/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({ name, email, password, phone, referralCode })
-        }),
-
-    verifyEmail: (email, otp) =>
-        apiFetch('/auth/verify-email', {
-            method: 'POST',
-            body: JSON.stringify({ email, otp })
-        }),
-
-    // Backward-compatible alias for older callers.
-    resendOTP: (email) =>
-        apiFetch('/auth/resend-verification', {
-            method: 'POST',
-            body: JSON.stringify({ email })
-        }),
-
     getMe: () => apiFetch('/auth/me'),
 
     updateProfile: (data) =>
@@ -59,12 +39,6 @@ export const authAPI = {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-
-    resendVerification: (email) =>
-        apiFetch('/auth/resend-verification', {
-            method: 'POST',
-            body: JSON.stringify({ email })
-        })
 };
 
 // ============ PRODUCTS ============
@@ -103,10 +77,10 @@ export const productsAPI = {
 
 // ============ ORDERS ============
 export const ordersAPI = {
-    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0) =>
+    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0) =>
         apiFetch('/orders', {
             method: 'POST',
-            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed })
+            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount })
         }),
 
     getMyOrders: () => apiFetch('/orders/my-orders'),
@@ -146,11 +120,9 @@ export const ordersAPI = {
         }),
 
     downloadInvoice: async (id) => {
-        const token = localStorage.getItem('token');
+        const headers = await getAuthHeaders();
         const response = await fetch(`${API_BASE}/orders/${id}/invoice`, {
-            headers: {
-                ...(token && { Authorization: `Bearer ${token}` })
-            }
+            headers
         });
 
         if (!response.ok) {
@@ -169,6 +141,17 @@ export const ordersAPI = {
         setTimeout(() => window.URL.revokeObjectURL(url), 100);
     }
 };
+
+// ============ CART ============
+export const cartAPI = {
+    get: () => apiFetch('/cart'),
+    sync: (items) => apiFetch('/cart/sync', {
+        method: 'POST',
+        body: JSON.stringify({ items })
+    }),
+    clear: () => apiFetch('/cart', { method: 'DELETE' })
+};
+
 
 // ============ WISHLIST ============
 export const wishlistAPI = {
@@ -232,6 +215,7 @@ export const servicesAPI = {
 export const coursesAPI = {
     getAll: () => apiFetch('/courses'),
     getById: (id) => apiFetch(`/courses/${id}`),
+    getCoursePlayer: (id) => apiFetch(`/courses/${id}/player`),
 
     // Student
     apply: (data) => apiFetch('/courses/apply', { method: 'POST', body: JSON.stringify(data) }),
@@ -260,9 +244,9 @@ export const coursesAPI = {
 
     // Certificate
     downloadCertificate: async (courseId) => {
-        const token = localStorage.getItem('token');
+        const headers = await getAuthHeaders();
         const response = await fetch(`${API_BASE}/courses/${courseId}/certificate`, {
-            headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+            headers
         });
         if (!response.ok) {
             const data = await response.json();

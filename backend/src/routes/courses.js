@@ -1,10 +1,11 @@
-const express = require('express');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import cache from '../lib/cache.js';
+import { protect, adminOnly } from '../middleware/auth.js';
+import { generateCertificate } from '../utils/certificateGenerator.js';
+import { calculateReferralReward } from '../utils/referralHelper.js';
+
 const router = express.Router();
-const prisma = require('../lib/prisma');
-const cache = require('../lib/cache');
-const { protect, adminOnly } = require('../middleware/auth');
-const { generateCertificate } = require('../utils/certificateGenerator');
-const { calculateReferralReward } = require('../utils/referralHelper');
 
 // ─────────────────────────────────────────────
 // STUDENT — Get my applications (with fee ledger)
@@ -180,6 +181,39 @@ router.post('/apply', protect, async (req, res) => {
         res.status(201).json(application);
     } catch (error) {
         console.error('Apply course error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────
+// STUDENT — Get Course Player Data
+// ─────────────────────────────────────────────
+router.get('/:id/player', protect, async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.id);
+        const application = await prisma.courseApplication.findFirst({
+            where: { courseId, userId: req.user.id, status: { in: ['Approved', 'Enrolled', 'Completed'] } }
+        });
+        if (!application) {
+            // Also check legacy enrollment just in case
+            const legacyEnc = await prisma.enrollment.findFirst({
+                where: { courseId, userId: req.user.id }
+            });
+            if (!legacyEnc) return res.status(403).json({ error: 'You do not have access to this course. Please enroll first.' });
+        }
+
+        const course = await prisma.course.findUnique({
+            where: { id: courseId },
+            include: { materials: { orderBy: { createdAt: 'asc' } } }
+        });
+
+        let progress = 0;
+        if (application?.status === 'Completed') progress = 100;
+        else if (application?.status === 'Enrolled') progress = 15;
+
+        res.json({ course, enrollment: { progress } });
+    } catch (error) {
+        console.error('Course player error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -517,4 +551,4 @@ router.delete('/batches/:id', protect, adminOnly, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

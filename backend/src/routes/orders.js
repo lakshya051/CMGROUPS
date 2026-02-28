@@ -1,11 +1,10 @@
-const express = require('express');
-const crypto = require('crypto');
-const prisma = require('../lib/prisma');
-const { protect, adminOnly, optionalProtect } = require('../middleware/auth');
-const { sendOrderConfirmationEmail } = require('../utils/emailNotifications');
-// SMS imports removed
-const { generateInvoice } = require('../utils/invoiceGenerator');
-const { calculateReferralReward } = require('../utils/referralHelper');
+import express from 'express';
+import crypto from 'crypto';
+import prisma from '../lib/prisma.js';
+import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
+import { sendOrderConfirmationEmail } from '../utils/emailNotifications.js';
+import { generateInvoice } from '../utils/invoiceGenerator.js';
+import { calculateReferralReward } from '../utils/referralHelper.js';
 
 const router = express.Router();
 
@@ -161,6 +160,29 @@ router.post('/', optionalProtect, async (req, res) => {
                 });
             }
 
+            // 1.5 Real-time Stock Validation
+            for (const [variantId, quantityValue] of Object.entries(totalRequestedVariants)) {
+                const quantity = parseInt(quantityValue, 10);
+                const currentVariant = await tx.productVariant.findUnique({
+                    where: { id: parseInt(variantId, 10) },
+                    select: { stock: true, name: true }
+                });
+                if (!currentVariant || currentVariant.stock < quantity) {
+                    throw new Error(`Insufficient stock for "${currentVariant?.name || 'Variant ' + variantId}". Available: ${currentVariant?.stock || 0}, Requested: ${quantity}`);
+                }
+            }
+
+            for (const [productId, quantityValue] of Object.entries(totalRequestedProducts)) {
+                const quantity = parseInt(quantityValue, 10);
+                const currentProduct = await tx.product.findUnique({
+                    where: { id: parseInt(productId, 10) },
+                    select: { stock: true, title: true }
+                });
+                if (!currentProduct || currentProduct.stock < quantity) {
+                    throw new Error(`Insufficient stock for "${currentProduct?.title || 'Product ' + productId}". Available: ${currentProduct?.stock || 0}, Requested: ${quantity}`);
+                }
+            }
+
             // 2. Decrement stock once per unique product/variant (race-condition safe)
             for (const [variantId, quantityValue] of Object.entries(totalRequestedVariants)) {
                 const quantity = parseInt(quantityValue, 10);
@@ -236,7 +258,6 @@ router.post('/', optionalProtect, async (req, res) => {
                             role: true,
                             referralCode: true,
                             walletBalance: true,
-                            isVerified: true,
                             createdAt: true
                         }
                     }
@@ -611,7 +632,6 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                         role: true,
                         referralCode: true,
                         walletBalance: true,
-                        isVerified: true,
                         createdAt: true
                     }
                 },
@@ -757,7 +777,6 @@ router.post('/:id/cancel', protect, async (req, res) => {
                         role: true,
                         referralCode: true,
                         walletBalance: true,
-                        isVerified: true,
                         createdAt: true
                     }
                 },
@@ -994,4 +1013,4 @@ router.get('/:id/invoice', protect, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

@@ -84,14 +84,14 @@ const ReviewSection = ({ productId }) => {
         }
     };
 
-    if (loading) return <div className="animate-pulse h-32 bg-gray-100 rounded-xl my-8"></div>;
+    if (loading) return <div className="animate-pulse h-32 bg-page-bg rounded-lg my-8"></div>;
 
     const avgRating = reviews.length ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : 0;
 
     return (
-        <div className="mt-16 bg-gray-50/50 rounded-2xl p-8 border border-gray-100">
+        <div className="mt-16 bg-page-bg rounded-lg p-8 border border-border-default">
             {/* Summary Header */}
-            <div className="flex flex-col md:flex-row gap-8 items-start md:items-center justify-between mb-8 bg-surface p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex flex-col md:flex-row gap-8 items-start md:items-center justify-between mb-8 bg-surface p-6 rounded-lg border border-border-default shadow-sm">
                 <div className="flex items-center gap-6">
                     <div className="text-center">
                         <div className="text-5xl font-bold text-text-main mb-1">{avgRating}</div>
@@ -108,13 +108,13 @@ const ReviewSection = ({ productId }) => {
                         {showForm ? 'Cancel Review' : 'Write a Review'}
                     </Button>
                 ) : (
-                    <p className="text-sm text-text-muted bg-gray-100 px-4 py-2 rounded-lg">Please log in to write a review.</p>
+                    <p className="text-sm text-text-muted bg-page-bg px-4 py-2 rounded-lg">Please log in to write a review.</p>
                 )}
             </div>
 
             {/* Review Form */}
             {showForm && (
-                <form onSubmit={handleSubmit} className="bg-surface p-6 rounded-2xl shadow-sm border border-gray-100 mb-8 animate-in fade-in slide-in-from-top-4">
+                <form onSubmit={handleSubmit} className="bg-surface p-6 rounded-lg shadow-sm border border-border-default mb-8 animate-in fade-in slide-in-from-top-4">
                     <h3 className="font-bold text-xl mb-6">Write Your Review</h3>
                     <div className="mb-6">
                         <label className="block text-sm font-bold text-text-main mb-2">Rating</label>
@@ -126,7 +126,7 @@ const ReviewSection = ({ productId }) => {
                                     onClick={() => setRating(star)}
                                     className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
                                 >
-                                    <Star size={32} className={star <= rating ? "text-warning fill-warning" : "text-gray-200"} />
+                                    <Star size={32} className={star <= rating ? "text-warning fill-warning" : "text-border-default"} />
                                 </button>
                             ))}
                         </div>
@@ -145,7 +145,7 @@ const ReviewSection = ({ productId }) => {
                         <label className="block text-sm font-bold text-text-main mb-2">Add Photos (Max 3)</label>
                         <div className="flex flex-wrap gap-4">
                             {images.map((img, idx) => (
-                                <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 shadow-sm group">
+                                <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden border border-border-default shadow-sm group">
                                     <img src={img} alt="Upload preview" className="w-full h-full object-cover" />
                                     <button
                                         type="button"
@@ -157,7 +157,7 @@ const ReviewSection = ({ productId }) => {
                                 </div>
                             ))}
                             {images.length < 3 && (
-                                <label className="w-24 h-24 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary hover:text-primary transition-colors text-gray-500 bg-gray-50 hover:bg-primary/5">
+                                <label className="w-24 h-24 flex flex-col items-center justify-center border-2 border-dashed border-border-default rounded-xl cursor-pointer hover:border-primary hover:text-primary transition-colors text-text-muted bg-page-bg hover:bg-primary/5">
                                     <ImageIcon size={28} className="mb-2" />
                                     <span className="text-[10px] font-bold uppercase tracking-wider">Upload</span>
                                     <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
@@ -177,8 +177,8 @@ const ReviewSection = ({ productId }) => {
             {/* Reviews List */}
             <div className="space-y-6">
                 {reviews.length === 0 ? (
-                    <div className="text-center py-12 bg-surface rounded-2xl border border-dashed border-gray-200">
-                        <Star size={48} className="mx-auto text-gray-300 mb-4" />
+                    <div className="text-center py-12 bg-surface rounded-lg border border-dashed border-border-default">
+                        <Star size={48} className="mx-auto text-text-muted/50 mb-4" />
                         <p className="text-text-main font-bold text-lg mb-1">No reviews yet</p>
                         <p className="text-text-muted text-sm">Be the first to share your experience!</p>
                     </div>
@@ -186,7 +186,7 @@ const ReviewSection = ({ productId }) => {
                     reviews.map(review => {
                         const hasVoted = user && review.voters?.includes(user.id);
                         return (
-                            <div key={review.id} className="bg-surface p-6 rounded-2xl border border-gray-100 shadow-sm transition-shadow hover:shadow-md">
+                            <div key={review.id} className="bg-surface p-6 rounded-lg border border-border-default shadow-sm transition-shadow hover:shadow-md">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-inner font-black text-lg rounded-full flex items-center justify-center uppercase">
@@ -217,7 +217,7 @@ const ReviewSection = ({ productId }) => {
                                 {review.images && review.images.length > 0 && (
                                     <div className="flex flex-wrap gap-3 mt-4">
                                         {review.images.map((img, idx) => (
-                                            <div key={idx} className="relative group overflow-hidden rounded-xl border border-gray-200 cursor-pointer" onClick={() => window.open(img, '_blank')}>
+                                            <div key={idx} className="relative group overflow-hidden rounded-xl border border-border-default cursor-pointer" onClick={() => window.open(img, '_blank')}>
                                                 <img src={img} alt="Review attachment" className="w-20 h-20 object-cover group-hover:scale-110 transition-transform duration-300" />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                                             </div>
@@ -225,11 +225,11 @@ const ReviewSection = ({ productId }) => {
                                     </div>
                                 )}
 
-                                <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-between">
+                                <div className="mt-6 pt-4 border-t border-border-default flex items-center justify-between">
                                     <span className="text-xs text-text-muted">Was this review helpful?</span>
                                     <button
                                         onClick={() => handleHelpful(review.id)}
-                                        className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full transition-all ${hasVoted ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-gray-50 text-text-muted border border-gray-200 hover:bg-gray-100 hover:text-text-main'}`}
+                                        className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full transition-all ${hasVoted ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-surface text-text-secondary border border-border-default hover:bg-surface-hover hover:text-text-primary'}`}
                                     >
                                         <ThumbsUp size={14} className={hasVoted ? 'fill-primary' : ''} />
                                         {review.helpfulVotes || 0}

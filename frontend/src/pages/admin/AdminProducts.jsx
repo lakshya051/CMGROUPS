@@ -293,10 +293,10 @@ const AdminProducts = () => {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-heading font-bold mb-1">Product Management</h1>
-                    <p className="text-text-muted">Manage your catalog, stock, and pricing.</p>
+                    <h1 className="text-2xl font-bold text-text-primary mb-1">Product Management</h1>
+                    <p className="text-sm text-text-secondary">Manage your catalog, stock, and pricing.</p>
                 </div>
-                <Button onClick={openAddModal}><Plus size={18} className="mr-2" /> Add Product</Button>
+                <Button variant="primary" onClick={openAddModal}><Plus size={18} className="mr-2" /> Add Product</Button>
             </div>
 
             {/* Search */}
@@ -318,7 +318,7 @@ const AdminProducts = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50 text-text-muted text-xs uppercase tracking-wider border-b border-gray-200">
+                            <tr className="bg-page-bg text-text-secondary text-xs uppercase font-bold tracking-wider border-b border-border-default">
                                 <th className="p-4">Product</th>
                                 <th className="p-4">Category</th>
                                 <th className="p-4">Price</th>
@@ -326,12 +326,12 @@ const AdminProducts = () => {
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="text-sm divide-y divide-gray-100">
+                        <tbody className="text-sm divide-y divide-border-default">
                             {displayProducts.map(product => (
-                                <tr key={product.id} className="hover:bg-gray-50 transition-colors text-text-main">
+                                <tr key={product.id} className="hover:bg-surface-hover transition-colors text-text-main">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded bg-white p-1 flex-shrink-0">
+                                            <div className="w-10 h-10 rounded bg-surface p-1 flex-shrink-0">
                                                 <img src={product.image} alt="" className="w-full h-full object-contain" />
                                             </div>
                                             <div>
@@ -343,13 +343,13 @@ const AdminProducts = () => {
                                                         </span>
                                                     )}
                                                 </div>
-                                                {product.brand && <p className="text-xs text-text-muted">{product.brand}</p>}
+                                                {product.brand && <p className="text-xs text-text-secondary">{product.brand}</p>}
                                                 {product.variants && product.variants.length > 1 ? (
-                                                    <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-blue-100 text-blue-600 rounded-full border border-blue-200 font-bold tracking-wider">
+                                                    <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-trust/10 text-trust rounded border border-trust font-bold tracking-wider">
                                                         {product.variants.length} Variants
                                                     </span>
                                                 ) : (
-                                                    <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-gray-100 text-gray-500 rounded-full border border-gray-200 font-bold tracking-wider">
+                                                    <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-page-bg text-text-secondary rounded-full border border-border-default font-bold tracking-wider">
                                                         Single
                                                     </span>
                                                 )}
@@ -366,17 +366,17 @@ const AdminProducts = () => {
                                         </span>
                                     </td>
                                     <td className="p-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex items-center justify-end gap-xs">
                                             <button
                                                 onClick={() => openEditModal(product)}
-                                                className="p-2 hover:text-primary transition-colors hover:bg-gray-50 rounded"
+                                                className="p-xs hover:text-text-primary transition-colors hover:bg-surface-hover rounded text-text-secondary"
                                                 title="Edit Product"
                                             >
                                                 <Edit size={16} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(product.id)}
-                                                className="p-2 hover:text-error transition-colors hover:bg-gray-50 rounded"
+                                                className="p-xs hover:text-error transition-colors hover:bg-error/10 rounded text-text-secondary"
                                                 title="Delete Product"
                                             >
                                                 <Trash2 size={16} />
@@ -399,19 +399,19 @@ const AdminProducts = () => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-4 bg-surface p-4 rounded-xl border border-gray-100">
+                <div className="flex justify-center items-center gap-sm bg-surface p-sm rounded-lg border border-border-default">
                     <button
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 hover:bg-gray-50'}`}
+                        className={`px-md py-xs rounded text-sm font-semibold transition-colors ${page === 1 ? 'bg-page-bg text-text-muted cursor-not-allowed border border-border-default' : 'bg-surface border border-border-default hover:bg-surface-hover text-text-primary'}`}
                         disabled={page === 1 || loading}
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
                         Previous
                     </button>
-                    <span className="text-sm font-bold text-text-main">
+                    <span className="text-sm font-bold text-text-primary">
                         Page {page} of {totalPages} ({totalProducts} total)
                     </span>
                     <button
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary/90'}`}
+                        className={`px-md py-xs rounded text-sm font-semibold transition-colors ${page === totalPages ? 'bg-page-bg text-text-muted cursor-not-allowed border border-border-default' : 'bg-buy-primary text-text-primary hover:bg-buy-primary-hover border border-border-default'}`}
                         disabled={page === totalPages || loading}
                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     >
@@ -422,14 +422,14 @@ const AdminProducts = () => {
 
             {/* Add/Edit Product Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200 p-4">
-                    <div className="glass-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto relative animate-in zoom-in duration-300">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200 p-sm">
+                    <div className="bg-surface border border-border-default rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto relative animate-in zoom-in duration-300">
                         {/* Header */}
-                        <div className="sticky top-0 bg-surface border-b border-gray-200 p-6 flex items-center justify-between z-10">
-                            <h2 className="text-2xl font-heading font-bold">
+                        <div className="sticky top-0 bg-surface border-b border-border-default p-md flex items-center justify-between z-10">
+                            <h2 className="text-xl font-bold text-text-primary">
                                 {editingProduct ? 'Edit Product' : 'Add New Product'}
                             </h2>
-                            <button onClick={closeModal} className="text-text-muted hover:text-text-main transition-colors">
+                            <button onClick={closeModal} className="text-text-muted hover:text-text-primary transition-colors p-xs rounded hover:bg-surface-hover">
                                 <X size={24} />
                             </button>
                         </div>
@@ -534,7 +534,7 @@ const AdminProducts = () => {
                                         name="isSecondHand"
                                         checked={formik.values.isSecondHand}
                                         onChange={formik.handleChange}
-                                        className="w-5 h-5 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                        className="w-5 h-5 text-primary bg-surface border-border-default rounded focus:ring-primary focus:ring-2"
                                     />
                                     <label htmlFor="isSecondHand" className="text-sm font-medium text-text-main cursor-pointer select-none">
                                         Item is Pre-Owned / Second Hand
@@ -551,7 +551,7 @@ const AdminProducts = () => {
                                         name="isReturnable"
                                         checked={formik.values.isReturnable}
                                         onChange={formik.handleChange}
-                                        className="w-5 h-5 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                        className="w-5 h-5 text-primary bg-surface border-border-default rounded focus:ring-primary focus:ring-2"
                                     />
                                     <label htmlFor="isReturnable" className="text-sm font-medium text-text-main cursor-pointer select-none">
                                         Accept Returns for this item
@@ -568,34 +568,34 @@ const AdminProducts = () => {
                             </div>
 
                             {/* Referral Points Overrides */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-page-bg p-sm rounded-lg border border-border-default">
+                                <div className="flex items-center gap-xs mb-sm">
                                     <input
                                         type="checkbox"
                                         id="enableReferral"
                                         name="enableReferral"
                                         checked={formik.values.enableReferral}
                                         onChange={formik.handleChange}
-                                        className="w-5 h-5 text-primary bg-white border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                        className="w-4 h-4 accent-trust bg-surface border-border-default rounded"
                                     />
-                                    <label htmlFor="enableReferral" className="font-medium text-text-main cursor-pointer select-none">
+                                    <label htmlFor="enableReferral" className="font-semibold text-text-primary text-sm cursor-pointer select-none">
                                         Enable Referral Rewards for this item?
                                     </label>
                                 </div>
 
                                 {formik.values.enableReferral && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-sm animate-in fade-in slide-in-from-top-2">
                                         <div>
-                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                            <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1">
                                                 Referrer Points <span className="text-error">*</span>
                                             </label>
-                                            <input type="number" required={formik.values.enableReferral} name="referrerPoints" className="input-field bg-white" placeholder="e.g. 500" value={formik.values.referrerPoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="1" />
+                                            <input type="number" required={formik.values.enableReferral} name="referrerPoints" className="input-field bg-surface" placeholder="e.g. 500" value={formik.values.referrerPoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="1" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                            <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1">
                                                 Referee Points <span className="text-error">*</span>
                                             </label>
-                                            <input type="number" required={formik.values.enableReferral} name="refereePoints" className="input-field bg-white" placeholder="e.g. 250" value={formik.values.refereePoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
+                                            <input type="number" required={formik.values.enableReferral} name="refereePoints" className="input-field bg-surface" placeholder="e.g. 250" value={formik.values.refereePoints} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
                                         </div>
                                     </div>
                                 )}
@@ -610,7 +610,7 @@ const AdminProducts = () => {
                                     <div className="flex gap-3">
                                         <input type="url" name="image" className={`input-field flex-1 ${formik.touched.image && formik.errors.image ? 'border-red-500' : ''}`} placeholder="https://example.com/product.png" value={formik.values.image} onChange={formik.handleChange} onBlur={formik.handleBlur} />
                                         {formik.values.image && (
-                                            <div className="w-12 h-12 rounded bg-white p-1 flex-shrink-0 border border-gray-200">
+                                            <div className="w-12 h-12 rounded bg-surface p-1 flex-shrink-0 border border-border-default">
                                                 <img src={formik.values.image} alt="Preview" className="w-full h-full object-contain" onError={(e) => e.target.style.display = 'none'} />
                                             </div>
                                         )}
@@ -631,11 +631,11 @@ const AdminProducts = () => {
 
                                 {/* Existing specs */}
                                 {Object.keys(specs).length > 0 && (
-                                    <div className="space-y-2 mb-3">
+                                    <div className="space-y-sm mb-sm">
                                         {Object.entries(specs).map(([key, value]) => (
-                                            <div key={key} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 text-sm">
-                                                <span className="text-text-muted font-medium min-w-[80px]">{key}</span>
-                                                <span className="text-text-main flex-1">{value}</span>
+                                            <div key={key} className="flex items-center gap-sm bg-page-bg rounded border border-border-default px-sm py-xs text-sm">
+                                                <span className="text-text-secondary font-semibold min-w-[80px]">{key}</span>
+                                                <span className="text-text-primary flex-1">{value}</span>
                                                 <button type="button" onClick={() => removeSpec(key)} className="text-text-muted hover:text-error transition-colors">
                                                     <X size={14} />
                                                 </button>
@@ -667,13 +667,13 @@ const AdminProducts = () => {
                             </div>
 
                             {/* Variants Setup */}
-                            <div className="pt-4 border-t border-gray-200">
+                            <div className="pt-4 border-t border-border-default">
                                 <label className="block text-sm font-medium text-text-muted mb-2">Product Variants</label>
 
                                 {variants.length > 0 && (
-                                    <div className="overflow-x-auto mb-4 border border-gray-200 rounded-lg">
+                                    <div className="overflow-x-auto mb-4 border border-border-default rounded-lg">
                                         <table className="w-full text-left text-sm">
-                                            <thead className="bg-gray-50 text-text-muted">
+                                            <thead className="bg-page-bg text-text-secondary">
                                                 <tr>
                                                     <th className="p-3 font-medium">Variant Name</th>
                                                     <th className="p-3 font-medium">Price (₹)</th>
@@ -682,9 +682,9 @@ const AdminProducts = () => {
                                                     <th className="p-3 font-medium text-right">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100">
+                                            <tbody className="divide-y divide-border-default">
                                                 {variants.map(variant => (
-                                                    <tr key={variant.id} className="bg-white">
+                                                    <tr key={variant.id} className="bg-surface">
                                                         <td className="p-3 font-medium">{variant.name}</td>
                                                         <td className="p-3 text-success">₹{variant.price}</td>
                                                         <td className="p-3">{variant.stock}</td>
@@ -717,12 +717,12 @@ const AdminProducts = () => {
                             </div>
 
                             {/* Actions */}
-                            <div className="flex gap-3 pt-4 border-t border-gray-200">
-                                <Button type="submit" className="flex-1 gap-2" disabled={formik.isSubmitting}>
+                            <div className="flex gap-sm pt-md border-t border-border-default mt-md">
+                                <Button type="submit" variant="primary" className="flex-1 gap-sm" disabled={formik.isSubmitting}>
                                     <Save size={18} />
                                     {formik.isSubmitting ? 'Saving...' : editingProduct ? 'Update Product' : 'Create Product'}
                                 </Button>
-                                <Button type="button" variant="outline" onClick={closeModal}>Cancel</Button>
+                                <Button type="button" variant="outline" onClick={closeModal} className="flex-1">Cancel</Button>
                             </div>
                         </form>
                     </div>

@@ -1,7 +1,7 @@
-const express = require('express');
-const prisma = require('../lib/prisma');
-const cache = require('../lib/cache');
-const { protect, adminOnly } = require('../middleware/auth');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import cache from '../lib/cache.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -330,4 +330,4 @@ router.delete('/:id/variants/:variantId', protect, adminOnly, async (req, res) =
     }
 });
 
-module.exports = router;
+export default router;
