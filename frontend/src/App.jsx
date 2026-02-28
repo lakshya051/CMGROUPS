@@ -10,6 +10,22 @@ import { useDataSeeder } from './hooks/useDataSeeder';
 import { Toaster } from 'react-hot-toast';
 import CompareWidget from './components/shop/CompareWidget';
 
+// After a new deployment, old cached JS may reference chunk filenames that
+// no longer exist. This wrapper retries by reloading the page once.
+const lazyRetry = (importFn) =>
+    lazy(() =>
+        importFn().catch(() => {
+            const key = 'chunk_reload';
+            if (!sessionStorage.getItem(key)) {
+                sessionStorage.setItem(key, '1');
+                window.location.reload();
+                return new Promise(() => {});
+            }
+            sessionStorage.removeItem(key);
+            return importFn();
+        })
+    );
+
 const PageLoader = () => (
     <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -20,47 +36,47 @@ const PageLoader = () => (
 );
 
 // Public
-const Home = lazy(() => import('./pages/Home'));
-const Services = lazy(() => import('./pages/Services'));
-const TallyERP = lazy(() => import('./pages/TallyERP'));
-const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const Home = lazyRetry(() => import('./pages/Home'));
+const Services = lazyRetry(() => import('./pages/Services'));
+const TallyERP = lazyRetry(() => import('./pages/TallyERP'));
+const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage'));
 
 // Shop
-const Products = lazy(() => import('./pages/shop/Products'));
-const ProductDetail = lazy(() => import('./pages/shop/ProductDetail'));
-const Cart = lazy(() => import('./pages/shop/Cart'));
-const Wishlist = lazy(() => import('./pages/shop/Wishlist'));
-const Compare = lazy(() => import('./pages/shop/Compare'));
-const Checkout = lazy(() => import('./pages/shop/Checkout'));
+const Products = lazyRetry(() => import('./pages/shop/Products'));
+const ProductDetail = lazyRetry(() => import('./pages/shop/ProductDetail'));
+const Cart = lazyRetry(() => import('./pages/shop/Cart'));
+const Wishlist = lazyRetry(() => import('./pages/shop/Wishlist'));
+const Compare = lazyRetry(() => import('./pages/shop/Compare'));
+const Checkout = lazyRetry(() => import('./pages/shop/Checkout'));
 
 // Courses
-const Courses = lazy(() => import('./pages/courses/Courses'));
-const CourseDetail = lazy(() => import('./pages/courses/CourseDetail'));
-const CoursePlayer = lazy(() => import('./pages/courses/CoursePlayer'));
+const Courses = lazyRetry(() => import('./pages/courses/Courses'));
+const CourseDetail = lazyRetry(() => import('./pages/courses/CourseDetail'));
+const CoursePlayer = lazyRetry(() => import('./pages/courses/CoursePlayer'));
 
 // User Dashboard
-const UserDashboard = lazy(() => import('./pages/dashboard/UserDashboard'));
-const UserOrders = lazy(() => import('./pages/dashboard/UserOrders'));
-const UserServices = lazy(() => import('./pages/dashboard/UserServices'));
-const UserCourses = lazy(() => import('./pages/dashboard/UserCourses'));
-const UserSettings = lazy(() => import('./pages/dashboard/UserSettings'));
-const UserReferrals = lazy(() => import('./pages/dashboard/UserReferrals'));
+const UserDashboard = lazyRetry(() => import('./pages/dashboard/UserDashboard'));
+const UserOrders = lazyRetry(() => import('./pages/dashboard/UserOrders'));
+const UserServices = lazyRetry(() => import('./pages/dashboard/UserServices'));
+const UserCourses = lazyRetry(() => import('./pages/dashboard/UserCourses'));
+const UserSettings = lazyRetry(() => import('./pages/dashboard/UserSettings'));
+const UserReferrals = lazyRetry(() => import('./pages/dashboard/UserReferrals'));
 
 // Admin
-const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
-const AdminProducts = lazy(() => import('./pages/admin/AdminProducts'));
-const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
-const AdminServices = lazy(() => import('./pages/admin/AdminServices'));
-const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'));
-const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
-const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
-const AdminServiceTypes = lazy(() => import('./pages/admin/AdminServiceTypes'));
-const AdminReferrals = lazy(() => import('./pages/admin/AdminReferrals'));
-const AdminReferralSettings = lazy(() => import('./pages/admin/AdminReferralSettings'));
-const AdminCourses = lazy(() => import('./pages/admin/AdminCourses'));
-const AdminEnrollments = lazy(() => import('./pages/admin/AdminEnrollments'));
-const AdminTallyEnquiries = lazy(() => import('./pages/admin/AdminTallyEnquiries'));
-const AdminBanners = lazy(() => import('./pages/admin/AdminBanners'));
+const AdminDashboard = lazyRetry(() => import('./pages/admin/AdminDashboard'));
+const AdminProducts = lazyRetry(() => import('./pages/admin/AdminProducts'));
+const AdminOrders = lazyRetry(() => import('./pages/admin/AdminOrders'));
+const AdminServices = lazyRetry(() => import('./pages/admin/AdminServices'));
+const AdminCoupons = lazyRetry(() => import('./pages/admin/AdminCoupons'));
+const AdminUsers = lazyRetry(() => import('./pages/admin/AdminUsers'));
+const AdminCategories = lazyRetry(() => import('./pages/admin/AdminCategories'));
+const AdminServiceTypes = lazyRetry(() => import('./pages/admin/AdminServiceTypes'));
+const AdminReferrals = lazyRetry(() => import('./pages/admin/AdminReferrals'));
+const AdminReferralSettings = lazyRetry(() => import('./pages/admin/AdminReferralSettings'));
+const AdminCourses = lazyRetry(() => import('./pages/admin/AdminCourses'));
+const AdminEnrollments = lazyRetry(() => import('./pages/admin/AdminEnrollments'));
+const AdminTallyEnquiries = lazyRetry(() => import('./pages/admin/AdminTallyEnquiries'));
+const AdminBanners = lazyRetry(() => import('./pages/admin/AdminBanners'));
 
 function App() {
     useDataSeeder();
