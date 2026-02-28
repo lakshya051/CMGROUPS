@@ -22,27 +22,24 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
 
     if (type === 'user.created') {
         const email = data.email_addresses.find(e => e.id === data.primary_email_address_id)?.email_address;
-        const name = `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null;
-
         const existing = await prisma.user.findUnique({ where: { clerkId: data.id } });
 
         if (!existing) {
-            // User doesn't exist at all, create them
             await prisma.user.create({
                 data: {
                     clerkId: data.id,
                     email,
-                    name,
+                    name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null,
                     role: 'customer',
                 }
             });
         } else {
-            // RACE CONDITION FIX: The auth middleware created a pending stub. Update it!
+            // FIX: If the middleware beat the webhook, update the stub user!
             await prisma.user.update({
                 where: { clerkId: data.id },
                 data: {
-                    email, // Replace the pending_...@clerk.dev email
-                    name,  // Add their Google name
+                    email, // Replaces pending_user_...
+                    name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null
                 }
             });
         }
