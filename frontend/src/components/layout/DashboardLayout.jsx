@@ -67,14 +67,14 @@ const DashboardLayout = ({ role = 'customer' }) => {
     const SidebarContent = () => (
         <>
             {/* Header */}
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <div className="p-6 border-b border-border-default flex items-center justify-between">
                 <h2 className="text-xl font-heading font-bold">
                     CM<span className="text-primary">GROUPS</span>
-                    <span className="text-xs ml-2 bg-gray-100 px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
+                    <span className="text-xs ml-2 bg-page-bg border border-border-default px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
                 </h2>
                 {/* Close button — mobile only */}
                 <button
-                    className="md:hidden p-1 rounded-lg hover:bg-gray-100 text-text-muted"
+                    className="md:hidden p-1 rounded-lg hover:bg-surface-hover transition-colors text-text-muted"
                     onClick={() => setSidebarOpen(false)}
                 >
                     <X size={20} />
@@ -92,7 +92,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
                         className={({ isActive }) =>
                             `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                                 ? 'bg-primary/10 text-primary font-medium'
-                                : 'text-text-muted hover:bg-gray-100 hover:text-text-main'
+                                : 'text-text-muted hover:bg-surface-hover hover:text-text-primary'
                             }`
                         }
                     >
@@ -103,14 +103,14 @@ const DashboardLayout = ({ role = 'customer' }) => {
 
                 {/* Shop quick links for customers */}
                 {role === 'customer' && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 space-y-1">
+                    <div className="mt-4 pt-4 border-t border-border-default space-y-1">
                         <p className="px-4 text-xs text-text-muted uppercase tracking-wider mb-2">Quick Links</p>
                         {shopLinks.map(link => (
                             <NavLink
                                 key={link.path}
                                 to={link.path}
                                 onClick={() => setSidebarOpen(false)}
-                                className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-text-muted hover:bg-gray-100 hover:text-text-main"
+                                className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-text-muted hover:bg-surface-hover hover:text-text-primary"
                             >
                                 {link.icon}
                                 <span>{link.name}</span>
@@ -121,7 +121,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
             </nav>
 
             {/* User footer */}
-            <div className="p-4 border-t border-gray-100">
+            <div className="p-4 border-t border-border-default">
                 <div className="flex items-center gap-3 px-4 py-3 mb-2">
                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
                         <User size={16} />
@@ -156,7 +156,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
             {/* ── Sidebar (desktop: fixed, mobile: slide-over) ── */}
             <aside
                 className={`
-                    fixed top-0 left-0 h-full w-64 bg-surface border-r border-gray-100
+                    fixed top-0 left-0 h-full w-64 bg-surface border-r border-border-default
                     flex flex-col z-40 transition-transform duration-300
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                     md:translate-x-0
@@ -169,16 +169,16 @@ const DashboardLayout = ({ role = 'customer' }) => {
             <div className="flex-1 flex flex-col md:ml-64 min-w-0">
 
                 {/* Mobile top bar */}
-                <div className="md:hidden sticky top-0 z-20 bg-surface border-b border-gray-100 flex items-center gap-3 px-4 h-14">
+                <div className="md:hidden sticky top-0 z-20 bg-surface border-b border-border-default flex items-center gap-3 px-4 h-14">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="p-2 rounded-lg hover:bg-gray-100 text-text-muted"
+                        className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted"
                     >
                         <Menu size={22} />
                     </button>
                     <span className="font-heading font-bold text-base">
                         CM<span className="text-primary">GROUPS</span>
-                        <span className="text-xs ml-2 bg-gray-100 px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
+                        <span className="text-xs ml-2 bg-page-bg border border-border-default px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
                     </span>
                 </div>
 

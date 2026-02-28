@@ -189,7 +189,7 @@ const Cart = () => {
                                         key={item.uniqueId}
                                         className="bg-surface border border-border-default rounded-lg p-md flex flex-wrap sm:flex-nowrap gap-md items-center"
                                     >
-                                        <div className="w-[80px] h-[80px] bg-gray-50 rounded-lg flex items-center justify-center p-xs flex-shrink-0">
+                                        <div className="w-[80px] h-[80px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0">
                                             <img src={item.image} alt={item.title} className="w-full h-full object-contain" loading="lazy" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -329,7 +329,7 @@ const Cart = () => {
                                 to={`/products/${product.id}`}
                                 className="snap-start flex-shrink-0 w-[180px] bg-surface border border-border-default rounded-lg p-md hover:border-trust transition-colors duration-fast group"
                             >
-                                <div className="w-full h-[120px] bg-gray-50 rounded-lg flex items-center justify-center p-xs mb-sm">
+                                <div className="w-full h-[120px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs mb-sm">
                                     <img src={product.image} alt={product.title} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-smooth" loading="lazy" />
                                 </div>
                                 <h3 className="text-xs font-medium text-text-primary line-clamp-2 mb-xs">{product.title}</h3>
@@ -351,7 +351,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
     return (
         <div className="bg-surface border border-border-default rounded-lg p-md flex flex-wrap sm:flex-nowrap gap-md">
             {/* Image */}
-            <Link to={`/products/${item.id}`} className="w-[100px] h-[100px] bg-gray-50 rounded-lg flex items-center justify-center p-xs flex-shrink-0">
+            <Link to={`/products/${item.id}`} className="w-[100px] h-[100px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0">
                 <img src={item.image} alt={item.title} className="w-full h-full object-contain" loading="lazy" />
             </Link>
 

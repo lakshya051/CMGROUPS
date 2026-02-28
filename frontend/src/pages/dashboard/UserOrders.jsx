@@ -177,17 +177,17 @@ const UserOrders = () => {
     if (loading) {
         return (
             <div className="space-y-lg">
-                <div className="bg-gray-200 h-8 w-48 rounded animate-pulse" />
-                <div className="bg-gray-200 h-4 w-64 rounded animate-pulse" />
+                <div className="bg-page-bg border border-border-default h-8 w-48 rounded animate-pulse" />
+                <div className="bg-page-bg border border-border-default h-4 w-64 rounded animate-pulse" />
                 <div className="space-y-md">
                     {[1, 2, 3].map(i => (
                         <div key={i} className="bg-surface border border-border-default rounded-lg p-lg animate-pulse">
                             <div className="flex gap-md">
-                                <div className="w-16 h-16 bg-gray-200 rounded" />
+                                <div className="w-16 h-16 bg-page-bg border border-border-default rounded" />
                                 <div className="flex-1 space-y-sm">
-                                    <div className="bg-gray-200 h-4 w-3/4 rounded" />
-                                    <div className="bg-gray-200 h-3 w-1/2 rounded" />
-                                    <div className="bg-gray-200 h-3 w-1/4 rounded" />
+                                    <div className="bg-page-bg h-4 w-3/4 rounded" />
+                                    <div className="bg-page-bg h-3 w-1/2 rounded" />
+                                    <div className="bg-page-bg h-3 w-1/4 rounded" />
                                 </div>
                             </div>
                         </div>
@@ -325,7 +325,7 @@ const UserOrders = () => {
                             </div>
                             <div
                                 onClick={() => copyOtp(selectedOtp)}
-                                className="bg-gray-50 border-2 border-dashed border-border-default rounded-xl p-lg cursor-pointer hover:border-trust/50 transition-colors duration-fast group relative"
+                                className="bg-surface-hover border-2 border-dashed border-border-default rounded-xl p-lg cursor-pointer hover:border-trust/50 transition-colors duration-fast group relative"
                             >
                                 <div className="text-3xl font-mono font-bold tracking-[0.2em] text-text-primary">{selectedOtp}</div>
                                 <div className="absolute inset-0 flex items-center justify-center bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity duration-smooth rounded-xl font-medium text-trust gap-sm">
@@ -406,8 +406,8 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
             {/* Items */}
             <div className="px-md pb-sm space-y-xs">
                 {order.items?.map(item => (
-                    <div key={item.id} className="flex items-center gap-sm text-sm bg-gray-50 rounded-lg p-sm">
-                        <div className="w-10 h-10 bg-white rounded p-xs flex-shrink-0">
+                    <div key={item.id} className="flex items-center gap-sm text-sm bg-page-bg border border-border-default rounded-lg p-sm">
+                        <div className="w-10 h-10 bg-surface border border-border-default rounded p-xs flex-shrink-0">
                             <img src={item.product?.image} alt="" className="w-full h-full object-contain" />
                         </div>
                         <span className="flex-1 text-text-primary text-sm line-clamp-1">{item.product?.title}</span>
@@ -465,7 +465,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                     )}
 
                     {order.status === 'Delivered' && !isReturnable && order.returnStatus === 'None' && (
-                        <span className="px-md py-xs text-sm text-text-muted bg-gray-100 rounded-lg" title="Return window expired">
+                        <span className="px-md py-xs text-sm text-text-muted bg-page-bg border border-border-default rounded-lg" title="Return window expired">
                             Not Returnable
                         </span>
                     )}
@@ -485,7 +485,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
 
                     {/* OTP */}
                     {!order.isPaid && (order.paymentMethod === 'pay_at_store' || order.paymentMethod === 'cod') && !isCancelled && order.paymentOtp && (
-                        <button onClick={onViewOtp} className="flex items-center gap-xs px-md py-xs text-sm text-text-primary bg-gray-900 text-white rounded-lg hover:bg-black transition-colors duration-fast">
+                        <button onClick={onViewOtp} className="flex items-center gap-xs px-md py-xs text-sm text-surface bg-text-primary rounded-lg hover:bg-black transition-colors duration-fast">
                             <Shield size={14} /> View OTP
                         </button>
                     )}
@@ -512,8 +512,8 @@ function OrderTimeline({ status }) {
                         <div className="flex flex-col items-center flex-shrink-0 min-w-[64px]">
                             <div
                                 className={`
-                  w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-smooth
-                  ${isCompleted ? 'bg-success text-white' : 'bg-gray-200 text-text-muted'}
+                  w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-smooth border
+                  ${isCompleted ? 'bg-success text-white border-success' : 'bg-page-bg border-border-default text-text-muted'}
                   ${isCurrent ? 'ring-2 ring-success/40 animate-pulse' : ''}
                 `}
                             >
@@ -524,7 +524,7 @@ function OrderTimeline({ status }) {
                             </span>
                         </div>
                         {!isLast && (
-                            <div className={`flex-1 h-0.5 min-w-[20px] mx-xs ${i < currentIdx ? 'bg-success' : 'bg-gray-200'}`} />
+                            <div className={`flex-1 h-0.5 min-w-[20px] mx-xs ${i < currentIdx ? 'bg-success' : 'bg-border-default'}`} />
                         )}
                     </React.Fragment>
                 )
@@ -640,7 +640,7 @@ function TrackingModal({ order, onClose }) {
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-lg space-y-xl">
                     {/* Tracking number */}
-                    <div className="flex items-center justify-between bg-gray-50 rounded-lg p-md">
+                    <div className="flex items-center justify-between bg-page-bg border border-border-default rounded-lg p-md">
                         <div>
                             <p className="text-xs text-text-muted">Tracking Number</p>
                             <p className="text-sm font-mono font-bold text-text-primary">{trackingNumber}</p>

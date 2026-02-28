@@ -9,3 +9,4 @@ export const DELIVERY_CUTOFF_HOUR = 16
 
 export const SAVED_LATER_STORAGE_KEY = 'tn_saved_later'
 export const COMPARE_STORAGE_KEY = 'tn_compare'
+export const RECENTLY_VIEWED_KEY = 'tn_recently_viewed'

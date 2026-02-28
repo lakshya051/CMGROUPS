@@ -178,8 +178,8 @@ const AdminServiceTypes = () => {
                             </ul>
                         )}
 
-                        <div className="mt-4 pt-3 border-t border-gray-100">
-                            <span className={`text-xs px-2 py-1 rounded ${st.active ? 'bg-success/10 text-success' : 'bg-gray-100 text-gray-400'}`}>
+                        <div className="mt-4 pt-3 border-t border-border-default">
+                            <span className={`text-xs px-2 py-1 rounded ${st.active ? 'bg-success/10 text-success' : 'bg-page-bg text-text-muted border border-border-default'}`}>
                                 {st.active ? 'Active' : 'Inactive'}
                             </span>
                         </div>
@@ -188,7 +188,7 @@ const AdminServiceTypes = () => {
 
                 {serviceTypes.length === 0 && (
                     <div className="col-span-full glass-panel p-12 text-center">
-                        <Wrench size={48} className="mx-auto text-gray-300 mb-4" />
+                        <Wrench size={48} className="mx-auto text-text-muted/50 mb-4" />
                         <h3 className="text-xl font-bold mb-2">No Service Types</h3>
                         <p className="text-text-muted mb-4">Add your first service type to get started.</p>
                         <Button onClick={handleOpenCreate}>Add Service Type</Button>
@@ -200,7 +200,7 @@ const AdminServiceTypes = () => {
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
                     <div className="glass-panel w-full max-w-lg relative animate-in zoom-in duration-300">
-                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                        <div className="p-6 border-b border-border-default flex items-center justify-between">
                             <h2 className="text-xl font-bold">{editingId ? 'Edit Service Type' : 'Create Service Type'}</h2>
                             <button onClick={() => setShowModal(false)}><X size={20} /></button>
                         </div>
@@ -252,7 +252,7 @@ const AdminServiceTypes = () => {
                                 </div>
                             </div>
 
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4">
+                            <div className="bg-page-bg p-4 rounded-lg border border-border-default mt-4">
                                 <div className="flex items-center gap-3 mb-4">
                                     <input
                                         type="checkbox"
@@ -260,7 +260,7 @@ const AdminServiceTypes = () => {
                                         name="enableReferral"
                                         checked={form.enableReferral}
                                         onChange={e => setForm({ ...form, enableReferral: e.target.checked })}
-                                        className="w-5 h-5 text-primary bg-white border-gray-300 rounded focus:ring-primary focus:ring-2"
+                                        className="w-5 h-5 text-primary bg-surface border-border-default rounded focus:ring-primary focus:ring-2"
                                     />
                                     <label htmlFor="enableReferral" className="font-medium text-text-main cursor-pointer select-none">
                                         Enable Referral Rewards for this service?
@@ -277,7 +277,7 @@ const AdminServiceTypes = () => {
                                                 type="number"
                                                 min="1"
                                                 required={form.enableReferral}
-                                                className="input-field bg-white"
+                                                className="input-field bg-surface"
                                                 placeholder="e.g. 500"
                                                 value={form.referrerPoints}
                                                 onChange={e => setForm({ ...form, referrerPoints: e.target.value })}
@@ -291,7 +291,7 @@ const AdminServiceTypes = () => {
                                                 type="number"
                                                 min="0"
                                                 required={form.enableReferral}
-                                                className="input-field bg-white"
+                                                className="input-field bg-surface"
                                                 placeholder="e.g. 250"
                                                 value={form.refereePoints}
                                                 onChange={e => setForm({ ...form, refereePoints: e.target.value })}

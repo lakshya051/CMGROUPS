@@ -42,7 +42,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-page-bg flex items-center justify-center p-lg">
-      <div className="bg-surface rounded-lg shadow-md p-xl w-full max-w-md">
+      <div className="bg-surface rounded-lg shadow-sm border border-border-default p-xl w-full max-w-md">
         <h1 className="text-xl font-bold text-text-primary mb-xs">One last step</h1>
         <p className="text-sm text-text-secondary mb-lg">
           We need your mobile number for order updates and delivery coordination.
@@ -59,12 +59,12 @@ export default function OnboardingPage() {
               Mobile Number <span className="text-deal">*</span>
             </label>
             <div className="flex border border-border-default rounded overflow-hidden">
-              <span className="bg-gray-100 px-sm py-xs text-sm text-text-secondary border-r border-border-default flex items-center">+91</span>
+              <span className="bg-page-bg px-sm py-xs text-sm text-text-secondary border-r border-border-default flex items-center">+91</span>
               <input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                 placeholder="9876543210" maxLength={10} required
-                className="flex-1 px-sm py-xs text-sm outline-none" />
+                className="flex-1 px-sm py-xs text-sm outline-none bg-surface text-text-primary" />
             </div>
-            <p className="text-text-muted text-xs mt-xs">Used only for delivery updates. We don't spam.</p>
+            <p className="text-text-secondary text-xs mt-xs">Used only for delivery updates. We don't spam.</p>
           </div>
           {error && <p className="text-deal text-sm">{error}</p>}
           <button type="submit" disabled={loading}

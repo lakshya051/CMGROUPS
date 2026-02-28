@@ -101,12 +101,12 @@ const Checkout = () => {
                     Thank you, {user?.name}! Your order <span className="text-primary font-bold">#{orderId}</span> has been placed successfully.
                 </p>
 
-                <div className="max-w-md mx-auto glass-panel p-6 mb-8 space-y-4">
+                <div className="max-w-md mx-auto bg-surface border border-border-default rounded-lg shadow-sm p-lg mb-8 space-y-4">
                     <div className="flex items-center gap-2 justify-center text-warning">
                         <Shield size={20} />
-                        <h3 className="font-bold text-lg">Payment Verification OTP</h3>
+                        <h3 className="font-bold text-lg text-text-primary">Payment Verification OTP</h3>
                     </div>
-                    <p className="text-text-muted text-sm">
+                    <p className="text-text-secondary text-sm">
                         {paymentMethod === 'pay_at_store'
                             ? 'Show this OTP at the store when you pay to confirm your order.'
                             : paymentMethod === 'wallet'
@@ -116,22 +116,22 @@ const Checkout = () => {
                     {paymentOtp ? (
                         <>
                             <div className="flex items-center justify-center gap-3">
-                                <div className="bg-gray-100 border-2 border-primary/50 rounded-xl px-8 py-4 font-mono text-4xl font-bold text-primary tracking-[0.3em] select-all">
+                                <div className="bg-page-bg border border-trust/50 rounded-xl px-xl py-lg font-mono text-4xl font-bold text-trust tracking-[0.3em] select-all">
                                     {paymentOtp}
                                 </div>
                                 <button
                                     onClick={copyOtp}
-                                    className="p-3 bg-gray-100 hover:bg-slate-700 rounded-lg transition-colors text-text-muted hover:text-text-main"
+                                    className="p-sm bg-page-bg border border-border-default hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-text-primary"
                                     title="Copy OTP"
                                 >
                                     <Copy size={20} />
                                 </button>
                             </div>
-                            {otpCopied && <p className="text-success text-sm">✓ OTP copied to clipboard!</p>}
+                            {otpCopied && <p className="text-success font-bold text-sm">✓ OTP copied to clipboard!</p>}
                             <p className="text-xs text-text-muted">⚠️ Keep this OTP safe. It's required to verify your payment.</p>
                         </>
                     ) : (
-                        <div className="bg-success/10 text-success p-4 rounded-xl border border-success/20 font-bold">
+                        <div className="bg-success/10 text-success p-md rounded-xl border border-success/20 font-bold">
                             Fully Paid via Wallet
                         </div>
                     )}
@@ -159,11 +159,11 @@ const Checkout = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 <div className="space-y-8">
                     {/* Shipping */}
-                    <div className={`glass-panel p-6 ${step === 1 ? 'border-primary ring-1 ring-primary/50' : 'opacity-70'}`}>
+                    <div className={`bg-surface border rounded-lg shadow-sm p-lg transition-all duration-300 ${step === 1 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-70'}`}>
                         <div className="flex items-center gap-4 mb-4">
-                            <Truck className="text-primary" />
-                            <h2 className="text-xl font-bold">Shipping Information</h2>
-                            {step > 1 && <span className="text-success text-sm ml-auto">✓ Done</span>}
+                            <Truck className={step === 1 ? "text-trust" : "text-text-muted"} />
+                            <h2 className={`text-xl font-bold ${step === 1 ? 'text-text-primary' : 'text-text-secondary'}`}>Shipping Information</h2>
+                            {step > 1 && <span className="text-success font-bold text-sm ml-auto flex items-center gap-1"><CheckCircle size={14} /> Done</span>}
                         </div>
                         <form onSubmit={formik.handleSubmit} className="space-y-3">
                             {/* Full Name */}
@@ -281,47 +281,47 @@ const Checkout = () => {
                     </div>
 
                     {/* Payment Method Selection */}
-                    <div className={`glass-panel p-6 ${step === 2 ? 'border-primary ring-1 ring-primary/50' : 'opacity-50'}`}>
+                    <div className={`bg-surface border rounded-lg shadow-sm p-lg transition-all duration-300 ${step === 2 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-50'}`}>
                         <div className="flex items-center gap-4 mb-4">
-                            <CreditCard className="text-primary" />
-                            <h2 className="text-xl font-bold">Payment Method</h2>
+                            <CreditCard className={step === 2 ? "text-trust" : "text-text-muted"} />
+                            <h2 className={`text-xl font-bold ${step === 2 ? 'text-text-primary' : 'text-text-secondary'}`}>Payment Method</h2>
                         </div>
                         {step === 2 && (
                             <div className="space-y-4">
                                 <button
                                     type="button"
                                     onClick={() => setPaymentMethod('pay_at_store')}
-                                    className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 text-left ${paymentMethod === 'pay_at_store'
-                                        ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                        : 'border-gray-200 bg-gray-50 hover:border-gray-200'
+                                    className={`w-full p-4 rounded-xl border transition-all flex items-center gap-4 text-left ${paymentMethod === 'pay_at_store'
+                                        ? 'border-trust bg-trust/5 ring-1 ring-trust/30'
+                                        : 'border-border-default bg-page-bg hover:border-text-muted hover:bg-surface-hover'
                                         }`}
                                 >
-                                    <div className={`p-3 rounded-lg ${paymentMethod === 'pay_at_store' ? 'bg-primary/20 text-primary' : 'bg-slate-700 text-text-muted'}`}>
+                                    <div className={`p-3 rounded-lg flex items-center justify-center border ${paymentMethod === 'pay_at_store' ? 'bg-trust/10 text-trust border-trust/20' : 'bg-surface text-text-muted border-border-default'}`}>
                                         <Store size={24} />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold">Pay at Store</h3>
-                                        <p className="text-sm text-text-muted">Visit our store and pay in person. You'll receive an OTP to verify your payment.</p>
+                                        <h3 className="font-bold text-text-primary">Pay at Store</h3>
+                                        <p className="text-sm text-text-secondary">Visit our store and pay in person. You'll receive an OTP to verify your payment.</p>
                                     </div>
-                                    {paymentMethod === 'pay_at_store' && <CheckCircle className="ml-auto text-primary" size={24} />}
+                                    {paymentMethod === 'pay_at_store' && <CheckCircle className="ml-auto text-trust" size={24} />}
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={() => setPaymentMethod('cod')}
-                                    className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 text-left ${paymentMethod === 'cod'
-                                        ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                        : 'border-gray-200 bg-gray-50 hover:border-gray-200'
+                                    className={`w-full p-4 rounded-xl border transition-all flex items-center gap-4 text-left ${paymentMethod === 'cod'
+                                        ? 'border-trust bg-trust/5 ring-1 ring-trust/30'
+                                        : 'border-border-default bg-page-bg hover:border-text-muted hover:bg-surface-hover'
                                         }`}
                                 >
-                                    <div className={`p-3 rounded-lg ${paymentMethod === 'cod' ? 'bg-primary/20 text-primary' : 'bg-slate-700 text-text-muted'}`}>
+                                    <div className={`p-3 rounded-lg flex items-center justify-center border ${paymentMethod === 'cod' ? 'bg-trust/10 text-trust border-trust/20' : 'bg-surface text-text-muted border-border-default'}`}>
                                         <Truck size={24} />
                                     </div>
                                     <div>
-                                        <h3 className="font-bold">Cash on Delivery</h3>
-                                        <p className="text-sm text-text-muted">Pay when you receive your order. Show the OTP to the delivery agent.</p>
+                                        <h3 className="font-bold text-text-primary">Cash on Delivery</h3>
+                                        <p className="text-sm text-text-secondary">Pay when you receive your order. Show the OTP to the delivery agent.</p>
                                     </div>
-                                    {paymentMethod === 'cod' && <CheckCircle className="ml-auto text-primary" size={24} />}
+                                    {paymentMethod === 'cod' && <CheckCircle className="ml-auto text-trust" size={24} />}
                                 </button>
 
                                 <div className="bg-blue-400/10 border border-blue-400/20 rounded-lg p-3 text-sm text-blue-400 flex items-start gap-2">
@@ -331,14 +331,14 @@ const Checkout = () => {
 
                                 {/* Wallet Use */}
                                 {(user?.walletBalance > 0) && (
-                                    <div className="border border-primary/20 bg-primary/5 rounded-xl p-4 flex items-center justify-between">
+                                    <div className="border border-trust/20 bg-trust/5 rounded-xl p-4 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-primary/20 text-primary rounded-lg">
+                                            <div className="p-2 bg-trust/10 text-trust rounded-lg border border-trust/20">
                                                 <Gift size={20} />
                                             </div>
                                             <div>
-                                                <h4 className="font-bold">Use Wallet Balance</h4>
-                                                <p className="text-sm text-text-muted">Available: ₹{user.walletBalance.toLocaleString()}</p>
+                                                <h4 className="font-bold text-text-primary">Use Wallet Balance</h4>
+                                                <p className="text-sm text-text-secondary">Available: ₹{user.walletBalance.toLocaleString()}</p>
                                             </div>
                                         </div>
                                         <label className="relative inline-flex items-center cursor-pointer">
@@ -348,14 +348,14 @@ const Checkout = () => {
                                                 checked={useWallet}
                                                 onChange={() => setUseWallet(!useWallet)}
                                             />
-                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                            <div className="w-11 h-6 bg-border-default peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-trust/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border-default after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-trust"></div>
                                         </label>
                                     </div>
                                 )}
 
                                 {/* Referral Code */}
-                                <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-                                    <div className="flex items-center gap-2 text-primary">
+                                <div className="border border-border-default rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 text-trust">
                                         <Gift size={18} />
                                         <h4 className="font-bold text-sm">Have a Referral Code?</h4>
                                         <span className="text-xs text-text-muted">(optional)</span>
@@ -367,7 +367,7 @@ const Checkout = () => {
                                         value={referralCode}
                                         onChange={(e) => setReferralCode(e.target.value)}
                                     />
-                                    <p className="text-xs text-text-muted">Enter a friend's referral code to give them ₹200 store credit!</p>
+                                    <p className="text-xs text-text-secondary">Enter a friend's referral code to give them ₹200 store credit!</p>
                                 </div>
 
                                 <Button
@@ -384,21 +384,21 @@ const Checkout = () => {
                 </div>
 
                 {/* Order Summary Side */}
-                <div className="glass-panel p-6 h-fit sticky top-24">
-                    <h3 className="font-bold mb-4 text-lg">Your Order</h3>
+                <div className="bg-surface border border-border-default rounded-lg shadow-sm p-lg h-fit sticky top-24">
+                    <h3 className="font-bold mb-4 text-lg text-text-primary">Your Order</h3>
                     <div className="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">
                         {cart.map(item => (
                             <div key={item.id} className="flex gap-3 text-sm">
-                                <img src={item.image} alt="" className="w-12 h-12 rounded bg-gray-100 object-contain" />
-                                <div className="flex-grow">
+                                <img src={item.image} alt="" className="w-12 h-12 rounded bg-surface object-contain" />
+                                <div className="flex-grow text-text-primary">
                                     <p className="font-medium line-clamp-1">{item.title}</p>
-                                    <p className="text-text-muted">x{item.quantity}</p>
+                                    <p className="text-text-secondary">x{item.quantity}</p>
                                 </div>
-                                <span>₹{(item.price * item.quantity).toLocaleString()}</span>
+                                <span className="font-bold text-text-primary">₹{(item.price * item.quantity).toLocaleString()}</span>
                             </div>
                         ))}
                     </div>
-                    <div className="border-t border-gray-200 pt-4 space-y-2 text-sm">
+                    <div className="border-t border-border-default pt-4 space-y-2 text-sm">
                         <div className="flex justify-between text-text-muted">
                             <span>Subtotal</span>
                             <span>₹{subtotal.toLocaleString()}</span>
@@ -410,10 +410,10 @@ const Checkout = () => {
                         {discount > 0 && (
                             <div className="flex justify-between text-success">
                                 <span>Wallet Discount</span>
-                                <span>-₹{discount.toLocaleString()}</span>
+                                <span className="font-bold">-₹{discount.toLocaleString()}</span>
                             </div>
                         )}
-                        <div className="flex justify-between font-bold text-xl pt-2 border-t border-gray-200">
+                        <div className="flex justify-between font-bold text-xl pt-2 border-t border-border-default text-text-primary">
                             <span>Total</span>
                             <span>₹{finalTotal.toLocaleString()}</span>
                         </div>

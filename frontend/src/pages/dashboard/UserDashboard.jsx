@@ -5,14 +5,14 @@ import { ordersAPI } from '../../lib/api';
 import { Link } from 'react-router-dom';
 
 const StatCard = ({ title, value, icon, trend }) => (
-    <div className="glass-panel p-6">
-        <div className="flex items-center justify-between mb-4">
-            <span className="text-text-muted font-medium">{title}</span>
-            <div className="p-2 bg-gray-100 rounded-lg text-primary">{icon}</div>
+    <div className="bg-surface border border-border-default rounded-lg shadow-sm p-md hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-sm">
+            <span className="text-text-secondary text-xs font-semibold uppercase tracking-wider">{title}</span>
+            <div className="p-xs bg-page-bg border border-border-default rounded text-text-muted">{icon}</div>
         </div>
         <div className="flex items-end gap-2">
-            <span className="text-3xl font-bold">{value}</span>
-            {trend && <span className="text-sm text-success mb-1 flex items-center">{trend} <ArrowUpRight size={14} /></span>}
+            <span className="text-2xl font-bold text-text-primary">{value}</span>
+            {trend && <span className="text-sm text-success mb-1 flex items-center font-bold">{trend} <ArrowUpRight size={14} /></span>}
         </div>
     </div>
 );
@@ -36,16 +36,16 @@ const UserDashboard = () => {
             case 'Shipped': return 'bg-orange-400/10 text-orange-400 border-orange-400/20';
             case 'Delivered': return 'bg-success/10 text-success border-success/20';
             case 'Cancelled': return 'bg-error/10 text-error border-error/20';
-            default: return 'bg-gray-100 text-text-muted border-gray-200';
+            default: return 'bg-page-bg text-text-muted border-border-default';
         }
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-lg">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-heading font-bold mb-1">Welcome back, {user?.name?.split(' ')[0]}!</h1>
-                    <p className="text-text-muted">Here's what's happening with your account.</p>
+                    <h1 className="text-2xl font-bold text-text-primary mb-1">Welcome back, {user?.name?.split(' ')[0]}!</h1>
+                    <p className="text-sm text-text-secondary">Here's what's happening with your account.</p>
                 </div>
             </div>
 
@@ -73,52 +73,52 @@ const UserDashboard = () => {
                     </div>
 
                     {/* Recent Orders */}
-                    <div className="glass-panel p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold">Recent Orders</h2>
-                            <Link to="/dashboard/orders" className="text-sm text-primary hover:underline">View All →</Link>
+                    <div className="bg-surface border border-border-default rounded-lg shadow-sm p-md">
+                        <div className="flex items-center justify-between mb-md border-b border-border-default pb-sm">
+                            <h2 className="text-lg font-bold text-text-primary">Recent Orders</h2>
+                            <Link to="/dashboard/orders" className="text-sm text-trust hover:underline font-semibold">View All →</Link>
                         </div>
 
                         {stats?.recentOrders?.length > 0 ? (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="text-text-muted text-sm border-b border-gray-200">
-                                            <th className="pb-3 pl-2">Order ID</th>
-                                            <th className="pb-3">Date</th>
-                                            <th className="pb-3">Status</th>
-                                            <th className="pb-3">Payment</th>
-                                            <th className="pb-3 text-right pr-2">Total</th>
+                                        <tr className="bg-page-bg text-text-secondary text-xs uppercase font-bold tracking-wider border-b border-border-default">
+                                            <th className="p-sm">Order ID</th>
+                                            <th className="p-sm">Date</th>
+                                            <th className="p-sm">Status</th>
+                                            <th className="p-sm">Payment</th>
+                                            <th className="p-sm text-right">Total</th>
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm">
                                         {stats.recentOrders.map(order => (
-                                            <tr key={order.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                                                <td className="py-4 pl-2 font-mono text-primary font-medium">#{order.id}</td>
-                                                <td className="py-4 text-text-muted">
-                                                    {new Date(order.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                            <tr key={order.id} className="border-b border-border-default last:border-0 hover:bg-surface-hover transition-colors">
+                                                <td className="p-sm font-mono text-trust font-bold">#{order.id}</td>
+                                                <td className="p-sm text-text-secondary font-medium">
+                                                    {new Date(order.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                 </td>
-                                                <td className="py-4">
-                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
+                                                <td className="p-sm">
+                                                    <span className={`px-2 py-1 rounded text-xs font-bold border ${getStatusColor(order.status)}`}>
                                                         {order.status}
                                                     </span>
                                                 </td>
-                                                <td className="py-4">
-                                                    <span className={`text-xs font-bold ${order.isPaid ? 'text-success' : 'text-warning'}`}>
+                                                <td className="p-sm">
+                                                    <span className={`text-xs font-bold ${order.isPaid ? 'text-success' : 'text-text-muted'}`}>
                                                         {order.isPaid ? '✓ Paid' : '⏳ Unpaid'}
                                                     </span>
                                                 </td>
-                                                <td className="py-4 text-right pr-2 font-medium">₹{order.total.toLocaleString()}</td>
+                                                <td className="p-sm text-right font-bold text-text-primary">₹{order.total.toLocaleString()}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
                         ) : (
-                            <div className="text-center py-8 text-text-muted">
-                                <ShoppingBag size={40} className="mx-auto mb-3 opacity-50" />
-                                <p>No orders yet. Start shopping!</p>
-                                <Link to="/products" className="text-primary text-sm hover:underline mt-2 inline-block">Browse Products →</Link>
+                            <div className="text-center py-xl text-text-secondary">
+                                <ShoppingBag size={40} className="mx-auto mb-3 opacity-20" />
+                                <p className="font-medium">No orders yet. Start shopping!</p>
+                                <Link to="/products" className="text-trust text-sm font-semibold hover:underline mt-2 inline-block">Browse Products →</Link>
                             </div>
                         )}
                     </div>

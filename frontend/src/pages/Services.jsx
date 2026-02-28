@@ -157,11 +157,11 @@ const Services = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {services.map(service => (
-                    <div key={service.id} className="glass-panel p-8 hover:border-primary/50 transition-colors group">
-                        <div className="mb-6 text-primary group-hover:scale-110 transition-transform duration-300">
+                    <div key={service.id} className="bg-surface border border-border-default shadow-sm rounded-lg p-lg hover:border-trust/50 transition-colors group">
+                        <div className="mb-6 text-trust group-hover:scale-110 transition-transform duration-300">
                             {iconMap[service.icon] || <Wrench size={40} />}
                         </div>
-                        <h3 className="text-2xl font-bold mb-2">{service.title}</h3>
+                        <h3 className="text-2xl font-bold mb-2 text-text-primary">{service.title}</h3>
                         <p className="text-text-muted mb-6">{service.description}</p>
                         <ul className="space-y-3 mb-8">
                             {service.features.map((feature, idx) => (
@@ -172,7 +172,7 @@ const Services = () => {
                             ))}
                         </ul>
                         <div className="flex items-center justify-between mt-auto">
-                            <span className="text-2xl font-bold">Starting {service.price}</span>
+                            <span className="text-2xl font-bold text-text-primary">Starting {service.price}</span>
                             <Button onClick={() => openBooking(service)}>Book Now</Button>
                         </div>
                     </div>
@@ -182,18 +182,18 @@ const Services = () => {
             {/* Booking Modal */}
             {selectedService && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="glass-panel w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 relative animate-in zoom-in duration-300">
-                        <button onClick={resetModal} className="absolute top-4 right-4 text-text-muted hover:text-text-main z-10">
+                    <div className="bg-surface border border-border-default shadow-sm rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 relative animate-in zoom-in duration-300">
+                        <button onClick={resetModal} className="absolute top-4 right-4 text-text-muted hover:text-text-primary z-10">
                             <X size={24} />
                         </button>
 
                         {!isSubmitted ? (
                             <>
-                                <h2 className="text-2xl font-bold mb-1">Book {selectedService.title}</h2>
-                                <p className="text-text-muted mb-6">Fill in your details and we'll pick up your device.</p>
+                                <h2 className="text-2xl font-bold mb-1 text-text-primary">Book {selectedService.title}</h2>
+                                <p className="text-text-secondary mb-6">Fill in your details and we'll pick up your device.</p>
 
                                 {formik.errors.submit && (
-                                    <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-lg mb-4 text-sm text-center">
+                                    <div className="bg-error/10 border border-error/20 text-error p-3 rounded-lg mb-4 text-sm text-center">
                                         {formik.errors.submit}
                                     </div>
                                 )}
@@ -204,7 +204,7 @@ const Services = () => {
                                         <div>
                                             <label className="block text-sm font-medium mb-1">Full Name *</label>
                                             <div className="relative">
-                                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
                                                 <input name="customerName" className={`input-field pl-10 ${formik.touched.customerName && formik.errors.customerName ? 'border-red-500' : ''}`} value={formik.values.customerName} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="Your name" />
                                             </div>
                                             <ErrMsg name="customerName" />
@@ -212,7 +212,7 @@ const Services = () => {
                                         <div>
                                             <label className="block text-sm font-medium mb-1">Phone *</label>
                                             <div className="relative">
-                                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
                                                 <input name="customerPhone" type="tel" className={`input-field pl-10 ${formik.touched.customerPhone && formik.errors.customerPhone ? 'border-red-500' : ''}`} value={formik.values.customerPhone} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="10-digit phone" />
                                             </div>
                                             <ErrMsg name="customerPhone" />
@@ -241,7 +241,7 @@ const Services = () => {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Pickup Address *</label>
                                         <div className="relative">
-                                            <MapPin className="absolute left-3 top-3 text-gray-400" size={16} />
+                                            <MapPin className="absolute left-3 top-3 text-text-muted" size={16} />
                                             <textarea name="address" className={`input-field pl-10 h-20 pt-2 ${formik.touched.address && formik.errors.address ? 'border-red-500' : ''}`} value={formik.values.address} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="House/Flat No., Street, Area" />
                                         </div>
                                         <ErrMsg name="address" />
@@ -268,7 +268,7 @@ const Services = () => {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Preferred Date *</label>
                                         <div className="relative">
-                                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
                                             <input
                                                 name="date"
                                                 type="date"
@@ -322,13 +322,13 @@ const Services = () => {
                             </>
                         ) : (
                             <div className="text-center py-8">
-                                <div className="w-16 h-16 bg-success/20 text-success rounded-full flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 bg-success/10 border border-success/20 text-success rounded-full flex items-center justify-center mx-auto mb-4">
                                     <CheckCircle size={32} />
                                 </div>
-                                <h3 className="text-xl font-bold mb-2">Booking Confirmed!</h3>
-                                <p className="text-text-muted mb-6">Your service request has been submitted successfully.</p>
-                                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-4">
-                                    <p className="text-sm text-text-muted mb-2">Our technician will reach out to schedule an actual pickup soon.</p>
+                                <h3 className="text-xl font-bold mb-2 text-text-primary">Booking Confirmed!</h3>
+                                <p className="text-text-secondary mb-6">Your service request has been submitted successfully.</p>
+                                <div className="bg-surface-hover border border-border-default rounded-lg p-4 mb-4">
+                                    <p className="text-sm text-text-secondary mb-2">Our technician will reach out to schedule an actual pickup soon.</p>
                                 </div>
                                 <Button onClick={resetModal} variant="outline" className="mt-2">Close</Button>
                             </div>

@@ -43,8 +43,8 @@ const Wishlist = () => {
                     ))}
                 </div>
             ) : (
-                <div className="glass-panel p-16 text-center max-w-2xl mx-auto">
-                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-600">
+                <div className="bg-surface border border-border-default shadow-sm rounded-lg p-16 text-center max-w-2xl mx-auto">
+                    <div className="w-20 h-20 bg-page-bg rounded-full flex items-center justify-center mx-auto mb-6 text-text-secondary">
                         <Heart size={40} />
                     </div>
                     <h2 className="text-2xl font-bold mb-3">Your wishlist is empty</h2>

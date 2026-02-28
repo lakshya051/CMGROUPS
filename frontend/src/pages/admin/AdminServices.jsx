@@ -71,25 +71,25 @@ const AdminServices = () => {
         <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 className="text-3xl font-heading font-bold mb-1">Service Requests</h1>
-                    <p className="text-text-muted">Manage repair and build appointments.</p>
+                    <h1 className="text-2xl font-bold text-text-primary mb-1">Service Requests</h1>
+                    <p className="text-sm text-text-secondary">Manage repair and build appointments.</p>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
-                    <span className="bg-blue-500/10 text-blue-600 px-3 py-1 rounded-full font-bold">{statusCounts['Pending'] || 0} Pending</span>
-                    <span className="bg-orange-500/10 text-orange-600 px-3 py-1 rounded-full font-bold">{statusCounts['In Progress'] || 0} In Progress</span>
-                    <span className="bg-green-500/10 text-green-600 px-3 py-1 rounded-full font-bold">{statusCounts['Completed'] || 0} Completed</span>
+                    <span className="bg-trust/10 text-trust px-3 py-1 rounded font-bold">{statusCounts['Pending'] || 0} Pending</span>
+                    <span className="bg-orange-500/10 text-orange-600 px-3 py-1 rounded font-bold">{statusCounts['In Progress'] || 0} In Progress</span>
+                    <span className="bg-success/10 text-success px-3 py-1 rounded font-bold">{statusCounts['Completed'] || 0} Completed</span>
                 </div>
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex gap-xs overflow-x-auto pb-2 scrollbar-hide">
                 {['All', ...STATUS_PIPELINE, 'Cancelled'].map(status => (
                     <button
                         key={status}
                         onClick={() => setFilterStatus(status)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterStatus === status
-                            ? 'bg-primary text-white'
-                            : 'bg-gray-100 text-text-muted hover:bg-gray-200'
+                        className={`px-sm py-xs rounded text-sm font-semibold whitespace-nowrap transition-colors border ${filterStatus === status
+                            ? 'bg-buy-primary text-text-primary border-border-default shadow-sm hover:bg-buy-primary-hover'
+                            : 'bg-page-bg text-text-secondary border-transparent hover:bg-surface-hover hover:text-text-primary hover:border-border-default'
                             }`}
                     >
                         {status} {status !== 'All' && statusCounts[status] ? `(${statusCounts[status]})` : ''}
@@ -106,29 +106,29 @@ const AdminServices = () => {
                         const edit = editData[booking.id] || {};
 
                         return (
-                            <div key={booking.id} className="glass-panel overflow-hidden">
+                            <div key={booking.id} className="bg-surface border border-border-default shadow-sm rounded-lg overflow-hidden">
                                 {/* Header Row */}
                                 <div
-                                    className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                                    className="p-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:bg-surface-hover transition-colors"
                                     onClick={() => setExpandedId(isExpanded ? null : booking.id)}
                                 >
                                     <div className="flex items-start gap-4 flex-1 min-w-0">
-                                        <div className="p-3 rounded-lg bg-primary/10 text-primary flex-shrink-0">
+                                        <div className="p-sm rounded bg-trust/10 text-trust flex-shrink-0">
                                             <Wrench size={24} />
                                         </div>
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                <h3 className="font-bold text-lg">{booking.serviceType}</h3>
+                                                <h3 className="font-bold text-lg text-text-primary">{booking.serviceType}</h3>
                                                 <span className={`px-2 py-0.5 rounded text-xs font-bold border ${booking.status === 'Completed' || booking.status === 'Delivered' ? 'text-success bg-success/10 border-success/20' :
-                                                    booking.status === 'Cancelled' ? 'text-red-500 bg-red-500/10 border-red-500/20' :
+                                                    booking.status === 'Cancelled' ? 'text-error bg-error/10 border-error/20' :
                                                         booking.status === 'In Progress' ? 'text-orange-500 bg-orange-500/10 border-orange-500/20' :
                                                             booking.status === 'Picked Up' ? 'text-purple-500 bg-purple-500/10 border-purple-500/20' :
-                                                                'text-blue-500 bg-blue-500/10 border-blue-500/20'
+                                                                'text-trust bg-trust/10 border-trust/20'
                                                     }`}>
                                                     {booking.status}
                                                 </span>
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-3 text-sm text-text-muted">
+                                            <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
                                                 <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(booking.date).toLocaleDateString()}</span>
                                                 <span className="flex items-center gap-1"><User size={14} /> {booking.customerName || booking.user?.name || 'Unknown'}</span>
                                                 <span className="flex items-center gap-1"><Phone size={14} /> {booking.customerPhone || booking.user?.phone || 'N/A'}</span>
@@ -138,66 +138,66 @@ const AdminServices = () => {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {booking.estimatedPrice && (
-                                            <span className="text-sm font-bold text-text-muted">₹{booking.estimatedPrice}</span>
+                                            <span className="text-sm font-bold text-text-primary">₹{booking.estimatedPrice}</span>
                                         )}
-                                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                        {isExpanded ? <ChevronUp size={20} className="text-text-secondary" /> : <ChevronDown size={20} className="text-text-secondary" />}
                                     </div>
                                 </div>
 
                                 {/* Expanded Panel */}
                                 {isExpanded && (
-                                    <div className="border-t border-gray-100 bg-gray-50/30 animate-in fade-in slide-in-from-top duration-200">
-                                        <div className="p-6 space-y-6">
+                                    <div className="border-t border-border-default bg-page-bg animate-in fade-in slide-in-from-top duration-200">
+                                        <div className="p-md space-y-md">
                                             {/* Two Column Layout */}
                                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                                 {/* Left: Customer & Device Info */}
-                                                <div className="space-y-4">
-                                                    <h4 className="font-bold text-sm uppercase tracking-wider text-text-muted">Customer Details</h4>
-                                                    <div className="bg-white rounded-xl p-4 border border-gray-100 space-y-3">
+                                                <div className="space-y-sm">
+                                                    <h4 className="font-bold text-xs uppercase tracking-wider text-text-secondary">Customer Details</h4>
+                                                    <div className="bg-surface rounded-lg p-sm border border-border-default space-y-3">
                                                         <div className="flex items-start gap-3">
-                                                            <User size={16} className="text-gray-400 mt-0.5" />
+                                                            <User size={16} className="text-text-muted mt-0.5" />
                                                             <div>
-                                                                <p className="font-medium">{booking.customerName || booking.user?.name}</p>
-                                                                <p className="text-sm text-text-muted">{booking.customerPhone || booking.user?.phone}</p>
-                                                                <p className="text-sm text-text-muted">{booking.user?.email}</p>
+                                                                <p className="font-medium text-text-primary">{booking.customerName || booking.user?.name}</p>
+                                                                <p className="text-sm text-text-secondary">{booking.customerPhone || booking.user?.phone}</p>
+                                                                <p className="text-sm text-text-secondary">{booking.user?.email}</p>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-start gap-3">
-                                                            <MapPin size={16} className="text-gray-400 mt-0.5" />
-                                                            <div className="text-sm">
+                                                            <MapPin size={16} className="text-text-muted mt-0.5" />
+                                                            <div className="text-sm text-text-secondary">
                                                                 <p>{booking.address || 'No address provided'}</p>
                                                                 <p>{booking.city}{booking.pincode ? `, ${booking.pincode}` : ''}</p>
                                                                 {booking.landmark && <p className="text-text-muted">Near: {booking.landmark}</p>}
                                                             </div>
                                                         </div>
                                                         {booking.deviceType && (
-                                                            <div className="flex items-start gap-3">
-                                                                <Settings size={16} className="text-gray-400 mt-0.5" />
+                                                            <div className="flex items-start gap-3 text-text-primary">
+                                                                <Settings size={16} className="text-text-muted mt-0.5" />
                                                                 <p className="text-sm">{booking.deviceType} {booking.deviceBrand && `— ${booking.deviceBrand}`}</p>
                                                             </div>
                                                         )}
                                                         {booking.description && (
-                                                            <div className="border-t border-gray-100 pt-3">
-                                                                <p className="text-xs uppercase tracking-wider text-text-muted mb-1">Issue Description</p>
-                                                                <p className="text-sm">{booking.description}</p>
+                                                            <div className="border-t border-border-default pt-3">
+                                                                <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1">Issue Description</p>
+                                                                <p className="text-sm text-text-primary">{booking.description}</p>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
 
                                                 {/* Right: Admin Controls */}
-                                                <div className="space-y-4">
-                                                    <h4 className="font-bold text-sm uppercase tracking-wider text-text-muted">Admin Controls</h4>
-                                                    <div className="bg-white rounded-xl p-4 border border-gray-100 space-y-4">
+                                                <div className="space-y-sm">
+                                                    <h4 className="font-bold text-xs uppercase tracking-wider text-text-secondary">Admin Controls</h4>
+                                                    <div className="bg-surface rounded-lg p-sm border border-border-default space-y-4">
 
 
                                                         {/* Pricing */}
-                                                        <div className="grid grid-cols-2 gap-3">
+                                                        <div className="grid grid-cols-2 gap-sm">
                                                             <div>
-                                                                <label className="block text-xs font-medium text-text-muted mb-1">Estimated Price (₹)</label>
+                                                                <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1">Estimated Price (₹)</label>
                                                                 <input
                                                                     type="number"
-                                                                    className="input-field"
+                                                                    className="input-field bg-page-bg"
                                                                     placeholder="0"
                                                                     defaultValue={booking.estimatedPrice || ''}
                                                                     onChange={(e) => handleFieldChange(booking.id, 'estimatedPrice', e.target.value)}
@@ -205,10 +205,10 @@ const AdminServices = () => {
                                                                 />
                                                             </div>
                                                             <div>
-                                                                <label className="block text-xs font-medium text-text-muted mb-1">Final Price (₹)</label>
+                                                                <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1">Final Price (₹)</label>
                                                                 <input
                                                                     type="number"
-                                                                    className="input-field"
+                                                                    className="input-field bg-page-bg"
                                                                     placeholder="0"
                                                                     defaultValue={booking.finalPrice || ''}
                                                                     onChange={(e) => handleFieldChange(booking.id, 'finalPrice', e.target.value)}
@@ -219,10 +219,10 @@ const AdminServices = () => {
 
                                                         {/* Assign Technician */}
                                                         <div>
-                                                            <label className="block text-xs font-medium text-text-muted mb-1">Assigned Technician</label>
+                                                            <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1">Assigned Technician</label>
                                                             <input
                                                                 type="text"
-                                                                className="input-field"
+                                                                className="input-field bg-page-bg"
                                                                 placeholder="Technician name"
                                                                 defaultValue={booking.assignedTo || ''}
                                                                 onChange={(e) => handleFieldChange(booking.id, 'assignedTo', e.target.value)}
@@ -232,9 +232,9 @@ const AdminServices = () => {
 
                                                         {/* Admin Notes */}
                                                         <div>
-                                                            <label className="block text-xs font-medium text-text-muted mb-1">Admin Notes (internal)</label>
+                                                            <label className="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-1">Admin Notes (internal)</label>
                                                             <textarea
-                                                                className="input-field h-20 pt-2"
+                                                                className="input-field h-20 pt-2 bg-page-bg"
                                                                 placeholder="Internal notes..."
                                                                 defaultValue={booking.adminNotes || ''}
                                                                 onChange={(e) => handleFieldChange(booking.id, 'adminNotes', e.target.value)}
@@ -243,7 +243,7 @@ const AdminServices = () => {
                                                         </div>
 
                                                         {/* Save & Status Buttons */}
-                                                        <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
+                                                        <div className="flex items-center gap-xs flex-wrap pt-sm border-t border-border-default">
                                                             {editData[booking.id] && Object.keys(editData[booking.id]).length > 0 && (
                                                                 <Button
                                                                     size="sm"
@@ -277,7 +277,7 @@ const AdminServices = () => {
                                                             {booking.status !== 'Cancelled' && booking.status !== 'Delivered' && (
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'Cancelled' }); }}
-                                                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/10 rounded transition-colors"
                                                                 >
                                                                     <X size={14} /> Cancel
                                                                 </button>
@@ -293,14 +293,14 @@ const AdminServices = () => {
                         );
                     })
                 ) : (
-                    <div className="glass-panel p-12 text-center">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-600">
+                    <div className="bg-surface border border-border-default rounded-lg p-lg text-center shadow-sm">
+                        <div className="w-16 h-16 bg-page-bg rounded-full flex items-center justify-center mx-auto mb-4 text-text-muted">
                             <Clock size={32} />
                         </div>
-                        <h3 className="text-xl font-bold mb-2">
+                        <h3 className="text-xl font-bold mb-2 text-text-primary">
                             {filterStatus === 'All' ? 'No Requests Yet' : `No ${filterStatus} Requests`}
                         </h3>
-                        <p className="text-text-muted">
+                        <p className="text-text-secondary">
                             {filterStatus === 'All' ? 'All service requests will appear here.' : 'Try selecting a different filter.'}
                         </p>
                     </div>

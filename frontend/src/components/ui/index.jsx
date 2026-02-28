@@ -87,11 +87,11 @@ export function SkeletonCard() {
       className="bg-surface rounded border border-border-default p-md animate-pulse"
       aria-busy="true"
     >
-      <div className="bg-gray-200 h-48 rounded mb-md" />
-      <div className="bg-gray-200 h-4  rounded w-3/4 mb-sm" />
-      <div className="bg-gray-200 h-4  rounded w-1/2 mb-sm" />
-      <div className="bg-gray-200 h-6  rounded w-1/3 mb-md" />
-      <div className="bg-gray-200 h-9  rounded" />
+      <div className="bg-page-bg h-48 rounded mb-md" />
+      <div className="bg-page-bg h-4  rounded w-3/4 mb-sm" />
+      <div className="bg-page-bg h-4  rounded w-1/2 mb-sm" />
+      <div className="bg-page-bg h-6  rounded w-1/3 mb-md" />
+      <div className="bg-page-bg h-9  rounded" />
     </div>
   )
 }
@@ -137,7 +137,7 @@ export function ProgressBar({ value, max, color = 'buy-primary' }) {
   const bgClass = COLOR_MAP[color] || 'bg-buy-primary'
 
   return (
-    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+    <div className="w-full bg-page-bg border border-border-default rounded-full h-2 overflow-hidden">
       <div
         className={`h-full ${bgClass} rounded-full transition-all duration-slow`}
         style={{ width: `${pct}%` }}

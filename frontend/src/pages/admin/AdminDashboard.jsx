@@ -16,12 +16,12 @@ const AdminStatCard = ({ title, value, icon, subtext, color = "text-primary" }) 
     <div className="glass-panel p-6 hover:border-primary/20 transition-colors">
         <div className="flex items-center justify-between mb-4">
             <span className="text-text-muted text-sm font-medium uppercase tracking-wider">{title}</span>
-            <div className={`p-2 bg-gray-50 rounded-lg ${color}`}>{icon}</div>
+            <div className={`p-2 bg-page-bg rounded-lg ${color}`}>{icon}</div>
         </div>
         <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold font-heading">{value}</span>
+            <span className="text-2xl font-bold text-text-primary">{value}</span>
         </div>
-        <p className="text-xs text-text-muted mt-2">
+        <p className="text-xs text-text-secondary mt-2">
             {subtext}
         </p>
     </div>
@@ -67,8 +67,8 @@ const AdminDashboard = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div>
-                <h1 className="text-3xl font-heading font-bold mb-1">Admin Dashboard</h1>
-                <p className="text-text-muted">Real-time overview of store performance.</p>
+                <h1 className="text-2xl font-bold text-text-primary mb-1">Admin Dashboard</h1>
+                <p className="text-sm text-text-secondary">Real-time overview of store performance.</p>
             </div>
 
             {/* Quick Stats */}
@@ -119,7 +119,7 @@ const AdminDashboard = () => {
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         {stats.topProducts.map((prod) => (
-                            <div key={prod.id} className="p-4 border border-gray-100 rounded-xl bg-gray-50 flex flex-col items-center text-center">
+                            <div key={prod.id} className="p-4 border border-border-default rounded-xl bg-page-bg flex flex-col items-center text-center">
                                 <div className="w-12 h-12 bg-primary/10 text-primary flex justify-center items-center rounded-full font-bold mb-3">
                                     {prod.sales}
                                 </div>
@@ -170,7 +170,7 @@ const AdminDashboard = () => {
                     <ul className="space-y-0">
                         {stats.activityFeed.length > 0 ? (
                             stats.activityFeed.map((item, idx) => (
-                                <li key={idx} className="flex items-start gap-4 py-4 border-b border-gray-100 last:border-0 last:pb-0 relative">
+                                <li key={idx} className="flex items-start gap-4 py-4 border-b border-border-default last:border-0 last:pb-0 relative">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${item.type === 'order' ? 'bg-blue-100 text-blue-600' :
                                         item.type === 'user' ? 'bg-violet-100 text-violet-600' :
                                             'bg-orange-100 text-orange-600'
@@ -180,7 +180,7 @@ const AdminDashboard = () => {
                                                 <Wrench size={14} />}
                                     </div>
                                     {idx !== stats.activityFeed.length - 1 && (
-                                        <div className="absolute left-4 top-8 bottom-[-16px] w-[2px] bg-gray-100" />
+                                        <div className="absolute left-4 top-8 bottom-[-16px] w-[2px] bg-border-default" />
                                     )}
                                     <div>
                                         <p className="text-sm font-medium text-text-main">{item.text}</p>

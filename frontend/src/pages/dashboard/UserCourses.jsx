@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 const STATUS_STYLES = {
     Pending: 'bg-warning/10 text-warning border border-warning/20',
-    Approved: 'bg-blue-100 text-blue-700 border border-blue-200',
+    Approved: 'bg-trust/10 text-trust border border-trust/20',
     Rejected: 'bg-error/10 text-error border border-error/20',
     Enrolled: 'bg-success/10 text-success border border-success/20',
     Completed: 'bg-purple-100 text-purple-700 border border-purple-200'
@@ -39,11 +39,11 @@ const UserCourses = () => {
     if (loading) return <div className="p-8 text-center text-text-muted">Loading your courses...</div>;
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-lg animate-in fade-in duration-500">
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 className="text-3xl font-heading font-black mb-1">My Courses</h1>
-                    <p className="text-text-muted">Track your applications, batch details, and fee status.</p>
+                    <h1 className="text-2xl font-bold text-text-primary mb-1">My Courses</h1>
+                    <p className="text-sm text-text-secondary">Track your applications, batch details, and fee status.</p>
                 </div>
                 <Link to="/courses">
                     <Button variant="outline"><GraduationCap size={16} className="mr-2" /> Browse Courses</Button>
@@ -52,14 +52,14 @@ const UserCourses = () => {
 
             {/* Referral Code Banner */}
             {user?.referralCode && (
-                <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-2xl p-5 flex items-center justify-between gap-4">
+                <div className="bg-surface border border-trust/50 rounded-lg p-md flex items-center justify-between gap-4">
                     <div>
-                        <p className="text-sm font-black text-primary mb-1">Your Referral Code</p>
-                        <p className="text-xs text-text-muted">Share this code — both you and the new student earn reward points when their first fee payment is recorded.</p>
+                        <p className="text-sm font-bold text-trust mb-1">Your Referral Code</p>
+                        <p className="text-sm text-text-secondary">Share this code — both you and the new student earn reward points when their first fee payment is recorded.</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                         <button
-                            className="font-mono font-black text-xl text-primary bg-primary/10 px-4 py-2 rounded-xl border border-primary/20 hover:bg-primary/20 transition-colors"
+                            className="font-mono font-bold text-lg text-trust bg-trust/10 px-md py-xs rounded border border-trust/20 hover:bg-trust/20 transition-colors"
                             onClick={() => { navigator.clipboard.writeText(user.referralCode); toast.success('Referral code copied!'); }}
                         >
                             {user.referralCode}
@@ -70,10 +70,10 @@ const UserCourses = () => {
             )}
 
             {applications.length === 0 ? (
-                <div className="text-center py-20 bg-surface rounded-2xl border border-dashed border-gray-200">
-                    <BookOpen size={56} className="mx-auto text-gray-300 mb-4" />
-                    <h3 className="text-xl font-black mb-2">No applications yet</h3>
-                    <p className="text-text-muted mb-6">Apply for a course to get started.</p>
+                <div className="text-center py-xl bg-surface rounded-lg border border-border-default shadow-sm">
+                    <BookOpen size={56} className="mx-auto text-text-muted mb-4 opacity-50" />
+                    <h3 className="text-xl font-bold mb-2 text-text-primary">No applications yet</h3>
+                    <p className="text-text-secondary mb-6">Apply for a course to get started.</p>
                     <Link to="/courses"><Button>Browse Courses</Button></Link>
                 </div>
             ) : (
@@ -88,12 +88,12 @@ const UserCourses = () => {
                         const canDownloadCert = isCompleted && app.course?.hasCertificate;
 
                         return (
-                            <div key={app.id} className="bg-surface rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                            <div key={app.id} className="bg-surface rounded-lg border border-border-default shadow-sm overflow-hidden">
                                 {/* Header */}
-                                <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="p-md border-b border-border-default flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-page-bg">
                                     <div>
-                                        <h2 className="font-black text-xl">{app.course?.title}</h2>
-                                        <div className="flex flex-wrap gap-3 mt-2 text-sm text-text-muted">
+                                        <h2 className="font-bold text-xl text-text-primary">{app.course?.title}</h2>
+                                        <div className="flex flex-wrap gap-3 mt-2 text-sm text-text-secondary font-medium">
                                             <span className="flex items-center gap-1"><Clock size={14} /> {app.duration?.label}</span>
                                             {app.batch && <span className="flex items-center gap-1"><GraduationCap size={14} /> {app.batch.name} — {app.batch.timing}</span>}
                                             <span className="flex items-center gap-1">
@@ -102,16 +102,16 @@ const UserCourses = () => {
                                             </span>
                                         </div>
                                     </div>
-                                    <span className={`px-4 py-1.5 rounded-full text-xs font-black ${STATUS_STYLES[app.status] || 'bg-gray-100 text-gray-600'}`}>
+                                    <span className={`px-3 py-1 rounded text-xs font-bold ${STATUS_STYLES[app.status] || 'bg-page-bg text-text-secondary border border-border-default'}`}>
                                         {app.status}
                                     </span>
                                 </div>
 
-                                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="p-md grid grid-cols-1 md:grid-cols-2 gap-md">
                                     {/* Fee Ledger */}
                                     {(isEnrolled || isCompleted || app.feePayments?.length > 0) && (
                                         <div>
-                                            <h3 className="font-black text-sm uppercase tracking-wider text-text-muted mb-4">Fee Ledger</h3>
+                                            <h3 className="font-semibold text-xs uppercase tracking-wider text-text-secondary mb-sm">Fee Ledger</h3>
                                             {/* Progress */}
                                             <div className="mb-4">
                                                 <div className="flex justify-between text-xs font-bold mb-1.5">
@@ -120,27 +120,27 @@ const UserCourses = () => {
                                                         {balance > 0 ? `₹${balance.toLocaleString()} due` : 'Fully Paid ✓'}
                                                     </span>
                                                 </div>
-                                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full transition-all duration-1000 ${paidPct === 100 ? 'bg-success' : 'bg-primary'}`} style={{ width: `${paidPct}%` }} />
+                                                <div className="h-2 bg-page-bg border border-border-default rounded-full overflow-hidden">
+                                                    <div className={`h-full rounded-full transition-all duration-1000 ${paidPct === 100 ? 'bg-success' : 'bg-buy-primary'}`} style={{ width: `${paidPct}%` }} />
                                                 </div>
-                                                <div className="text-xs text-text-muted mt-1">Total Fee: ₹{totalFee.toLocaleString()}</div>
+                                                <div className="text-xs text-text-secondary mt-1">Total Fee: ₹{totalFee.toLocaleString()}</div>
                                             </div>
                                             {/* Payment history */}
                                             <div className="space-y-2 max-h-40 overflow-y-auto">
                                                 {app.feePayments?.map((pay, i) => (
-                                                    <div key={pay.id} className="flex items-center justify-between text-sm p-2.5 bg-success/5 rounded-lg border border-success/10">
+                                                    <div key={pay.id} className="flex items-center justify-between text-sm p-sm bg-success/5 rounded border border-success/10">
                                                         <div className="flex items-center gap-2">
                                                             <CheckCircle size={14} className="text-success flex-shrink-0" />
-                                                            <span className="text-text-muted">
+                                                            <span className="text-text-secondary font-medium">
                                                                 {new Date(pay.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                {pay.note && <span className="text-xs ml-1 text-text-muted">· {pay.note}</span>}
+                                                                {pay.note && <span className="text-xs ml-1 text-text-muted font-normal">· {pay.note}</span>}
                                                             </span>
                                                         </div>
-                                                        <span className="font-black text-success">+₹{pay.amount.toLocaleString()}</span>
+                                                        <span className="font-bold text-success">+₹{pay.amount.toLocaleString()}</span>
                                                     </div>
                                                 ))}
                                                 {app.feePayments?.length === 0 && (
-                                                    <div className="flex items-center gap-2 text-sm text-warning p-2.5 bg-warning/5 rounded-lg border border-warning/10">
+                                                    <div className="flex items-center gap-2 text-sm text-warning p-sm bg-warning/5 rounded border border-warning/10 font-medium">
                                                         <AlertCircle size={14} /> No payments recorded yet
                                                     </div>
                                                 )}
@@ -149,22 +149,22 @@ const UserCourses = () => {
                                     )}
 
                                     {/* Info & Actions */}
-                                    <div className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-sm">
                                         {app.status === 'Pending' && (
-                                            <div className="p-4 bg-warning/5 border border-warning/20 rounded-xl text-sm text-warning font-bold flex items-start gap-2">
+                                            <div className="p-sm bg-warning/5 border border-warning/20 rounded text-sm text-warning font-semibold flex items-start gap-2">
                                                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                                                 Your application is under review. We'll notify you once it's approved.
                                             </div>
                                         )}
                                         {app.status === 'Rejected' && (
-                                            <div className="p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error flex items-start gap-2">
+                                            <div className="p-sm bg-error/5 border border-error/20 rounded text-sm text-error font-semibold flex items-start gap-2">
                                                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                                                 Your application was not approved. Please contact us for more info.
                                             </div>
                                         )}
                                         {app.enrolledAt && (
-                                            <div className="text-xs text-text-muted">
-                                                Enrolled on: <span className="font-bold">{new Date(app.enrolledAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                                            <div className="text-xs text-text-secondary">
+                                                Enrolled on: <span className="font-bold text-text-primary">{new Date(app.enrolledAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                                             </div>
                                         )}
                                         {canDownloadCert && (
