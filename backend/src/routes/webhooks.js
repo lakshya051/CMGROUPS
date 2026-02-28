@@ -10,7 +10,7 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
 
     try {
         event = wh.verify(req.body, {
-            'svix-id':        req.headers['svix-id'],
+            'svix-id': req.headers['svix-id'],
             'svix-timestamp': req.headers['svix-timestamp'],
             'svix-signature': req.headers['svix-signature'],
         });
@@ -22,14 +22,27 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
 
     if (type === 'user.created') {
         const email = data.email_addresses.find(e => e.id === data.primary_email_address_id)?.email_address;
+        const name = `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null;
+
         const existing = await prisma.user.findUnique({ where: { clerkId: data.id } });
+
         if (!existing) {
+            // User doesn't exist at all, create them
             await prisma.user.create({
                 data: {
                     clerkId: data.id,
                     email,
-                    name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null,
+                    name,
                     role: 'customer',
+                }
+            });
+        } else {
+            // RACE CONDITION FIX: The auth middleware created a pending stub. Update it!
+            await prisma.user.update({
+                where: { clerkId: data.id },
+                data: {
+                    email, // Replace the pending_...@clerk.dev email
+                    name,  // Add their Google name
                 }
             });
         }
@@ -37,16 +50,14 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
 
     if (type === 'user.updated') {
         const email = data.email_addresses.find(e => e.id === data.primary_email_address_id)?.email_address;
-        const existing = await prisma.user.findUnique({ where: { clerkId: data.id } });
-        if (existing) {
-            await prisma.user.update({ where: { clerkId: data.id }, data: { email } });
-        }
-    }
+        const name = `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null;
 
-    if (type === 'user.deleted') {
         const existing = await prisma.user.findUnique({ where: { clerkId: data.id } });
         if (existing) {
-            await prisma.user.update({ where: { clerkId: data.id }, data: { email: `deleted_${data.id}@clerk.dev` } });
+            await prisma.user.update({
+                where: { clerkId: data.id },
+                data: { email, name }
+            });
         }
     }
 
