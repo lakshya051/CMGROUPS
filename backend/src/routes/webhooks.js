@@ -22,24 +22,27 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
 
     if (type === 'user.created') {
         const email = data.email_addresses.find(e => e.id === data.primary_email_address_id)?.email_address;
+        const name = `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null;
+
         const existing = await prisma.user.findUnique({ where: { clerkId: data.id } });
 
         if (!existing) {
+            // Normal flow: Webhook arrives before the frontend makes an API call
             await prisma.user.create({
                 data: {
                     clerkId: data.id,
                     email,
-                    name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null,
+                    name,
                     role: 'customer',
                 }
             });
         } else {
-            // FIX: If the middleware beat the webhook, update the stub user!
+            // Race condition fix: Auth middleware already created the stub user. Update it!
             await prisma.user.update({
                 where: { clerkId: data.id },
                 data: {
-                    email, // Replaces pending_user_...
-                    name: `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null
+                    email: email,
+                    name: name
                 }
             });
         }
@@ -53,7 +56,20 @@ router.post('/clerk', express.raw({ type: 'application/json' }), async (req, res
         if (existing) {
             await prisma.user.update({
                 where: { clerkId: data.id },
-                data: { email, name }
+                data: {
+                    email: email,
+                    name: name
+                }
+            });
+        }
+    }
+
+    if (type === 'user.deleted') {
+        const existing = await prisma.user.findUnique({ where: { clerkId: data.id } });
+        if (existing) {
+            await prisma.user.update({
+                where: { clerkId: data.id },
+                data: { email: `deleted_${data.id}@clerk.dev` }
             });
         }
     }
