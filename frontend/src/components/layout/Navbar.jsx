@@ -17,7 +17,7 @@ const Navbar = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
-    const { user, logout } = useAuth();
+    const { user, logout, isSignedIn: clerkSignedIn } = useAuth();
     const { cart } = useShop();
 
     React.useEffect(() => {
@@ -202,6 +202,17 @@ const Navbar = () => {
                                 <span className="hidden lg:inline text-text-primary font-medium">{user.name}</span>
                             </Link>
                         </div>
+                    ) : clerkSignedIn ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-text-muted">Syncing...</span>
+                            <button
+                                onClick={logout}
+                                className="text-xs text-text-muted hover:text-error transition-colors"
+                                title="Sign out and try again"
+                            >
+                                <LogOut size={16} />
+                            </button>
+                        </div>
                     ) : (
                         <Link to="/sign-in">
                             <Button variant="outline" size="sm">Login</Button>
@@ -253,6 +264,16 @@ const Navbar = () => {
                                 <LogOut size={16} /> Logout
                             </button>
                         </>
+                    ) : clerkSignedIn ? (
+                        <div className="px-4 py-3 flex items-center justify-between">
+                            <span className="text-sm text-text-muted">Signing in...</span>
+                            <button
+                                onClick={() => { logout(); setIsOpen(false); }}
+                                className="text-sm text-text-muted hover:text-error transition-colors flex items-center gap-1"
+                            >
+                                <LogOut size={14} /> Sign Out
+                            </button>
+                        </div>
                     ) : (
                         <Link to="/sign-in" onClick={() => setIsOpen(false)}>
                             <Button className="w-full">Login</Button>

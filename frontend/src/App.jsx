@@ -129,12 +129,12 @@ function App() {
                         {/* Auth — Clerk managed */}
                         <Route path="/sign-in/*" element={
                             <div className="min-h-screen bg-page-bg flex items-center justify-center p-lg">
-                                <SignIn routing="path" path="/sign-in" />
+                                <SignIn routing="path" path="/sign-in" fallbackRedirectUrl="/" />
                             </div>
                         } />
                         <Route path="/sign-up/*" element={
                             <div className="min-h-screen bg-page-bg flex items-center justify-center p-lg">
-                                <SignUp routing="path" path="/sign-up" />
+                                <SignUp routing="path" path="/sign-up" fallbackRedirectUrl="/onboarding" />
                             </div>
                         } />
                         <Route path="/onboarding" element={<OnboardingPage />} />

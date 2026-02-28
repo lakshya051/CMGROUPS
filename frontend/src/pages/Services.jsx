@@ -65,7 +65,7 @@ const Services = () => {
         },
         validationSchema: serviceBookingSchema,
         validateOnBlur: true,
-        validateOnChange: false,
+        validateOnChange: true,
         onSubmit: async (values, { setSubmitting, setErrors }) => {
             try {
                 const result = await servicesAPI.book({

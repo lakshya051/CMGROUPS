@@ -40,7 +40,7 @@ const Checkout = () => {
         },
         validationSchema: checkoutSchema,
         validateOnBlur: true,
-        validateOnChange: false,
+        validateOnChange: true,
         onSubmit: () => {
             setStep(2);
         },

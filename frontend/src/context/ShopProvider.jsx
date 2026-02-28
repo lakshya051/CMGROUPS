@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ordersAPI, wishlistAPI, cartAPI } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { ShopContext } from './ShopContext';
+import toast from 'react-hot-toast';
 
 export const ShopProvider = ({ children }) => {
     const { user, refreshUser } = useAuth();
@@ -104,6 +105,11 @@ export const ShopProvider = ({ children }) => {
     }, [compareList]);
 
     const addToCart = (productObj, quantity = 1, variant = null) => {
+        if (!user) {
+            toast.error('Please sign in to add items to your cart');
+            return;
+        }
+
         setCart(prev => {
             const isIdOnly = typeof productObj === 'string' || typeof productObj === 'number';
 
