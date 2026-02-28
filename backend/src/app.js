@@ -52,7 +52,7 @@ app.use(cors({
 // Webhook route must come before express.json() — svix needs the raw body
 app.use('/api/webhooks', webhookRoutes);
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(clerkMiddleware());
 
 app.use('/api/auth', authLimiter, authRoutes);
