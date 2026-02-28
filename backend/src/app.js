@@ -25,6 +25,7 @@ import cartRoutes from './routes/cart.js';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render)
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
