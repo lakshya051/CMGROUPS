@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
 import { authAPI, setTokenGetter } from '../lib/api';
 import { AuthContext } from './AuthContext';
 
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 1500;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const { isSignedIn, isLoaded, getToken } = useClerkAuth();
     const { signOut } = useClerk();
-    const retriesRef = useRef(0);
 
     useEffect(() => {
         if (isLoaded) {
@@ -25,43 +26,61 @@ export const AuthProvider = ({ children }) => {
         if (!isSignedIn) {
             setUser(null);
             setLoading(false);
-            retriesRef.current = 0;
             return;
         }
 
+        let cancelled = false;
+
         const hydrateUser = async () => {
-            try {
-                const data = await authAPI.getMe();
-                setUser(data.user);
-                retriesRef.current = 0;
-            } catch {
-                if (retriesRef.current < MAX_RETRIES) {
-                    retriesRef.current += 1;
-                    setTimeout(hydrateUser, RETRY_DELAY);
+            // Wait briefly for Clerk to mint the session token after sign-in
+            const token = await getToken();
+            if (!token) {
+                await wait(500);
+            }
+
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                if (cancelled) return;
+
+                try {
+                    const data = await authAPI.getMe();
+                    if (!cancelled) {
+                        setUser(data.user);
+                        setLoading(false);
+                    }
                     return;
+                } catch {
+                    if (attempt < MAX_RETRIES) {
+                        await wait(RETRY_DELAY);
+                    }
                 }
+            }
+
+            // All retries exhausted
+            if (!cancelled) {
                 setUser(null);
-            } finally {
                 setLoading(false);
             }
         };
 
         hydrateUser();
-    }, [isLoaded, isSignedIn]);
+
+        return () => { cancelled = true; };
+    }, [isLoaded, isSignedIn, getToken]);
 
     const logout = () => {
         setUser(null);
         signOut();
     };
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
-                const data = await authAPI.getMe();
+            const data = await authAPI.getMe();
             setUser(data.user);
+            return true;
         } catch {
-            // silently fail
+            return false;
         }
-    };
+    }, []);
 
     return (
         <AuthContext.Provider

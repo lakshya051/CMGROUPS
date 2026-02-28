@@ -17,7 +17,8 @@ const Navbar = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
-    const { user, logout, isSignedIn: clerkSignedIn } = useAuth();
+    const { user, logout, isSignedIn: clerkSignedIn, refreshUser } = useAuth();
+    const [syncing, setSyncing] = useState(false);
     const { cart } = useShop();
 
     React.useEffect(() => {
@@ -204,7 +205,18 @@ const Navbar = () => {
                         </div>
                     ) : clerkSignedIn ? (
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-text-muted">Syncing...</span>
+                            <button
+                                onClick={async () => {
+                                    setSyncing(true);
+                                    const ok = await refreshUser();
+                                    setSyncing(false);
+                                    if (!ok) logout();
+                                }}
+                                disabled={syncing}
+                                className="text-xs text-trust hover:underline disabled:opacity-50"
+                            >
+                                {syncing ? 'Syncing...' : 'Retry Login'}
+                            </button>
                             <button
                                 onClick={logout}
                                 className="text-xs text-text-muted hover:text-error transition-colors"
@@ -265,13 +277,24 @@ const Navbar = () => {
                             </button>
                         </>
                     ) : clerkSignedIn ? (
-                        <div className="px-4 py-3 flex items-center justify-between">
-                            <span className="text-sm text-text-muted">Signing in...</span>
+                        <div className="px-4 py-3 space-y-2">
+                            <button
+                                onClick={async () => {
+                                    setSyncing(true);
+                                    const ok = await refreshUser();
+                                    setSyncing(false);
+                                    if (ok) setIsOpen(false);
+                                }}
+                                disabled={syncing}
+                                className="w-full text-sm text-trust hover:underline disabled:opacity-50"
+                            >
+                                {syncing ? 'Syncing...' : 'Retry Login'}
+                            </button>
                             <button
                                 onClick={() => { logout(); setIsOpen(false); }}
-                                className="text-sm text-text-muted hover:text-error transition-colors flex items-center gap-1"
+                                className="w-full text-sm text-text-muted hover:text-error transition-colors flex items-center justify-center gap-1"
                             >
-                                <LogOut size={14} /> Sign Out
+                                <LogOut size={14} /> Sign Out & Try Again
                             </button>
                         </div>
                     ) : (
