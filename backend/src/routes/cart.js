@@ -31,6 +31,16 @@ const fetchFullCart = async (userId) => {
     return items.map(formatCartItem);
 };
 
+const findCartItem = (userId, productId, variantId) => {
+    return prisma.cartItem.findFirst({
+        where: {
+            userId,
+            productId: Number(productId),
+            variantId: variantId ? Number(variantId) : null,
+        },
+    });
+};
+
 // GET /api/cart — fetch full cart from DB
 router.get('/', async (req, res) => {
     try {
@@ -57,15 +67,7 @@ router.post('/items', async (req, res) => {
             return res.status(404).json({ error: 'Product not found' });
         }
 
-        const existing = await prisma.cartItem.findUnique({
-            where: {
-                userId_productId_variantId: {
-                    userId,
-                    productId: Number(productId),
-                    variantId: variantId ? Number(variantId) : null,
-                },
-            },
-        });
+        const existing = await findCartItem(userId, productId, variantId);
 
         if (existing) {
             await prisma.cartItem.update({
@@ -101,23 +103,18 @@ router.patch('/items', async (req, res) => {
             return res.status(400).json({ error: 'productId and quantity are required' });
         }
 
+        const existing = await findCartItem(userId, productId, variantId);
+        if (!existing) {
+            return res.status(404).json({ error: 'Item not in cart' });
+        }
+
         const numQuantity = Number(quantity);
 
         if (numQuantity <= 0) {
-            await prisma.cartItem.deleteMany({
-                where: {
-                    userId,
-                    productId: Number(productId),
-                    variantId: variantId ? Number(variantId) : null,
-                },
-            });
+            await prisma.cartItem.delete({ where: { id: existing.id } });
         } else {
-            await prisma.cartItem.updateMany({
-                where: {
-                    userId,
-                    productId: Number(productId),
-                    variantId: variantId ? Number(variantId) : null,
-                },
+            await prisma.cartItem.update({
+                where: { id: existing.id },
                 data: { quantity: numQuantity },
             });
         }
@@ -130,8 +127,9 @@ router.patch('/items', async (req, res) => {
     }
 });
 
-// DELETE /api/cart/items — remove a specific item
-router.delete('/items', async (req, res) => {
+// POST /api/cart/items/remove — remove a specific item
+// Using POST instead of DELETE because DELETE with body is unreliable across proxies
+router.post('/items/remove', async (req, res) => {
     try {
         const { productId, variantId = null } = req.body;
         const userId = req.user.id;
@@ -140,13 +138,10 @@ router.delete('/items', async (req, res) => {
             return res.status(400).json({ error: 'productId is required' });
         }
 
-        await prisma.cartItem.deleteMany({
-            where: {
-                userId,
-                productId: Number(productId),
-                variantId: variantId ? Number(variantId) : null,
-            },
-        });
+        const existing = await findCartItem(userId, productId, variantId);
+        if (existing) {
+            await prisma.cartItem.delete({ where: { id: existing.id } });
+        }
 
         const cart = await fetchFullCart(userId);
         res.json({ success: true, cart });
@@ -156,7 +151,7 @@ router.delete('/items', async (req, res) => {
     }
 });
 
-// POST /api/cart/sync — merge local cart with DB (kept for backward compat)
+// POST /api/cart/sync — merge local cart with DB (migration helper)
 router.post('/sync', async (req, res) => {
     try {
         const { items } = req.body;
@@ -170,11 +165,7 @@ router.post('/sync', async (req, res) => {
                 const variantId = localItem.variantId ? Number(localItem.variantId) : null;
                 const quantity = Number(localItem.quantity) || 1;
 
-                const existing = await prisma.cartItem.findUnique({
-                    where: {
-                        userId_productId_variantId: { userId, productId, variantId },
-                    },
-                });
+                const existing = await findCartItem(userId, productId, variantId);
 
                 if (existing) {
                     const newQty = Math.max(existing.quantity, quantity);

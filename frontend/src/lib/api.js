@@ -159,8 +159,8 @@ export const cartAPI = {
         }),
 
     removeItem: (productId, variantId = null) =>
-        apiFetch('/cart/items', {
-            method: 'DELETE',
+        apiFetch('/cart/items/remove', {
+            method: 'POST',
             body: JSON.stringify({ productId, variantId }),
         }),
 
