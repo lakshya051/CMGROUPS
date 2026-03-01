@@ -87,7 +87,12 @@ export const ordersAPI = {
 
     getMyStats: () => apiFetch('/orders/my-stats'),
 
-    getAll: () => apiFetch('/orders'),
+    getAll: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined))
+        ).toString();
+        return apiFetch(`/orders${query ? `?${query}` : ''}`);
+    },
 
     updateStatus: (id, status) =>
         apiFetch(`/orders/${id}/status`, {

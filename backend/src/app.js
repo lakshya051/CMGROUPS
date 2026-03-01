@@ -46,7 +46,15 @@ const authLimiter = rateLimit({
 
 app.use(limiter);
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'https://cmgroups.vercel.app'],
+    origin: [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
+        'https://cmgroups.vercel.app',
+        // Capacitor mobile origins
+        'capacitor://localhost',   // iOS
+        'http://localhost',        // Android WebView internal
+    ],
     credentials: true
 }));
 

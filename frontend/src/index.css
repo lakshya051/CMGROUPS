@@ -63,3 +63,38 @@
         @apply px-4 sm:px-6 lg:px-8 py-6 sm:py-10;
     }
 }
+
+/* ─── Capacitor / Mobile Native Improvements ─────────────────────────────── */
+
+/* 1. Disable pull-to-refresh — feels wrong in a native app shell */
+body {
+    overscroll-behavior: none;
+}
+
+/* 2. Remove the blue/grey tap flash on iOS WebView */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 3. Prevent text selection on interactive UI elements */
+button,
+nav,
+.no-select {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* 4. Momentum (inertia) scrolling on iOS for scrollable containers */
+.scrollable {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+}
+
+/* 5. Safe area inset helpers — apply to fixed headers / bottom navs */
+.safe-top {
+    padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+}

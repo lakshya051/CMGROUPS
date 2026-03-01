@@ -1,0 +1,15 @@
+{
+  "appId": "com.cmgroups.technova",
+  "appName": "TechNova",
+  "webDir": "dist",
+  "server": {
+    "_comment": "Uncomment url + cleartext ONLY for live-reload dev testing on a physical device. Remove before production.",
+    "iosScheme": "ionic"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#EAEDED"
+    }
+  }
+}
