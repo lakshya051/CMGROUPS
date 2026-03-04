@@ -39,7 +39,7 @@ router.post('/', optionalProtect, async (req, res) => {
     const checkoutStart = Date.now();
     const checkoutRequestId = `ord-${checkoutStart}-${Math.floor(Math.random() * 10000)}`;
     try {
-        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed } = req.body;
+        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ error: 'No items in order' });
@@ -151,7 +151,7 @@ router.post('/', optionalProtect, async (req, res) => {
         const paymentOtp = shouldGeneratePaymentOtp ? crypto.randomInt(100000, 999999).toString() : null;
 
         // *** TRANSACTION: wallet deduction + order creation + stock decrement ***
-        const order = await prisma.$transaction(async (tx) => {
+        const newOrderId = await prisma.$transaction(async (tx) => {
             // 1. Deduct wallet balance (if applicable)
             if (useWallet && parsedWalletUsed > 0 && req.user) {
                 await tx.user.update({
@@ -214,7 +214,7 @@ router.post('/', optionalProtect, async (req, res) => {
                 }
             }
 
-            // 3. Create the order
+            // 3. Create the order (no include inside tx — keep tx fast to avoid timeout)
             const createdOrder = await tx.order.create({
                 data: {
                     userId: req.user ? req.user.id : null,
@@ -227,12 +227,15 @@ router.post('/', optionalProtect, async (req, res) => {
                     shippingAddress: shippingAddress || null,
                     guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
                     referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
+                    latitude: latitude ? parseFloat(latitude) : null,
+                    longitude: longitude ? parseFloat(longitude) : null,
+                    googleMapLink: googleMapLink || null,
                     items: {
                         create: items.map(item => {
                             const pId = parseInt(item.productId, 10);
                             const vId = item.variantId ? parseInt(item.variantId, 10) : null;
                             const qty = parseInt(item.quantity, 10);
-                            const prc = parseFloat(String(item.price).replace(/,/g, '')); // Robust parsing
+                            const prc = parseFloat(String(item.price).replace(/,/g, ''));
 
                             if (isNaN(pId) || isNaN(qty) || isNaN(prc)) {
                                 throw new Error('Invalid item data in cart');
@@ -246,22 +249,10 @@ router.post('/', optionalProtect, async (req, res) => {
                             };
                         })
                     }
-                },
-                include: {
-                    items: { include: { product: true } },
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                            phone: true,
-                            role: true,
-                            referralCode: true,
-                            walletBalance: true,
-                            createdAt: true
-                        }
-                    }
                 }
+                // ⚠️  No `include` here — fetching relations inside an interactive
+                // transaction inflates round-trips and caused the 15 s timeout.
+                // We do a single follow-up query after the tx commits instead.
             });
 
             // 4. Record wallet debit transaction (after order creation so orderId is available)
@@ -277,10 +268,30 @@ router.post('/', optionalProtect, async (req, res) => {
                 });
             }
 
-            return createdOrder;
+            return createdOrder.id; // return id only; full fetch happens outside tx
         }, {
-            maxWait: 8000,
-            timeout: 15000
+            maxWait: 10000,
+            timeout: 20000  // bumped from 15 s; real fix is the removed include above
+        });
+
+        // Fetch full order AFTER the transaction has committed — no tx lock held here
+        const order = await prisma.order.findUnique({
+            where: { id: newOrderId },
+            include: {
+                items: { include: { product: true } },
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        role: true,
+                        referralCode: true,
+                        walletBalance: true,
+                        createdAt: true
+                    }
+                }
+            }
         });
         logCheckoutTiming(checkoutRequestId, 'transaction_complete', checkoutStart);
 

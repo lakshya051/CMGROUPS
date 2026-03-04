@@ -22,6 +22,7 @@ import tallyRoutes from './routes/tally.js';
 import webhookRoutes from './routes/webhooks.js';
 import cartRoutes from './routes/cart.js';
 import bannerRoutes from './routes/banners.js';
+import addressRoutes from './routes/addresses.js';
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/tally', tallyRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/banners', bannerRoutes);
+app.use('/api/addresses', addressRoutes);
 
 
 app.get('/', (req, res) => {

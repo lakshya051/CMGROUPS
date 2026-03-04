@@ -19,9 +19,10 @@ const ReviewSection = ({ productId }) => {
     const fetchReviews = async () => {
         try {
             const data = await reviewsAPI.getForProduct(productId);
-            setReviews(data);
+            setReviews(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Failed to fetch reviews:', error);
+            setReviews([]);
         } finally {
             setLoading(false);
         }

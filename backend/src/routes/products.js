@@ -29,11 +29,27 @@ router.get('/', async (req, res) => {
         }
 
         // Build orderBy
-        let orderBy = {};
-        if (sort === 'price_asc') orderBy = { price: 'asc' };
-        else if (sort === 'price_desc') orderBy = { price: 'desc' };
-        else if (sort === 'rating') orderBy = { rating: 'desc' };
-        else orderBy = { id: 'desc' };
+        let orderBy;
+        switch (sort) {
+            case 'price-low':
+            case 'price_asc':
+                orderBy = { price: 'asc' };
+                break;
+            case 'price-high':
+            case 'price_desc':
+                orderBy = { price: 'desc' };
+                break;
+            case 'rating':
+                orderBy = { rating: 'desc' };
+                break;
+            case 'name':
+                orderBy = { title: 'asc' };
+                break;
+            case 'newest':
+            default:
+                orderBy = { id: 'desc' };
+                break;
+        }
 
         // ── Cache key ──────────────────────────────────────────────────────────
         // Ensure pagination values are in cache key even if not provided by client

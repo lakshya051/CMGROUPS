@@ -126,17 +126,30 @@ export const ShopProvider = ({ children }) => {
         localStorage.setItem('compareList', JSON.stringify(compareList));
     }, [compareList]);
 
-    const addToCart = useCallback(async (productObj, quantity = 1, variant = null) => {
+    const cartQueue = React.useRef(Promise.resolve());
+
+    const enqueueCartAction = useCallback((action) => {
+        cartQueue.current = cartQueue.current.then(action).catch((err) => {
+            console.error('Cart Queue Error:', err);
+        });
+        return cartQueue.current;
+    }, []);
+
+    const addToCart = useCallback((productObj, quantity = 1, variant = null) => {
         if (!user) {
             toast.error('Please sign in to add items to your cart');
             return;
         }
 
         const isIdOnly = typeof productObj === 'string' || typeof productObj === 'number';
-        let productId, variantId;
+        let productId;
+        let variantId;
+
+        let variantName = null;
+        let price = 0;
+        let stock = 0;
 
         if (isIdOnly) {
-            // Incrementing quantity of an existing item
             const searchId = String(productObj);
             const existing = cart.find(item => item.uniqueId === searchId || String(item.id) === searchId);
             if (!existing) {
@@ -146,17 +159,22 @@ export const ShopProvider = ({ children }) => {
             productId = existing.id;
             variantId = existing.variantId || null;
         } else {
-            productId = productObj.id;
-            variantId = variant ? variant.id : null;
+            productId = productObj.id || productObj.productId;
+            variantId = variant ? variant.id : (productObj.variantId || null);
+            variantName = variant ? variant.name : (productObj.variantName || null);
+            price = variant ? variant.price : (productObj.price || 0);
+            stock = variant ? variant.stock : (productObj.stock || 0);
         }
+
+        const uid = variantId ? `${productId}-${variantId}` : `${productId}`;
+        const newQtyNumber = Number(quantity);
 
         // Optimistic update
         setCart(prev => {
-            const uid = variantId ? `${productId}-${variantId}` : `${productId}`;
             const existing = prev.find(item => item.uniqueId === uid);
             if (existing) {
                 return prev.map(item =>
-                    item.uniqueId === uid ? { ...item, quantity: item.quantity + quantity } : item
+                    item.uniqueId === uid ? { ...item, quantity: item.quantity + newQtyNumber } : item
                 );
             }
             if (isIdOnly) return prev;
@@ -164,27 +182,28 @@ export const ShopProvider = ({ children }) => {
                 ...productObj,
                 uniqueId: uid,
                 variantId,
-                variantName: variant ? variant.name : null,
-                price: variant ? variant.price : productObj.price,
-                stock: variant ? variant.stock : productObj.stock,
-                quantity,
+                variantName,
+                price,
+                stock,
+                quantity: newQtyNumber,
             }];
         });
 
-        try {
-            const res = await cartAPI.addItem(productId, variantId, quantity);
-            if (res.success && res.cart) {
-                setCart(res.cart);
+        enqueueCartAction(async () => {
+            try {
+                await cartAPI.addItem(productId, variantId, newQtyNumber);
+                // Don't overwrite optimistic state with DB response on success —
+                // this avoids clobbering rapid-click increments.
+            } catch (err) {
+                console.error('Failed to add item to cart:', err);
+                toast.error('Failed to add to cart');
+                // On error, revert to the real DB state
+                try { setCart(await cartAPI.get()); } catch { /* ignore */ }
             }
-        } catch (err) {
-            console.error('Failed to add item to cart:', err);
-            toast.error('Failed to add to cart');
-            // Revert by re-fetching
-            try { setCart(await cartAPI.get()); } catch { /* ignore */ }
-        }
-    }, [user, cart]);
+        });
+    }, [user, cart, enqueueCartAction]);
 
-    const removeFromCart = useCallback(async (uniqueId) => {
+    const removeFromCart = useCallback((uniqueId) => {
         const searchId = typeof uniqueId === 'number' ? `${uniqueId}` : uniqueId;
         const item = cart.find(i => (i.uniqueId || `${i.id}`) === searchId);
         if (!item) return;
@@ -192,19 +211,19 @@ export const ShopProvider = ({ children }) => {
         // Optimistic update
         setCart(prev => prev.filter(i => (i.uniqueId || `${i.id}`) !== searchId));
 
-        try {
-            const res = await cartAPI.removeItem(item.id, item.variantId || null);
-            if (res.success && res.cart) {
-                setCart(res.cart);
+        enqueueCartAction(async () => {
+            try {
+                await cartAPI.removeItem(item.productId || item.id, item.variantId || null);
+                // Trust optimistic update; don't overwrite state on success
+            } catch (err) {
+                console.error('Failed to remove item from cart:', err);
+                toast.error('Failed to remove from cart');
+                try { setCart(await cartAPI.get()); } catch { /* ignore */ }
             }
-        } catch (err) {
-            console.error('Failed to remove item from cart:', err);
-            toast.error('Failed to remove from cart');
-            try { setCart(await cartAPI.get()); } catch { /* ignore */ }
-        }
-    }, [cart]);
+        });
+    }, [cart, enqueueCartAction]);
 
-    const updateCartQuantity = useCallback(async (uniqueId, newQuantity) => {
+    const updateCartQuantity = useCallback((uniqueId, newQuantity) => {
         const searchId = typeof uniqueId === 'number' ? `${uniqueId}` : uniqueId;
         const item = cart.find(i => (i.uniqueId || `${i.id}`) === searchId);
         if (!item) return;
@@ -213,22 +232,26 @@ export const ShopProvider = ({ children }) => {
             return removeFromCart(uniqueId);
         }
 
+        const maxStock = item.stock != null ? item.stock : Number.POSITIVE_INFINITY;
+        const boundedQty = Math.max(1, Math.min(newQuantity, maxStock));
+
         // Optimistic update
         setCart(prev => prev.map(i =>
-            (i.uniqueId || `${i.id}`) === searchId ? { ...i, quantity: newQuantity } : i
+            (i.uniqueId || `${i.id}`) === searchId ? { ...i, quantity: boundedQty } : i
         ));
 
-        try {
-            const res = await cartAPI.updateItem(item.id, item.variantId || null, newQuantity);
-            if (res.success && res.cart) {
-                setCart(res.cart);
+        enqueueCartAction(async () => {
+            try {
+                await cartAPI.updateItem(item.productId || item.id, item.variantId || null, boundedQty);
+                // Don't overwrite optimistic state on success — avoids quantity jitter
+                // when clicking +/- rapidly (each queued action already has the right boundedQty).
+            } catch (err) {
+                console.error('Failed to update cart quantity:', err);
+                toast.error('Failed to update quantity');
+                try { setCart(await cartAPI.get()); } catch { /* ignore */ }
             }
-        } catch (err) {
-            console.error('Failed to update cart quantity:', err);
-            toast.error('Failed to update quantity');
-            try { setCart(await cartAPI.get()); } catch { /* ignore */ }
-        }
-    }, [cart, removeFromCart]);
+        });
+    }, [cart, enqueueCartAction, removeFromCart]);
 
     const clearCart = useCallback(() => {
         setCart([]);
@@ -240,7 +263,7 @@ export const ShopProvider = ({ children }) => {
 
     const placeOrder = async (orderData) => {
         const items = cart.map(item => ({
-            productId: item.id,
+            productId: item.productId || item.id,
             variantId: item.variantId || null,
             quantity: item.quantity,
             price: item.price,

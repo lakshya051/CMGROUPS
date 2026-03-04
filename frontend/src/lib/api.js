@@ -77,10 +77,10 @@ export const productsAPI = {
 
 // ============ ORDERS ============
 export const ordersAPI = {
-    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0) =>
+    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0, latitude = null, longitude = null, googleMapLink = null) =>
         apiFetch('/orders', {
             method: 'POST',
-            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount })
+            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink })
         }),
 
     getMyOrders: () => apiFetch('/orders/my-orders'),
@@ -145,6 +145,13 @@ export const ordersAPI = {
         a.remove();
         setTimeout(() => window.URL.revokeObjectURL(url), 100);
     }
+};
+
+// ============ ADDRESSES ============
+export const addressesAPI = {
+    getAll: () => apiFetch('/addresses'),
+    create: (data) => apiFetch('/addresses', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id) => apiFetch(`/addresses/${id}`, { method: 'DELETE' }),
 };
 
 // ============ CART ============

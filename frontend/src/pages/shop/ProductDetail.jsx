@@ -172,7 +172,7 @@ const ProductDetail = () => {
                             <Star fill="currentColor" size={20} />
                             <span className="font-bold text-lg">{product.rating}</span>
                         </div>
-                        <span className="text-text-muted">({product.reviews} reviews)</span>
+                        <span className="text-text-muted">({Array.isArray(product.reviews) ? product.reviews.length : (product.reviews || 0)} reviews)</span>
                     </div>
 
                     <div className="flex items-center justify-between">

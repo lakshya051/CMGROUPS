@@ -389,6 +389,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
                     <QuantitySelector
                         value={item.quantity}
                         onChange={(newQty) => onQuantityChange(item.uniqueId, newQty)}
+                        max={item.stock != null ? item.stock : undefined}
                     />
                     <span className="text-border-default">|</span>
                     <button onClick={onRemove} className="text-xs text-trust hover:underline">

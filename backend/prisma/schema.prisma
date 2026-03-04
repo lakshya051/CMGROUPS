@@ -36,6 +36,7 @@ model User {
   notifications      Notification[]
   wishlists          Wishlist[]
   cartItems          CartItem[]
+  addresses          Address[]
   
   // Education Module
   courseApplications CourseApplication[]
@@ -267,6 +268,11 @@ model Order {
   deliveredAt     DateTime?
   referralEligibleAt DateTime?
 
+  // Smart Delivery location fields
+  latitude        Float?
+  longitude       Float?
+  googleMapLink   String?
+
   items           OrderItem[]
   referrals       Referral[]
 
@@ -489,3 +495,21 @@ model Banner {
   updatedAt    DateTime @updatedAt
 }
 
+
+model Address {
+  id            String   @id @default(uuid())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String?
+  address       String
+  city          String
+  pincode       String
+  phone         String
+  latitude      Float?
+  longitude     Float?
+  googleMapLink String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+}

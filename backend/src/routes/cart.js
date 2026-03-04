@@ -52,7 +52,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// POST /api/cart/items — add item or increment quantity
+// POST /api/cart/items — add item or increment quantity (race-condition safe)
 router.post('/items', async (req, res) => {
     try {
         const { productId, variantId = null, quantity = 1 } = req.body;
@@ -62,27 +62,47 @@ router.post('/items', async (req, res) => {
             return res.status(400).json({ error: 'productId is required' });
         }
 
-        const product = await prisma.product.findUnique({ where: { id: Number(productId) } });
+        const numProductId = Number(productId);
+        const numVariantId = variantId ? Number(variantId) : null;
+        const numQuantity = Math.max(1, Number(quantity));
+
+        const product = await prisma.product.findUnique({ where: { id: numProductId } });
         if (!product) {
             return res.status(404).json({ error: 'Product not found' });
         }
 
-        const existing = await findCartItem(userId, productId, variantId);
-
-        if (existing) {
-            await prisma.cartItem.update({
-                where: { id: existing.id },
-                data: { quantity: existing.quantity + Number(quantity) },
+        if (numVariantId) {
+            // When variantId is present the @@unique([userId, productId, variantId]) index
+            // is fully populated — Prisma upsert works atomically.
+            await prisma.cartItem.upsert({
+                where: {
+                    userId_productId_variantId: {
+                        userId,
+                        productId: numProductId,
+                        variantId: numVariantId,
+                    },
+                },
+                update: { quantity: { increment: numQuantity } },
+                create: { userId, productId: numProductId, variantId: numVariantId, quantity: numQuantity },
             });
         } else {
-            await prisma.cartItem.create({
-                data: {
-                    userId,
-                    productId: Number(productId),
-                    variantId: variantId ? Number(variantId) : null,
-                    quantity: Number(quantity),
-                },
-            });
+            // variantId IS NULL — PostgreSQL treats NULL != NULL so the unique index does NOT
+            // prevent duplicate inserts. Use a Serializable transaction to guarantee atomicity.
+            await prisma.$transaction(async (tx) => {
+                const existing = await tx.cartItem.findFirst({
+                    where: { userId, productId: numProductId, variantId: null },
+                });
+                if (existing) {
+                    await tx.cartItem.update({
+                        where: { id: existing.id },
+                        data: { quantity: { increment: numQuantity } },
+                    });
+                } else {
+                    await tx.cartItem.create({
+                        data: { userId, productId: numProductId, variantId: null, quantity: numQuantity },
+                    });
+                }
+            }, { isolationLevel: 'Serializable' });
         }
 
         const cart = await fetchFullCart(userId);
