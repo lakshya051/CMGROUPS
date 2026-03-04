@@ -4,7 +4,8 @@
   "webDir": "dist",
   "server": {
     "_comment": "Uncomment url + cleartext ONLY for live-reload dev testing on a physical device. Remove before production.",
-    "iosScheme": "ionic"
+    "iosScheme": "ionic",
+    "androidScheme": "http"
   },
   "plugins": {
     "StatusBar": {
