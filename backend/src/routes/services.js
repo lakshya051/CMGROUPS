@@ -213,14 +213,51 @@ router.get('/my-bookings', protect, async (req, res) => {
     }
 });
 
-// GET /api/services (Admin - all bookings)
+// GET /api/services (Admin - paginated bookings)
 router.get('/', protect, adminOnly, async (req, res) => {
     try {
-        const bookings = await prisma.serviceBooking.findMany({
-            include: { user: { select: { name: true, email: true, phone: true } } },
-            orderBy: { createdAt: 'desc' }
+        const { page = 1, limit = 20, status } = req.query;
+        const parsedPage = Number.parseInt(page, 10);
+        const parsedLimit = Number.parseInt(limit, 10);
+        const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const take = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
+        const skip = (currentPage - 1) * take;
+
+        const where = {};
+        if (status && status !== 'All') {
+            where.status = status;
+        }
+
+        const [bookings, total, groupedStatuses] = await Promise.all([
+            withDbRetry(() => prisma.serviceBooking.findMany({
+                where,
+                include: { user: { select: { name: true, email: true, phone: true } } },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take
+            })),
+            withDbRetry(() => prisma.serviceBooking.count({ where })),
+            withDbRetry(() => prisma.serviceBooking.groupBy({
+                by: ['status'],
+                _count: { _all: true }
+            })),
+        ]);
+
+        const statusCounts = groupedStatuses.reduce((acc, row) => {
+            acc[row.status] = row._count._all;
+            return acc;
+        }, {});
+
+        res.json({
+            data: bookings,
+            pagination: {
+                total,
+                page: currentPage,
+                limit: take,
+                totalPages: Math.ceil(total / take)
+            },
+            statusCounts
         });
-        res.json(bookings);
     } catch (error) {
         console.error('Get all bookings error:', error);
         if (isDbUnavailableError(error)) {

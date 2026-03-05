@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
     base: './',
     plugins: [
         react(),
-        // Bundle analyzer — only runs during `npm run build:analyze`
+        // Bundle analyzer - only runs during `npm run build:analyze`
         mode === 'analyze' && visualizer({
             open: true,
             filename: 'dist/stats.html',
@@ -18,30 +18,34 @@ export default defineConfig(({ mode }) => ({
     ].filter(Boolean),
     resolve: {
         alias: {
-            "@": path.resolve(__dirname, "./src"),
+            '@': path.resolve(__dirname, './src'),
         },
     },
     build: {
-        // Target modern browsers — smaller output
+        // Target modern browsers - smaller output
         target: 'es2015',
         // Warn if a chunk exceeds 500 kB
         chunkSizeWarningLimit: 500,
+        // Production optimization controls
+        sourcemap: false,
+        minify: 'terser',
+        terserOptions: {
+            compress: {
+                drop_console: true,
+                drop_debugger: true,
+            },
+        },
         rollupOptions: {
             output: {
-                // Split heavy libs into their own cached chunks
+                // Requested baseline vendor splits
                 manualChunks: {
-                    // React core — almost never changes
-                    'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-                    // Chart library — large, rarely changes
-                    'vendor-recharts': ['recharts'],
-                    // Animation library
-                    'vendor-framer': ['framer-motion'],
-                    // Icon library
-                    'vendor-lucide': ['lucide-react'],
-                    // Forms & Validation
-                    'vendor-forms': ['formik', 'yup'],
-                    // UI Utils
-                    'vendor-utils': ['clsx', 'tailwind-merge', 'react-hot-toast'],
+                    'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+                    clerk: ['@clerk/clerk-react'],
+                    ui: ['lucide-react'],
+                    // Additional targeted splits
+                    recharts: ['recharts'],
+                    forms: ['formik', 'yup'],
+                    utils: ['clsx', 'tailwind-merge', 'react-hot-toast'],
                 },
             },
         },

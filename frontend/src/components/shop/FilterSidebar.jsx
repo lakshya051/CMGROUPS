@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { memo, useState, useMemo } from 'react'
 import { Search, ChevronDown, ChevronUp, X, SlidersHorizontal } from 'lucide-react'
 
 const PRICE_RANGES = [
@@ -15,7 +15,7 @@ const RATING_OPTIONS = [
     { label: '2★ & Up', value: 2 },
 ]
 
-export default function FilterSidebar({
+function FilterSidebar({
     categories,
     selectedCategories,
     onToggleCategory,
@@ -240,3 +240,5 @@ export default function FilterSidebar({
         </>
     )
 }
+
+export default memo(FilterSidebar)

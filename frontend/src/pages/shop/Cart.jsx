@@ -1,13 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useShop } from '../../context/ShopContext'
 import { Link, useNavigate } from 'react-router-dom'
-import { QuantitySelector, ProgressBar, EmptyState, PriceDisplay } from '../../components/ui/index'
+import { QuantitySelector, ProgressBar, EmptyState, PriceDisplay, SkeletonCard } from '../../components/ui/index'
 import { ShoppingCart, Tag, Bookmark, Trash2, ArrowRight, ChevronRight, Package } from 'lucide-react'
 import { couponsAPI, productsAPI } from '../../lib/api'
 import { FREE_DELIVERY_THRESHOLD, EMI_MINIMUM_ORDER, SAVED_LATER_STORAGE_KEY } from '../../constants'
+import { handleImageError } from '../../utils/image'
 
 const Cart = () => {
-    const { cart, addToCart, removeFromCart, updateCartQuantity } = useShop()
+    const { cart, cartLoading, addToCart, removeFromCart, updateCartQuantity } = useShop()
     const navigate = useNavigate()
 
     const [couponCode, setCouponCode] = useState('')
@@ -120,6 +121,21 @@ const Cart = () => {
     }
 
     // ─── Empty Cart ─────────────────────────────────────────────
+    if (cartLoading) {
+        return (
+            <div className="container mx-auto px-lg py-lg">
+                <h1 className="text-2xl md:text-3xl font-heading font-bold text-text-primary mb-lg">
+                    Shopping Cart
+                </h1>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <SkeletonCard key={i} />
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
     if (cart.length === 0 && savedItems.length === 0) {
         return (
             <div className="container mx-auto px-lg py-2xl">
@@ -191,7 +207,15 @@ const Cart = () => {
                                         className="bg-surface border border-border-default rounded-lg p-md flex flex-wrap sm:flex-nowrap gap-md items-center"
                                     >
                                         <div className="w-[80px] h-[80px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0">
-                                            <img src={item.image} alt={item.title} className="w-full h-full object-contain" loading="lazy" />
+                                            <img
+                                                src={item.image}
+                                                alt={item.title}
+                                                loading="lazy"
+                                                width={80}
+                                                height={80}
+                                                onError={handleImageError}
+                                                className="w-full h-full object-contain"
+                                            />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <Link to={`/products/${item.id}`} className="text-sm font-medium text-text-primary hover:text-trust transition-colors duration-fast line-clamp-2">
@@ -331,7 +355,15 @@ const Cart = () => {
                                 className="snap-start flex-shrink-0 w-[180px] bg-surface border border-border-default rounded-lg p-md hover:border-trust transition-colors duration-fast group"
                             >
                                 <div className="w-full h-[120px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs mb-sm">
-                                    <img src={product.image} alt={product.title} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-smooth" loading="lazy" />
+                                    <img
+                                        src={product.image}
+                                        alt={product.title}
+                                        loading="lazy"
+                                        width={180}
+                                        height={120}
+                                        onError={handleImageError}
+                                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-smooth"
+                                    />
                                 </div>
                                 <h3 className="text-xs font-medium text-text-primary line-clamp-2 mb-xs">{product.title}</h3>
                                 <p className="text-sm font-bold text-text-primary">₹{product.price.toLocaleString('en-IN')}</p>
@@ -353,7 +385,15 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
         <div className="bg-surface border border-border-default rounded-lg p-md flex flex-wrap sm:flex-nowrap gap-md">
             {/* Image */}
             <Link to={`/products/${item.id}`} className="w-[100px] h-[100px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0">
-                <img src={item.image} alt={item.title} className="w-full h-full object-contain" loading="lazy" />
+                <img
+                    src={item.image}
+                    alt={item.title}
+                    loading="lazy"
+                    width={100}
+                    height={100}
+                    onError={handleImageError}
+                    className="w-full h-full object-contain"
+                />
             </Link>
 
             {/* Info */}

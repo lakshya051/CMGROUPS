@@ -5,6 +5,7 @@ import { productsAPI, categoriesAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
 import { useFormik } from 'formik';
 import { addProductSchema } from '../../utils/validationSchemas';
+import { handleImageError } from '../../utils/image';
 
 const emptyProductValues = {
     title: '',
@@ -332,7 +333,15 @@ const AdminProducts = () => {
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded bg-surface p-1 flex-shrink-0">
-                                                <img src={product.image} alt="" className="w-full h-full object-contain" />
+                                                <img
+                                                    src={product.image}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    width={40}
+                                                    height={40}
+                                                    onError={handleImageError}
+                                                    className="w-full h-full object-contain"
+                                                />
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
@@ -611,7 +620,15 @@ const AdminProducts = () => {
                                         <input type="url" name="image" className={`input-field flex-1 ${formik.touched.image && formik.errors.image ? 'border-red-500' : ''}`} placeholder="https://example.com/product.png" value={formik.values.image} onChange={formik.handleChange} onBlur={formik.handleBlur} />
                                         {formik.values.image && (
                                             <div className="w-12 h-12 rounded bg-surface p-1 flex-shrink-0 border border-border-default">
-                                                <img src={formik.values.image} alt="Preview" className="w-full h-full object-contain" onError={(e) => e.target.style.display = 'none'} />
+                                                <img
+                                                    src={formik.values.image}
+                                                    alt="Preview"
+                                                    loading="lazy"
+                                                    width={48}
+                                                    height={48}
+                                                    onError={handleImageError}
+                                                    className="w-full h-full object-contain"
+                                                />
                                             </div>
                                         )}
                                     </div>

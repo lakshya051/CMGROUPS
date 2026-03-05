@@ -277,7 +277,10 @@ export const ShopProvider = ({ children }) => {
             orderData.useWallet || false,
             orderData.walletUsed || 0,
             coupon?.code || null,
-            coupon?.discount || 0
+            coupon?.discount || 0,
+            orderData.latitude || null,
+            orderData.longitude || null,
+            orderData.googleMapLink || null
         );
         clearCart();
         try { await cartAPI.clear(); } catch { /* ignore */ }

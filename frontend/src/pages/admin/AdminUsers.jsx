@@ -27,7 +27,7 @@ const AdminUsers = () => {
     const [activeTab, setActiveTab] = useState('overview'); // overview, orders, referrals, wallet, services
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
@@ -41,7 +41,7 @@ const AdminUsers = () => {
             try {
                 const res = await adminAPI.getUsers({
                     page,
-                    limit: 15,
+                    limit: 20,
                     search: debouncedSearch || undefined
                 });
                 if (res.data) {

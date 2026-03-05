@@ -4,6 +4,7 @@ import { useShop } from '../../context/ShopContext';
 import { X, ArrowRight } from 'lucide-react';
 import Button from '../ui/Button';
 import { productsAPI } from '../../lib/api';
+import { handleImageError } from '../../utils/image';
 
 const CompareWidget = () => {
     const { compareList, removeFromCompare, clearCompare } = useShop();
@@ -33,7 +34,15 @@ const CompareWidget = () => {
                 <div className="space-y-2 mb-4">
                     {products.map(p => (
                         <div key={p.id} className="flex items-center gap-2 bg-page-bg/80 p-2 rounded border border-border-default">
-                            <img src={p.image} alt={p.title} className="w-8 h-8 object-contain bg-surface rounded flex-shrink-0" />
+                            <img
+                                src={p.image}
+                                alt={p.title}
+                                loading="lazy"
+                                width={32}
+                                height={32}
+                                onError={handleImageError}
+                                className="w-8 h-8 object-contain bg-surface rounded flex-shrink-0"
+                            />
                             <span className="text-xs font-medium truncate flex-1">{p.title}</span>
                             <button onClick={() => removeFromCompare(p.id)} className="text-text-muted hover:text-error p-1">
                                 <X size={14} />

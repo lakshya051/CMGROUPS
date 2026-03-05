@@ -4,6 +4,7 @@ import { servicesAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
 
 const STATUS_PIPELINE = ['Pending', 'Confirmed', 'Picked Up', 'In Progress', 'Completed', 'Delivered'];
+const PAGE_LIMIT = 20;
 
 const AdminServices = () => {
     const [bookings, setBookings] = useState([]);
@@ -12,13 +13,46 @@ const AdminServices = () => {
 
     const [filterStatus, setFilterStatus] = useState('All');
     const [editData, setEditData] = useState({});
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalBookings, setTotalBookings] = useState(0);
+    const [statusCounts, setStatusCounts] = useState({});
 
     useEffect(() => {
-        servicesAPI.getAll()
-            .then(data => setBookings(data))
+        setPage(1);
+    }, [filterStatus]);
+
+    useEffect(() => {
+        setLoading(true);
+        servicesAPI.getAll({
+            page,
+            limit: PAGE_LIMIT,
+            status: filterStatus !== 'All' ? filterStatus : undefined
+        })
+            .then(res => {
+                if (res.data) {
+                    setBookings(res.data);
+                    setTotalPages(res.pagination?.totalPages || 1);
+                    setTotalBookings(res.pagination?.total || res.data.length);
+                    setStatusCounts(res.statusCounts || {});
+                } else if (Array.isArray(res)) {
+                    setBookings(res);
+                    setTotalPages(1);
+                    setTotalBookings(res.length);
+                    setStatusCounts(res.reduce((acc, b) => {
+                        acc[b.status] = (acc[b.status] || 0) + 1;
+                        return acc;
+                    }, {}));
+                } else {
+                    setBookings([]);
+                    setTotalPages(1);
+                    setTotalBookings(0);
+                    setStatusCounts({});
+                }
+            })
             .catch(err => console.error('Failed to fetch bookings:', err))
             .finally(() => setLoading(false));
-    }, []);
+    }, [page, filterStatus]);
 
     const updateBooking = async (id, data) => {
         try {
@@ -54,14 +88,7 @@ const AdminServices = () => {
         }
     };
 
-    const filteredBookings = filterStatus === 'All'
-        ? bookings
-        : bookings.filter(b => b.status === filterStatus);
-
-    const statusCounts = bookings.reduce((acc, b) => {
-        acc[b.status] = (acc[b.status] || 0) + 1;
-        return acc;
-    }, {});
+    const filteredBookings = bookings;
 
     if (loading) {
         return <div className="text-center py-12 text-text-muted">Loading service requests...</div>;
@@ -315,6 +342,28 @@ const AdminServices = () => {
                     </div>
                 )}
             </div>
+
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-sm bg-surface p-sm rounded-lg border border-border-default mt-4">
+                    <button
+                        className={`px-md py-xs rounded text-sm font-semibold transition-colors ${page === 1 ? 'bg-page-bg text-text-muted cursor-not-allowed border border-border-default' : 'bg-surface border border-border-default hover:bg-surface-hover text-text-primary'}`}
+                        disabled={page === 1 || loading}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                    >
+                        Previous
+                    </button>
+                    <span className="text-sm font-bold text-text-primary">
+                        Page {page} of {totalPages} ({totalBookings} total)
+                    </span>
+                    <button
+                        className={`px-md py-xs rounded text-sm font-semibold transition-colors ${page === totalPages ? 'bg-page-bg text-text-muted cursor-not-allowed border border-border-default' : 'bg-buy-primary text-text-primary hover:bg-buy-primary-hover border border-border-default'}`}
+                        disabled={page === totalPages || loading}
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

@@ -34,6 +34,58 @@ async function calculateOrderReferralPoints(items = []) {
     return { referrerPoints: totalReferrerPoints, refereePoints: totalRefereePoints };
 }
 
+function aggregateItemQuantities(items = []) {
+    const productIncrements = new Map();
+    const variantIncrements = new Map();
+
+    for (const item of items) {
+        const quantity = Number(item.quantity) || 0;
+        if (quantity <= 0) continue;
+
+        if (item.variantId) {
+            const variantId = Number(item.variantId);
+            if (Number.isFinite(variantId)) {
+                variantIncrements.set(variantId, (variantIncrements.get(variantId) || 0) + quantity);
+            }
+            continue;
+        }
+
+        const productId = Number(item.productId);
+        if (Number.isFinite(productId)) {
+            productIncrements.set(productId, (productIncrements.get(productId) || 0) + quantity);
+        }
+    }
+
+    return { productIncrements, variantIncrements };
+}
+
+async function restoreStockForOrderItems(dbClient, items = []) {
+    const { productIncrements, variantIncrements } = aggregateItemQuantities(items);
+    const stockUpdates = [];
+
+    for (const [variantId, quantity] of variantIncrements.entries()) {
+        stockUpdates.push(
+            dbClient.productVariant.update({
+                where: { id: variantId },
+                data: { stock: { increment: quantity } }
+            })
+        );
+    }
+
+    for (const [productId, quantity] of productIncrements.entries()) {
+        stockUpdates.push(
+            dbClient.product.update({
+                where: { id: productId },
+                data: { stock: { increment: quantity } }
+            })
+        );
+    }
+
+    if (stockUpdates.length > 0) {
+        await Promise.all(stockUpdates);
+    }
+}
+
 // POST /api/orders (Optional Auth - place order)
 router.post('/', optionalProtect, async (req, res) => {
     const checkoutStart = Date.now();
@@ -361,7 +413,48 @@ router.get('/my-orders', protect, async (req, res) => {
                 skip,
                 take: limit,
                 orderBy: { createdAt: 'desc' },
-                include: { items: { include: { product: true } } }
+                select: {
+                    id: true,
+                    total: true,
+                    walletUsed: true,
+                    status: true,
+                    paymentMethod: true,
+                    paymentOtp: true,
+                    isPaid: true,
+                    shippingAddress: true,
+                    latitude: true,
+                    longitude: true,
+                    googleMapLink: true,
+                    guestInfo: true,
+                    referralCodeUsed: true,
+                    cancelReason: true,
+                    returnReason: true,
+                    returnStatus: true,
+                    refundStatus: true,
+                    refundAmount: true,
+                    deliveredAt: true,
+                    createdAt: true,
+                    items: {
+                        select: {
+                            id: true,
+                            productId: true,
+                            variantId: true,
+                            quantity: true,
+                            price: true,
+                            product: {
+                                select: {
+                                    id: true,
+                                    title: true,
+                                    image: true,
+                                    price: true,
+                                    stock: true,
+                                    isReturnable: true,
+                                    returnWindowDays: true
+                                }
+                            }
+                        }
+                    }
+                }
             }),
             prisma.order.count({ where: { userId: req.user.id } })
         ]);
@@ -386,7 +479,14 @@ router.get('/my-stats', protect, async (req, res) => {
     try {
         const orders = await prisma.order.findMany({
             where: { userId: req.user.id },
-            include: { items: { include: { product: true } } },
+            select: {
+                id: true,
+                total: true,
+                status: true,
+                isPaid: true,
+                createdAt: true,
+                items: { select: { id: true } }
+            },
             orderBy: { createdAt: 'desc' }
         });
 
@@ -412,11 +512,16 @@ router.get('/my-stats', protect, async (req, res) => {
     }
 });
 
-// GET /api/orders (Admin - all orders with optional pagination + status filter)
-// ?page=1&limit=50&status=Processing
+// GET /api/orders (Admin - paginated with status/search filters)
+// ?page=1&limit=20&status=Processing
 router.get('/', protect, adminOnly, async (req, res) => {
     try {
-        const { page, limit, status, search } = req.query;
+        const { page = 1, limit = 20, status, search } = req.query;
+        const parsedPage = Number.parseInt(page, 10);
+        const parsedLimit = Number.parseInt(limit, 10);
+        const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const take = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
+        const skip = (currentPage - 1) * take;
 
         const where = {};
         if (status) {
@@ -433,35 +538,53 @@ router.get('/', protect, adminOnly, async (req, res) => {
             }
         }
 
-        const usePagination = page !== undefined || limit !== undefined;
-        const take = usePagination ? parseInt(limit) || 50 : undefined;
-        const skip = usePagination ? ((parseInt(page) || 1) - 1) * take : undefined;
-
-        const include = {
-            user: { select: { name: true, email: true } },
-            items: { include: { product: true } }
+        const select = {
+            id: true,
+            userId: true,
+            total: true,
+            walletUsed: true,
+            status: true,
+            paymentMethod: true,
+            paymentOtp: true,
+            isPaid: true,
+            shippingAddress: true,
+            latitude: true,
+            longitude: true,
+            googleMapLink: true,
+            guestInfo: true,
+            referralCodeUsed: true,
+            cancelReason: true,
+            returnReason: true,
+            returnStatus: true,
+            refundStatus: true,
+            refundAmount: true,
+            deliveredAt: true,
+            createdAt: true,
+            user: { select: { id: true, name: true, email: true, phone: true } },
+            items: {
+                select: {
+                    id: true,
+                    productId: true,
+                    variantId: true,
+                    quantity: true,
+                    price: true,
+                    product: { select: { id: true, title: true, image: true } }
+                }
+            }
         };
 
-        if (usePagination) {
-            const [orders, total] = await Promise.all([
-                prisma.order.findMany({ where, include, orderBy: { createdAt: 'desc' }, take, skip }),
-                prisma.order.count({ where }),
-            ]);
-            return res.json({
-                data: orders,
-                total,
-                page: parseInt(page) || 1,
-                limit: take,
-                totalPages: Math.ceil(total / take),
-            });
-        }
+        const [orders, total] = await Promise.all([
+            prisma.order.findMany({ where, select, orderBy: { createdAt: 'desc' }, take, skip }),
+            prisma.order.count({ where }),
+        ]);
 
-        const orders = await prisma.order.findMany({
-            where,
-            include,
-            orderBy: { createdAt: 'desc' }
+        res.json({
+            data: orders,
+            total,
+            page: currentPage,
+            limit: take,
+            totalPages: Math.ceil(total / take),
         });
-        res.json(orders);
     } catch (error) {
         console.error('Get all orders error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -481,12 +604,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 include: { items: true }
             });
             if (order && order.status !== 'Cancelled') {
-                for (const item of order.items) {
-                    await prisma.product.update({
-                        where: { id: item.productId },
-                        data: { stock: { increment: item.quantity } }
-                    });
-                }
+                await restoreStockForOrderItems(prisma, order.items);
             }
         }
 
@@ -829,19 +947,7 @@ router.post('/:id/cancel', protect, async (req, res) => {
             }
 
             // 2. Restore stock for all items (variant-aware)
-            for (const item of order.items) {
-                if (item.variantId) {
-                    await tx.productVariant.update({
-                        where: { id: item.variantId },
-                        data: { stock: { increment: item.quantity } }
-                    });
-                } else {
-                    await tx.product.update({
-                        where: { id: item.productId },
-                        data: { stock: { increment: item.quantity } }
-                    });
-                }
-            }
+            await restoreStockForOrderItems(tx, order.items);
 
             // 3. Update order status
             const updatedOrder = await tx.order.update({
@@ -957,19 +1063,7 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
 
             // Restore stock if admin says the items are not defective (variant-aware)
             if (restoreStock) {
-                for (const item of order.items) {
-                    if (item.variantId) {
-                        await tx.productVariant.update({
-                            where: { id: item.variantId },
-                            data: { stock: { increment: item.quantity } }
-                        });
-                    } else {
-                        await tx.product.update({
-                            where: { id: item.productId },
-                            data: { stock: { increment: item.quantity } }
-                        });
-                    }
-                }
+                await restoreStockForOrderItems(tx, order.items);
             }
         });
 

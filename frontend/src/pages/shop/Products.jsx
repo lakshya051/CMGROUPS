@@ -71,7 +71,7 @@ const Products = () => {
 
     // ─── Debounce search ────────────────────────────────────────
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 500)
+        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300)
         return () => clearTimeout(timer)
     }, [searchTerm])
 
@@ -162,20 +162,20 @@ const Products = () => {
     const endItem = Math.min(page * LIMIT, totalProducts)
 
     // ─── Handlers ───────────────────────────────────────────────
-    const toggleCategory = cat =>
+    const toggleCategory = useCallback((cat) =>
         setSelectedCategories(prev =>
             prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-        )
+        ), [])
 
-    const togglePriceRange = range =>
+    const togglePriceRange = useCallback((range) =>
         setSelectedPriceRanges(prev => {
             const exists = prev.some(r => r.min === range.min && r.max === range.max)
             return exists
                 ? prev.filter(r => !(r.min === range.min && r.max === range.max))
                 : [...prev, range]
-        })
+        }), [])
 
-    const clearAllFilters = () => {
+    const clearAllFilters = useCallback(() => {
         setSearchTerm('')
         setSelectedCategories([])
         setSelectedPriceRanges([])
@@ -183,18 +183,46 @@ const Products = () => {
         setConditionFilter('All')
         setIncludeOutOfStock(false)
         setSortBy('newest')
-    }
+    }, [])
 
-    const removeCategoryPill = cat =>
+    const removeCategoryPill = useCallback((cat) =>
         setSelectedCategories(prev => prev.filter(c => c !== cat))
+    , [])
 
-    const removePriceRangePill = range =>
+    const removePriceRangePill = useCallback((range) =>
         setSelectedPriceRanges(prev =>
             prev.filter(r => !(r.min === range.min && r.max === range.max))
         )
+    , [])
 
-    const priceRangeLabel = r =>
+    const priceRangeLabel = useCallback((r) =>
         r.max === Infinity ? `Over ₹${r.min.toLocaleString('en-IN')}` : `₹${r.min.toLocaleString('en-IN')} – ₹${r.max.toLocaleString('en-IN')}`
+    , [])
+
+    const toggleOutOfStock = useCallback(
+        () => setIncludeOutOfStock(v => !v),
+        []
+    )
+
+    const closeMobileFilters = useCallback(
+        () => setIsMobileFiltersOpen(false),
+        []
+    )
+
+    const openMobileFilters = useCallback(
+        () => setIsMobileFiltersOpen(true),
+        []
+    )
+
+    const productCardGrid = useMemo(
+        () => products.map(product => (
+            <div key={product.id} className="h-full">
+                <ProductCard product={product} />
+            </div>
+        )),
+        [products]
+    )
+
 
     // ─── Render ─────────────────────────────────────────────────
     return (
@@ -226,7 +254,7 @@ const Products = () => {
                     {/* Mobile filter toggle */}
                     <button
                         className="lg:hidden flex items-center gap-sm bg-surface border border-border-default px-md py-sm rounded-lg text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors duration-fast"
-                        onClick={() => setIsMobileFiltersOpen(true)}
+                        onClick={openMobileFilters}
                     >
                         <Filter size={16} />
                         Filters
@@ -265,10 +293,10 @@ const Products = () => {
                     conditionFilter={conditionFilter}
                     onSetCondition={setConditionFilter}
                     includeOutOfStock={includeOutOfStock}
-                    onToggleOutOfStock={() => setIncludeOutOfStock(v => !v)}
+                    onToggleOutOfStock={toggleOutOfStock}
                     onClearAll={clearAllFilters}
                     isMobileOpen={isMobileFiltersOpen}
-                    onCloseMobile={() => setIsMobileFiltersOpen(false)}
+                    onCloseMobile={closeMobileFilters}
                 />
 
                 {/* Main content */}
@@ -350,11 +378,7 @@ const Products = () => {
                     {!loading && !error && products.length > 0 && (
                         <>
                             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-lg">
-                                {products.map(product => (
-                                    <div key={product.id} className="h-full">
-                                        <ProductCard product={product} />
-                                    </div>
-                                ))}
+                                {productCardGrid}
                             </div>
 
                             {/* Pagination */}

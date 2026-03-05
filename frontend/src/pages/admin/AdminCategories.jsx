@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import { categoriesAPI } from '../../lib/api';
 import { useFormik } from 'formik';
 import { addCategorySchema } from '../../utils/validationSchemas';
+import { handleImageError } from '../../utils/image';
 
 const AdminCategories = () => {
     const [categories, setCategories] = useState([]);
@@ -97,7 +98,15 @@ const AdminCategories = () => {
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 bg-page-bg rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {category.image ? (
-                                    <img src={category.image} alt="" className="w-full h-full object-cover" />
+                                    <img
+                                        src={category.image}
+                                        alt=""
+                                        loading="lazy"
+                                        width={48}
+                                        height={48}
+                                        onError={handleImageError}
+                                        className="w-full h-full object-cover"
+                                    />
                                 ) : (
                                     <Folder className="text-text-muted" size={24} />
                                 )}

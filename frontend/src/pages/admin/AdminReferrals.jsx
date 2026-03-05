@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Gift, Users, CheckCircle, Clock, DollarSign, Package } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
+import { handleImageError } from '../../utils/image';
+
+const INITIAL_VISIBLE_ROWS = 50;
+const ROWS_STEP = 25;
 
 const AdminReferrals = () => {
     const [referrals, setReferrals] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [visibleRows, setVisibleRows] = useState(INITIAL_VISIBLE_ROWS);
+    const loadMoreRef = useRef(null);
 
     useEffect(() => {
         adminAPI.getReferrals()
@@ -12,6 +18,10 @@ const AdminReferrals = () => {
             .catch(err => console.error('Failed to fetch referrals:', err))
             .finally(() => setLoading(false));
     }, []);
+
+    useEffect(() => {
+        setVisibleRows(INITIAL_VISIBLE_ROWS);
+    }, [referrals.length]);
 
     const getCalculatedRewards = (ref) => ({
         referrerReward: ref.rewardAmount || 0,
@@ -26,6 +36,32 @@ const AdminReferrals = () => {
             const rewards = getCalculatedRewards(ref);
             return sum + rewards.referrerReward + rewards.refereeReward;
         }, 0);
+
+    const visibleReferrals = useMemo(
+        () => referrals.slice(0, visibleRows),
+        [referrals, visibleRows]
+    );
+    const canLoadMore = visibleRows < referrals.length;
+
+    const loadMoreRows = useCallback(() => {
+        setVisibleRows((current) => Math.min(current + ROWS_STEP, referrals.length));
+    }, [referrals.length]);
+
+    useEffect(() => {
+        if (!canLoadMore || !loadMoreRef.current) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMoreRows();
+                }
+            },
+            { rootMargin: '120px' }
+        );
+
+        observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [canLoadMore, loadMoreRows]);
 
     const getStatusBadge = (status) => {
         switch (status) {
@@ -98,7 +134,7 @@ const AdminReferrals = () => {
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-border-default">
-                            {referrals.map((ref, idx) => {
+                            {visibleReferrals.map((ref, idx) => {
                                 const rewards = getCalculatedRewards(ref);
                                 return (
                                     <tr key={ref.id} className="hover:bg-surface-hover transition-colors">
@@ -138,6 +174,10 @@ const AdminReferrals = () => {
                                                                 <img
                                                                     src={item.product.image}
                                                                     alt={item.product.title}
+                                                                    loading="lazy"
+                                                                    width={32}
+                                                                    height={32}
+                                                                    onError={handleImageError}
                                                                     className="w-8 h-8 rounded object-cover border border-border-default flex-shrink-0"
                                                                 />
                                                             ) : (
@@ -184,6 +224,13 @@ const AdminReferrals = () => {
                                         <Gift size={40} className="mx-auto mb-3 opacity-50" />
                                         <p>No referral activity yet.</p>
                                         <p className="text-xs mt-1">Referrals appear when users enter a referral code at checkout.</p>
+                                    </td>
+                                </tr>
+                            )}
+                            {canLoadMore && (
+                                <tr>
+                                    <td colSpan="10" className="p-4 text-center text-xs text-text-muted">
+                                        <div ref={loadMoreRef}>Loading more referrals...</div>
                                     </td>
                                 </tr>
                             )}

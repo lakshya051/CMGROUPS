@@ -6,6 +6,7 @@ import { coursesAPI } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import ApplicationForm from './ApplicationForm';
 import toast from 'react-hot-toast';
+import { handleImageError } from '../../utils/image';
 
 const CourseDetail = () => {
     const { id } = useParams();
@@ -58,7 +59,17 @@ const CourseDetail = () => {
                         </div>
                         {course.thumbnail && (
                             <div className="lg:w-72 w-full flex-shrink-0">
-                                <img src={course.thumbnail} alt={course.title} loading="lazy" decoding="async" className="w-full h-48 object-cover rounded-lg shadow-sm" />
+                                <img
+                                    src={course.thumbnail}
+                                    alt={course.title}
+                                    loading="eager"
+                                    fetchPriority="high"
+                                    decoding="async"
+                                    width={576}
+                                    height={192}
+                                    onError={handleImageError}
+                                    className="w-full h-48 object-cover rounded-lg shadow-sm"
+                                />
                             </div>
                         )}
                     </div>

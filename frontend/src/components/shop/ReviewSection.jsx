@@ -4,6 +4,7 @@ import { reviewsAPI } from '../../lib/api';
 import { Star, ThumbsUp, CheckCircle, Image as ImageIcon, X } from 'lucide-react';
 import Button from '../ui/Button';
 import toast from 'react-hot-toast';
+import { handleImageError } from '../../utils/image';
 
 const ReviewSection = ({ productId }) => {
     const { user } = useAuth();
@@ -147,7 +148,15 @@ const ReviewSection = ({ productId }) => {
                         <div className="flex flex-wrap gap-4">
                             {images.map((img, idx) => (
                                 <div key={idx} className="relative w-24 h-24 rounded-xl overflow-hidden border border-border-default shadow-sm group">
-                                    <img src={img} alt="Upload preview" className="w-full h-full object-cover" />
+                                    <img
+                                        src={img}
+                                        alt="Upload preview"
+                                        loading="lazy"
+                                        width={96}
+                                        height={96}
+                                        onError={handleImageError}
+                                        className="w-full h-full object-cover"
+                                    />
                                     <button
                                         type="button"
                                         onClick={() => removeImage(idx)}
@@ -219,7 +228,15 @@ const ReviewSection = ({ productId }) => {
                                     <div className="flex flex-wrap gap-3 mt-4">
                                         {review.images.map((img, idx) => (
                                             <div key={idx} className="relative group overflow-hidden rounded-xl border border-border-default cursor-pointer" onClick={() => window.open(img, '_blank')}>
-                                                <img src={img} alt="Review attachment" className="w-20 h-20 object-cover group-hover:scale-110 transition-transform duration-300" />
+                                                <img
+                                                    src={img}
+                                                    alt="Review attachment"
+                                                    loading="lazy"
+                                                    width={80}
+                                                    height={80}
+                                                    onError={handleImageError}
+                                                    className="w-20 h-20 object-cover group-hover:scale-110 transition-transform duration-300"
+                                                />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                                             </div>
                                         ))}

@@ -1,56 +1,79 @@
-import React from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 import { Heart, ShoppingCart, Star, ArrowLeftRight, Eye } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
+import { handleImageError } from '../../utils/image';
 
 const ProductCard = ({ product }) => {
     const { addToCart, toggleWishlist, wishlist, addToCompare } = useShop();
     const navigate = useNavigate();
-    const isWishlisted = wishlist.includes(product.id);
+    const isWishlisted = useMemo(
+        () => wishlist.includes(product.id),
+        [wishlist, product.id]
+    );
 
     // Variant logic
-    const hasMultipleVariants = product.variants && product.variants.length > 1;
+    const hasMultipleVariants = Array.isArray(product.variants) && product.variants.length > 1;
 
-    // Calculate stock: if multiple variants, it's out of stock ONLY if ALL variants have 0 stock.
-    // Low stock: if total stock across all variants is > 0 but < 5.
-    let totalStock = product.stock;
-    if (product.variants && product.variants.length > 0) {
-        totalStock = product.variants.reduce((acc, v) => acc + v.stock, 0);
-    }
-    const isOutOfStock = totalStock === 0;
-    const isLowStock = totalStock > 0 && totalStock < 5;
+    const { isOutOfStock, isLowStock, displayPrice } = useMemo(() => {
+        // If variants exist, stock/price badges should reflect variant data.
+        const variants = Array.isArray(product.variants) ? product.variants : [];
+        const totalStock = variants.length > 0
+            ? variants.reduce((acc, v) => acc + v.stock, 0)
+            : product.stock;
+        const isOut = totalStock === 0;
+        const isLow = totalStock > 0 && totalStock < 5;
+        const price = hasMultipleVariants
+            ? Math.min(...variants.map(v => v.price))
+            : product.price;
 
-    // Calculate price display
-    let displayPrice = product.price;
-    if (hasMultipleVariants) {
-        displayPrice = Math.min(...product.variants.map(v => v.price));
-    }
+        return { isOutOfStock: isOut, isLowStock: isLow, displayPrice: price };
+    }, [hasMultipleVariants, product.price, product.stock, product.variants]);
 
-    const handleAddToCart = (e) => {
+    const handleAddToCart = useCallback((e) => {
         e.preventDefault();
         if (hasMultipleVariants) {
             navigate(`/products/${product.id}`);
         } else {
             addToCart(product); // Pass full product object
         }
-    };
+    }, [addToCart, hasMultipleVariants, navigate, product]);
+
+    const handleWishlistToggle = useCallback((e) => {
+        e.preventDefault();
+        toggleWishlist(product.id);
+    }, [product.id, toggleWishlist]);
+
+    const handleCompare = useCallback((e) => {
+        e.preventDefault();
+        addToCompare(product.id);
+    }, [addToCompare, product.id]);
 
     return (
         <div className="glass-panel group relative flex flex-col overflow-hidden h-full">
             {/* Image Area */}
             <div className="relative aspect-square bg-page-bg flex items-center justify-center p-6 transition-colors group-hover:bg-surface-hover/80">
-                <img
-                    src={product.image}
-                    alt={product.title}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-contain drop-shadow-lg transition-transform duration-500 group-hover:scale-110"
-                />
+                <Link
+                    to={`/products/${product.id}`}
+                    className="block w-full h-full"
+                    aria-label={`View ${product.title}`}
+                >
+                    <img
+                        src={product.image}
+                        alt={product.title}
+                        loading="lazy"
+                        decoding="async"
+                        width={400}
+                        height={400}
+                        onError={handleImageError}
+                        className="w-full h-full object-contain drop-shadow-lg transition-transform duration-500 group-hover:scale-110"
+                    />
+                </Link>
 
                 {/* Wishlist Button */}
                 <button
-                    onClick={() => toggleWishlist(product.id)}
+                    onClick={handleWishlistToggle}
                     className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-colors ${isWishlisted ? 'bg-primary/20 text-primary' : 'bg-black/20 text-text-main hover:bg-primary hover:text-text-main'}`}
                 >
                     <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
@@ -110,7 +133,7 @@ const ProductCard = ({ product }) => {
                     <div className="flex items-center gap-2">
                         <button
                             className="rounded-full h-10 w-10 p-0 flex items-center justify-center border border-border-default text-text-muted hover:text-primary hover:border-primary shrink-0 transition-colors"
-                            onClick={(e) => { e.preventDefault(); addToCompare(product.id); }}
+                            onClick={handleCompare}
                             title="Compare"
                         >
                             <ArrowLeftRight size={16} />
@@ -131,4 +154,4 @@ const ProductCard = ({ product }) => {
     );
 };
 
-export default ProductCard;
+export default memo(ProductCard);

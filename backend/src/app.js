@@ -64,6 +64,10 @@ app.use('/api/webhooks', webhookRoutes);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(clerkMiddleware());
+app.use('/uploads', express.static('uploads', {
+    maxAge: '30d',
+    etag: true,
+}));
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/products', productRoutes);

@@ -10,7 +10,6 @@ const router = express.Router();
 //   ?category=GPU  ?search=rtx  ?sort=price_asc  ?minPrice=  ?maxPrice=
 //   ?isSecondHand=true
 router.get('/', async (req, res) => {
-    cache.flush(); // FORCE FLUSH for schema consistency
     try {
         const { category, search, sort, minPrice, maxPrice, isSecondHand, page, limit } = req.query;
 
@@ -53,8 +52,10 @@ router.get('/', async (req, res) => {
 
         // ── Cache key ──────────────────────────────────────────────────────────
         // Ensure pagination values are in cache key even if not provided by client
-        const cachePage = parseInt(page) || 1;
-        const cacheLimit = parseInt(limit) || 20;
+        const parsedPage = Number.parseInt(page, 10);
+        const parsedLimit = Number.parseInt(limit, 10);
+        const cachePage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const cacheLimit = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
         const cacheKeyData = { ...req.query, page: cachePage, limit: cacheLimit };
         const cacheKey = `products:${JSON.stringify(cacheKeyData)}`;
 

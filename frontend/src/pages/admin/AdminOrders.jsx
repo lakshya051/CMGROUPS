@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
     ShoppingBag, Search, Eye, CheckCircle, Truck, XCircle,
     Shield, X, MapPin, User, Package, CreditCard, Tag, Calendar,
-    ChevronRight, Wallet, Download
+    ChevronRight, Wallet, Download, ExternalLink
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { ordersAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
+import { handleImageError } from '../../utils/image';
 
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
@@ -14,7 +15,6 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
     if (!order) return null;
 
     const addr = order.shippingAddress;
-    const customer = order.user || order.guestInfo;
     const customerName = order.user?.name || order.guestInfo?.name || 'Guest';
     const customerEmail = order.user?.email || order.guestInfo?.email || '—';
     const customerPhone = order.user?.phone || order.guestInfo?.phone || '—';
@@ -39,6 +39,16 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
 
     const subtotal = order.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) || 0;
     const walletUsed = order.walletUsed || 0;
+    const addressLine1 = addr?.address || addr?.line1 || null;
+    const addressLine2 = addr?.line2 || null;
+    const postalCode = addr?.postalCode || addr?.pincode || addr?.zip || addr?.zipCode || null;
+    const lat = Number(order.latitude);
+    const lng = Number(order.longitude);
+    const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
+    const googleMapsUrl =
+        order.googleMapLink ||
+        addr?.googleMapLink ||
+        (hasCoordinates ? `https://www.google.com/maps?q=${lat},${lng}` : null);
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -102,6 +112,10 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                                                 <img
                                                     src={product.image}
                                                     alt={product.title}
+                                                    loading="lazy"
+                                                    width={56}
+                                                    height={56}
+                                                    onError={handleImageError}
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
@@ -183,14 +197,27 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                                 <MapPin size={15} className="text-text-muted" /> Shipping Address
                             </h3>
                             {addr ? (
-                                <address className="not-italic text-xs text-text-secondary leading-relaxed space-y-0.5">
+                                <div className="space-y-2">
+                                    <address className="not-italic text-xs text-text-secondary leading-relaxed space-y-0.5">
                                     <p className="font-semibold text-sm text-text-primary">{addr.fullName || addr.name}</p>
-                                    {addr.line1 && <p>{addr.line1}</p>}
-                                    {addr.line2 && <p>{addr.line2}</p>}
+                                    {addressLine1 && <p>{addressLine1}</p>}
+                                    {addressLine2 && <p>{addressLine2}</p>}
                                     {(addr.city || addr.state) && <p>{[addr.city, addr.state].filter(Boolean).join(', ')}</p>}
-                                    {addr.pincode && <p>PIN: {addr.pincode}</p>}
+                                    {postalCode && <p>PIN: {postalCode}</p>}
                                     {addr.phone && <p>📞 {addr.phone}</p>}
                                 </address>
+                                {googleMapsUrl && (
+                                    <a
+                                        href={googleMapsUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-trust hover:text-trust/80 border border-trust/40 hover:border-trust rounded-lg px-2.5 py-1.5 transition-colors"
+                                    >
+                                        <ExternalLink size={12} />
+                                        Open in Google Maps
+                                    </a>
+                                )}
+                                </div>
                             ) : (
                                 <p className="text-xs text-text-muted">No shipping address provided</p>
                             )}
@@ -306,7 +333,7 @@ const AdminOrders = () => {
             try {
                 const params = {
                     page,
-                    limit: 15,
+                    limit: 20,
                     status: filter !== 'All' ? filter : undefined,
                     search: searchTerm || undefined
                 };

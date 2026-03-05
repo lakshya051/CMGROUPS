@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button';
 import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight } from 'lucide-react';
 import ReviewSection from '../../components/shop/ReviewSection';
 import { RECENTLY_VIEWED_KEY } from '../../constants';
+import { handleImageError } from '../../utils/image';
 
 const MAX_RECENTLY_VIEWED = 10;
 
@@ -128,8 +129,12 @@ const ProductDetail = () => {
                     <img
                         src={product.image}
                         alt={product.title}
-                        loading="lazy"
+                        loading="eager"
+                        fetchPriority="high"
                         decoding="async"
+                        width={800}
+                        height={800}
+                        onError={handleImageError}
                         className="w-full max-w-md object-contain drop-shadow-2xl"
                     />
                     {isCurrentlyOutOfStock ? (

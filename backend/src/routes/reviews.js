@@ -36,13 +36,18 @@ router.post('/:productId', protect, async (req, res) => {
             }
         });
 
-        // Update product rating
-        const allReviews = await prisma.review.findMany({ where: { productId } });
-        const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+        // Update product rating using DB aggregate instead of loading all reviews in memory.
+        const aggregate = await prisma.review.aggregate({
+            where: { productId },
+            _avg: { rating: true },
+            _count: { id: true }
+        });
+        const avgRating = aggregate._avg.rating || 0;
+        const totalReviews = aggregate._count.id || 0;
 
         await prisma.product.update({
             where: { id: productId },
-            data: { rating: Math.round(avgRating * 10) / 10, numReviews: allReviews.length }
+            data: { rating: Math.round(avgRating * 10) / 10, numReviews: totalReviews }
         });
 
         res.status(201).json(review);

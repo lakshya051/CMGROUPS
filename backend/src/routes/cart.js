@@ -41,6 +41,9 @@ const findCartItem = (userId, productId, variantId) => {
     });
 };
 
+const cartItemKey = (productId, variantId) =>
+    `${Number(productId)}:${variantId == null ? 'null' : Number(variantId)}`;
+
 // GET /api/cart — fetch full cart from DB
 router.get('/', async (req, res) => {
     try {
@@ -178,31 +181,56 @@ router.post('/sync', async (req, res) => {
         const userId = req.user.id;
 
         if (items && Array.isArray(items)) {
+            // Deduplicate incoming local items first to avoid repeated writes for the same key.
+            const incomingItems = new Map();
             for (const localItem of items) {
                 const productId = Number(localItem.id) || Number(localItem.productId);
                 if (!productId) continue;
 
                 const variantId = localItem.variantId ? Number(localItem.variantId) : null;
-                const quantity = Number(localItem.quantity) || 1;
+                const quantity = Math.max(1, Number(localItem.quantity) || 1);
+                const key = cartItemKey(productId, variantId);
+                const existingIncoming = incomingItems.get(key);
 
-                const existing = await findCartItem(userId, productId, variantId);
+                if (!existingIncoming || quantity > existingIncoming.quantity) {
+                    incomingItems.set(key, { productId, variantId, quantity });
+                }
+            }
+
+            const existingItems = await prisma.cartItem.findMany({
+                where: { userId },
+                select: { id: true, productId: true, variantId: true, quantity: true }
+            });
+            const existingByKey = new Map(
+                existingItems.map((item) => [cartItemKey(item.productId, item.variantId), item])
+            );
+
+            for (const incoming of incomingItems.values()) {
+                const key = cartItemKey(incoming.productId, incoming.variantId);
+                const existing = existingByKey.get(key);
 
                 if (existing) {
-                    const newQty = Math.max(existing.quantity, quantity);
+                    const newQty = Math.max(existing.quantity, incoming.quantity);
                     if (newQty !== existing.quantity) {
                         await prisma.cartItem.update({
                             where: { id: existing.id },
                             data: { quantity: newQty },
                         });
                     }
-                } else {
-                    try {
-                        await prisma.cartItem.create({
-                            data: { userId, productId, variantId, quantity },
-                        });
-                    } catch (err) {
-                        console.error(`Failed to sync cart item productId=${productId}:`, err.message);
-                    }
+                    continue;
+                }
+
+                try {
+                    await prisma.cartItem.create({
+                        data: {
+                            userId,
+                            productId: incoming.productId,
+                            variantId: incoming.variantId,
+                            quantity: incoming.quantity
+                        },
+                    });
+                } catch (err) {
+                    console.error(`Failed to sync cart item productId=${incoming.productId}:`, err.message);
                 }
             }
         }

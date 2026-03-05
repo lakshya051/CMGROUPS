@@ -4,6 +4,7 @@ import { BookOpen, Clock, Users, ChevronRight, GraduationCap, Award } from 'luci
 import Button from '../../components/ui/Button';
 import { coursesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { handleImageError } from '../../utils/image';
 
 const Courses = () => {
     const [courses, setCourses] = useState([]);
@@ -83,7 +84,16 @@ const Courses = () => {
                                     {/* Thumbnail */}
                                     <div className="relative h-44 bg-page-bg overflow-hidden rounded-t-lg">
                                         {course.thumbnail ? (
-                                            <img src={course.thumbnail} alt={course.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            <img
+                                                src={course.thumbnail}
+                                                alt={course.title}
+                                                loading="lazy"
+                                                decoding="async"
+                                                width={640}
+                                                height={352}
+                                                onError={handleImageError}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
                                                 <GraduationCap size={48} className="text-text-muted" />

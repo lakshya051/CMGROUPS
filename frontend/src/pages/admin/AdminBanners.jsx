@@ -8,6 +8,7 @@ import { bannersAPI } from '../../lib/api';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import toast from 'react-hot-toast';
+import { handleImageError } from '../../utils/image';
 
 const bannerSchema = Yup.object({
     title: Yup.string().required('Title is required'),
@@ -193,6 +194,10 @@ const AdminBanners = () => {
                                     <img
                                         src={banner.image}
                                         alt={banner.title}
+                                        loading="lazy"
+                                        width={384}
+                                        height={224}
+                                        onError={handleImageError}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : banner.gradient ? (
@@ -323,6 +328,10 @@ const AdminBanners = () => {
                                             <img
                                                 src={imagePreview}
                                                 alt="Preview"
+                                                loading="lazy"
+                                                width={640}
+                                                height={320}
+                                                onError={handleImageError}
                                                 className="max-h-40 mx-auto rounded-lg object-contain"
                                             />
                                             <button

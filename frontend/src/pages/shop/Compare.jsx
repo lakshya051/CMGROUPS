@@ -4,6 +4,7 @@ import { useShop } from '../../context/ShopContext';
 import { Trash2, X, ShoppingCart, Star } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { productsAPI } from '../../lib/api';
+import { handleImageError } from '../../utils/image';
 
 const Compare = () => {
     const { compareList, removeFromCompare, addToCart, clearCompare } = useShop();
@@ -77,7 +78,15 @@ const Compare = () => {
                                     </button>
                                     <div className="flex flex-col items-center">
                                         <div className="w-32 h-32 bg-surface rounded-lg p-2 shadow-sm mb-4 border border-border-default">
-                                            <img src={p.image} alt={p.title} className="w-full h-full object-contain" />
+                                            <img
+                                                src={p.image}
+                                                alt={p.title}
+                                                loading="lazy"
+                                                width={128}
+                                                height={128}
+                                                onError={handleImageError}
+                                                className="w-full h-full object-contain"
+                                            />
                                         </div>
                                         <Link to={`/products/${p.id}`} className="text-sm font-bold text-center text-text-primary hover:text-trust transition-colors line-clamp-2 mb-2 h-10">
                                             {p.title}

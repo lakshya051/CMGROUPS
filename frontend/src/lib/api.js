@@ -234,7 +234,12 @@ export const servicesAPI = {
 
     getMyBookings: () => apiFetch('/services/my-bookings'),
 
-    getAll: () => apiFetch('/services'),
+    getAll: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+        ).toString();
+        return apiFetch(`/services${query ? `?${query}` : ''}`);
+    },
 
     updateStatus: (id, data) =>
         apiFetch(`/services/${id}/status`, {
@@ -361,7 +366,12 @@ export const couponsAPI = {
 export const adminAPI = {
     getStats: () => apiFetch('/admin/stats'),
 
-    getUsers: () => apiFetch('/admin/users'),
+    getUsers: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+        ).toString();
+        return apiFetch(`/admin/users${query ? `?${query}` : ''}`);
+    },
 
     getUserDetails: (id) => apiFetch(`/admin/users/${id}`),
 

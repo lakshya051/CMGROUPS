@@ -11,6 +11,7 @@ import {
 import { checkoutSchema } from '../../utils/validationSchemas';
 import { addressesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { handleImageError } from '../../utils/image';
 
 // ── Smart Delivery defaults ─────────────────────────────────────────────────
 const DEFAULT_CITY = 'Hathras';
@@ -691,7 +692,15 @@ const Checkout = () => {
                     <div className="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2">
                         {cart.map(item => (
                             <div key={item.id} className="flex gap-3 text-sm">
-                                <img src={item.image} alt="" className="w-12 h-12 rounded bg-surface object-contain" />
+                                <img
+                                    src={item.image}
+                                    alt=""
+                                    loading="lazy"
+                                    width={48}
+                                    height={48}
+                                    onError={handleImageError}
+                                    className="w-12 h-12 rounded bg-surface object-contain"
+                                />
                                 <div className="flex-grow text-text-primary">
                                     <p className="font-medium line-clamp-1">{item.title}</p>
                                     <p className="text-text-secondary">x{item.quantity}</p>

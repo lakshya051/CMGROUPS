@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { bannersAPI } from '../../lib/api';
+import { handleImageError } from '../../utils/image';
 
 const FALLBACK_SLIDES = [
     {
@@ -115,6 +116,11 @@ const HeroBannerSlider = () => {
                             <img
                                 src={slide.image}
                                 alt={slide.title}
+                                loading={i === 0 ? 'eager' : 'lazy'}
+                                fetchPriority={i === 0 ? 'high' : 'auto'}
+                                width={1920}
+                                height={720}
+                                onError={handleImageError}
                                 className="absolute inset-0 w-full h-full object-cover"
                             />
                         )}

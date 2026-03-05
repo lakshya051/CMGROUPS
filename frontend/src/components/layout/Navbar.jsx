@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search } from 'lucide-react';
 import Button from '../ui/Button';
@@ -17,6 +17,7 @@ const Navbar = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const { user, logout, isSignedIn: clerkSignedIn, refreshUser } = useAuth();
     const [syncing, setSyncing] = useState(false);
     const { cart } = useShop();
@@ -32,17 +33,35 @@ const Navbar = () => {
     }, [user]);
 
     useEffect(() => {
-        setSearchQuery(searchParams.get('q') || '');
+        const queryFromUrl = searchParams.get('q') || '';
+        setSearchQuery(queryFromUrl);
+        setDebouncedSearchQuery(queryFromUrl);
     }, [searchParams]);
 
-    const handleSearch = (e) => {
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        if (location.pathname !== '/products') return;
+
+        const nextQuery = debouncedSearchQuery.trim();
+        const currentQuery = searchParams.get('q') || '';
+        if (nextQuery === currentQuery) return;
+
+        const nextPath = nextQuery ? `/products?q=${encodeURIComponent(nextQuery)}` : '/products';
+        navigate(nextPath, { replace: true });
+    }, [debouncedSearchQuery, location.pathname, navigate, searchParams]);
+
+    const handleSearch = useCallback((e) => {
         e.preventDefault();
         if (searchQuery.trim()) {
             navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
         }
-    };
+    }, [navigate, searchQuery]);
 
-    const handleMarkAllRead = async () => {
+    const handleMarkAllRead = useCallback(async () => {
         try {
             await notificationsAPI.markAllRead();
             setUnreadCount(0);
@@ -50,11 +69,14 @@ const Navbar = () => {
         } catch (err) {
             console.error(err);
         }
-    };
+    }, []);
 
-    const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const cartCount = useMemo(
+        () => cart.reduce((sum, item) => sum + item.quantity, 0),
+        [cart]
+    );
 
-    const isActive = (path) => location.pathname === path;
+    const isActive = useCallback((path) => location.pathname === path, [location.pathname]);
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border-default">
@@ -308,4 +330,4 @@ const Navbar = () => {
     );
 };
 
-export default Navbar;
+export default memo(Navbar);

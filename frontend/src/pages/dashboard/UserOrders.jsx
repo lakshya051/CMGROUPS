@@ -9,6 +9,7 @@ import { useShop } from '../../context/ShopContext'
 import { useNavigate } from 'react-router-dom'
 import { EmptyState, SkeletonCard } from '../../components/ui/index'
 import toast from 'react-hot-toast'
+import { handleImageError } from '../../utils/image'
 
 // ─── Order Timeline Steps ───────────────────────────────────────
 const TIMELINE_STEPS = [
@@ -181,16 +182,7 @@ const UserOrders = () => {
                 <div className="bg-page-bg border border-border-default h-4 w-64 rounded animate-pulse" />
                 <div className="space-y-md">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="bg-surface border border-border-default rounded-lg p-lg animate-pulse">
-                            <div className="flex gap-md">
-                                <div className="w-16 h-16 bg-page-bg border border-border-default rounded" />
-                                <div className="flex-1 space-y-sm">
-                                    <div className="bg-page-bg h-4 w-3/4 rounded" />
-                                    <div className="bg-page-bg h-3 w-1/2 rounded" />
-                                    <div className="bg-page-bg h-3 w-1/4 rounded" />
-                                </div>
-                            </div>
-                        </div>
+                        <SkeletonCard key={i} />
                     ))}
                 </div>
             </div>
@@ -367,7 +359,15 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                                 className="w-10 h-10 bg-white border border-border-default rounded-lg p-xs flex-shrink-0"
                                 style={{ zIndex: thumbnails.length - i }}
                             >
-                                <img src={item.product.image} alt="" className="w-full h-full object-contain" />
+                                <img
+                                    src={item.product.image}
+                                    alt=""
+                                    loading="lazy"
+                                    width={40}
+                                    height={40}
+                                    onError={handleImageError}
+                                    className="w-full h-full object-contain"
+                                />
                             </div>
                         ))}
                     </div>
@@ -408,7 +408,15 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                 {order.items?.map(item => (
                     <div key={item.id} className="flex items-center gap-sm text-sm bg-page-bg border border-border-default rounded-lg p-sm">
                         <div className="w-10 h-10 bg-surface border border-border-default rounded p-xs flex-shrink-0">
-                            <img src={item.product?.image} alt="" className="w-full h-full object-contain" />
+                            <img
+                                src={item.product?.image}
+                                alt=""
+                                loading="lazy"
+                                width={40}
+                                height={40}
+                                onError={handleImageError}
+                                className="w-full h-full object-contain"
+                            />
                         </div>
                         <span className="flex-1 text-text-primary text-sm line-clamp-1">{item.product?.title}</span>
                         <span className="text-text-muted text-xs">×{item.quantity}</span>

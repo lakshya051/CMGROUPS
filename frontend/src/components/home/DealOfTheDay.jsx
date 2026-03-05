@@ -4,6 +4,7 @@ import { productsAPI } from '../../lib/api';
 import { useShop } from '../../context/ShopContext';
 import { ShoppingCart, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PriceDisplay } from '../ui';
+import { handleImageError } from '../../utils/image';
 
 const CountdownTimer = () => {
     const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
@@ -66,6 +67,9 @@ const DealCard = ({ product }) => {
                     src={product.image}
                     alt={product.title}
                     loading="lazy"
+                    width={320}
+                    height={320}
+                    onError={handleImageError}
                     className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500"
                 />
             </div>
