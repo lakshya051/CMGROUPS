@@ -483,8 +483,8 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
-        // ── REFERRAL & TIER UPDATE ON COMPLETION ─────────────────────────
-        if (status === 'Completed' && req.body.isPaid === true) {
+        // ── REFERRAL & TIER UPDATE ON DELIVERY ──────────────────────────
+        if (status === 'Delivered') {
             const fullBooking = await prisma.serviceBooking.findUnique({
                 where: { id: booking.id },
                 include: { user: { select: { id: true, name: true, email: true, phone: true, referredById: true } } }
@@ -503,8 +503,9 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                     }
 
                     if (referrerId && referrerId !== fullBooking.userId) {
+                        // Check with correct source: 'service' to avoid duplicates
                         const existingReferral = await prisma.referral.findFirst({
-                            where: { refereeId: fullBooking.userId, referrerId, source: 'shopping' }
+                            where: { refereeId: fullBooking.userId, referrerId, source: 'service' }
                         });
 
                         if (!existingReferral) {
@@ -519,7 +520,18 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                                 });
 
                                 if (rewardAmount > 0) {
+                                    // Credit referrer wallet
                                     await tx.user.update({ where: { id: referrerId }, data: { walletBalance: { increment: rewardAmount } } });
+                                    await tx.walletTransaction.create({
+                                        data: {
+                                            userId: referrerId,
+                                            amount: rewardAmount,
+                                            type: 'CREDIT',
+                                            description: `Service referral reward — ${fullBooking.user.name} used your code for ${fullBooking.serviceType}`
+                                        }
+                                    });
+
+                                    // Create referral record with correct source
                                     await tx.referral.create({
                                         data: {
                                             referrerId,
@@ -527,10 +539,21 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                                             status: 'rewarded',
                                             rewardAmount,
                                             refereeReward: refereePoints > 0 ? refereePoints : null,
+                                            source: 'service',
                                             completedAt: new Date()
                                         }
                                     });
+
+                                    // Credit referee wallet
                                     await tx.user.update({ where: { id: fullBooking.userId }, data: { walletBalance: { increment: refereePoints } } });
+                                    await tx.walletTransaction.create({
+                                        data: {
+                                            userId: fullBooking.userId,
+                                            amount: refereePoints,
+                                            type: 'CREDIT',
+                                            description: `Service referral bonus for ${fullBooking.serviceType}`
+                                        }
+                                    });
 
                                     const tierSettings = await prisma.referralSettings.findFirst();
                                     if (tierSettings && tierSettings.tierSystemEnabled) {

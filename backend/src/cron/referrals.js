@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import prisma from '../lib/prisma.js';
-import { calculateReferralReward } from '../utils/referralHelper.js';
+import { calculateOrderReferralPoints } from '../utils/referralHelper.js';
 
 cron.schedule('0 0 * * *', async () => {
     console.log('[CRON] Running daily referral reward processor...');
@@ -36,15 +36,10 @@ cron.schedule('0 0 * * *', async () => {
 
                 if (!order.items || order.items.length === 0) continue;
 
-                const firstItem = order.items[0];
-                const product = firstItem.product || {};
+                const { referrerPoints: totalReferrerPoints, refereePoints: totalRefereePoints } =
+                    await calculateOrderReferralPoints(order.items);
 
-                const { referrerPoints, refereePoints } = await calculateReferralReward({
-                    referrerPoints: product.referrerPoints,
-                    refereePoints: product.refereePoints
-                });
-
-                if (referrerPoints > 0) {
+                if (totalReferrerPoints > 0) {
                     const referrer = await prisma.user.findFirst({
                         where: { referralCode: order.referralCodeUsed }
                     });
@@ -52,7 +47,7 @@ cron.schedule('0 0 * * *', async () => {
                     if (referrer && referrer.id !== order.userId) {
                         await prisma.user.update({
                             where: { id: referrer.id },
-                            data: { walletBalance: { increment: referrerPoints } }
+                            data: { walletBalance: { increment: totalReferrerPoints } }
                         });
 
                         await prisma.referral.create({
@@ -60,8 +55,8 @@ cron.schedule('0 0 * * *', async () => {
                                 referrerId: referrer.id,
                                 refereeId: order.userId,
                                 status: 'rewarded',
-                                rewardAmount: referrerPoints,
-                                refereeReward: refereePoints > 0 ? refereePoints : null,
+                                rewardAmount: totalReferrerPoints,
+                                refereeReward: totalRefereePoints > 0 ? totalRefereePoints : null,
                                 orderId: order.id,
                                 completedAt: new Date()
                             }
@@ -70,7 +65,7 @@ cron.schedule('0 0 * * *', async () => {
                         if (order.userId) {
                             await prisma.user.update({
                                 where: { id: order.userId },
-                                data: { walletBalance: { increment: refereePoints } }
+                                data: { walletBalance: { increment: totalRefereePoints } }
                             });
                         }
 
@@ -80,7 +75,7 @@ cron.schedule('0 0 * * *', async () => {
 
                             const upRef = await prisma.user.update({
                                 where: { id: referrer.id },
-                                data: { tierPoints: { increment: referrerPoints } },
+                                data: { tierPoints: { increment: totalReferrerPoints } },
                                 select: { id: true, tierPoints: true, tier: true }
                             });
                             const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
@@ -89,7 +84,7 @@ cron.schedule('0 0 * * *', async () => {
                             if (order.userId) {
                                 const upBuy = await prisma.user.update({
                                     where: { id: order.userId },
-                                    data: { tierPoints: { increment: referrerPoints } },
+                                    data: { tierPoints: { increment: totalReferrerPoints } },
                                     select: { id: true, tierPoints: true, tier: true }
                                 });
                                 const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
