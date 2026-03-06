@@ -245,8 +245,47 @@ export const servicesAPI = {
         apiFetch(`/services/${id}/status`, {
             method: 'PATCH',
             body: JSON.stringify(data)
+        }),
+
+    assignTechnician: (id, technicianId) =>
+        apiFetch(`/services/${id}/assign`, {
+            method: 'PATCH',
+            body: JSON.stringify({ technicianId })
+        }),
+
+    verifyOtp: (id, otp) =>
+        apiFetch(`/services/${id}/verify-otp`, {
+            method: 'POST',
+            body: JSON.stringify({ otp })
+        }),
+
+    regenerateOtp: (id) =>
+        apiFetch(`/services/${id}/regenerate-otp`, { method: 'POST' }),
+
+    cancelBooking: (id, cancellationReason) =>
+        apiFetch(`/services/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'Cancelled', cancellationReason })
         })
 };
+
+// ============ TECHNICIANS ============
+export const techniciansAPI = {
+    getAll: (all = false) => apiFetch(`/admin/technicians${all ? '?all=true' : ''}`),
+
+    create: (data) =>
+        apiFetch('/admin/technicians', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
+
+    update: (id, data) =>
+        apiFetch(`/admin/technicians/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        })
+};
+
 
 // ============ COURSES ============
 export const coursesAPI = {

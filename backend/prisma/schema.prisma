@@ -355,10 +355,61 @@ model ServiceBooking {
   deliveredAt    DateTime?
   createdAt      DateTime @default(now())
 
+  // --- Service Hub Upgrade Fields ---
+  // OTP verification
+  otpVerified              Boolean   @default(false)
+  otpGeneratedAt           DateTime?
+  // Technician assignment
+  technicianId             Int?
+  technician               Technician? @relation(fields: [technicianId], references: [id])
+  // Scheduling & invoice
+  estimatedCompletionDate  DateTime?
+  invoiceUrl               String?
+  // Cancellation
+  cancelledAt              DateTime?
+  cancellationReason       String?
+  // Customer feedback
+  customerRating           Int?
+  customerReview           String?
+
+  // Relations
+  invoice        ServiceInvoice?
+
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([date])
   @@index([date, timeSlot, status])
+  @@index([technicianId])
+}
+
+model Technician {
+  id        Int              @id @default(autoincrement())
+  name      String
+  phone     String           @unique
+  email     String?          @unique
+  skills    String[]         // e.g. ["Laptop Repair", "CCTV"]
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  bookings  ServiceBooking[]
+
+  @@index([isActive])
+}
+
+model ServiceInvoice {
+  id             Int            @id @default(autoincrement())
+  bookingId      Int            @unique
+  invoiceNumber  String         @unique
+  serviceType    String
+  technicianName String
+  laborCost      Float
+  partsCost      Float          @default(0)
+  gst            Float
+  totalAmount    Float
+  pdfUrl         String?
+  createdAt      DateTime       @default(now())
+  booking        ServiceBooking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
 }
 
 model Coupon {

@@ -112,7 +112,7 @@ router.get('/users/:id', protect, adminOnly, async (req, res) => {
                 role: true,
                 referralCode: true,
                 walletBalance: true,
-                    createdAt: true,
+                createdAt: true,
                 orders: {
                     select: { id: true, total: true, status: true, isPaid: true, createdAt: true },
                     orderBy: { createdAt: 'desc' }
@@ -557,4 +557,93 @@ router.delete('/banners/:id', protect, adminOnly, async (req, res) => {
     }
 });
 
+// ==================== TECHNICIAN MANAGEMENT ====================
+
+// GET /api/admin/technicians — list all technicians (active by default)
+router.get('/technicians', protect, adminOnly, async (req, res) => {
+    try {
+        const { all } = req.query; // ?all=true to include inactive
+        const where = all === 'true' ? {} : { isActive: true };
+
+        const technicians = await prisma.technician.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                _count: { select: { bookings: true } }
+            }
+        });
+
+        res.json(technicians);
+    } catch (error) {
+        console.error('Get technicians error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/technicians — create a technician profile
+router.post('/technicians', protect, adminOnly, async (req, res) => {
+    try {
+        const { name, phone, email, skills, isActive } = req.body;
+
+        if (!name || !phone) {
+            return res.status(400).json({ error: 'name and phone are required' });
+        }
+
+        const technician = await prisma.technician.create({
+            data: {
+                name,
+                phone,
+                email: email || null,
+                skills: Array.isArray(skills) ? skills : [],
+                isActive: isActive !== false
+            }
+        });
+
+        res.status(201).json(technician);
+    } catch (error) {
+        console.error('Create technician error:', error);
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.includes('phone') ? 'phone' : 'email';
+            return res.status(409).json({ error: `A technician with this ${field} already exists` });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/technicians/:id — update skills, active status, contact info
+router.patch('/technicians/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const techId = parseInt(req.params.id);
+        const { name, phone, email, skills, isActive } = req.body;
+
+        const data = {};
+        if (name !== undefined) data.name = name;
+        if (phone !== undefined) data.phone = phone;
+        if (email !== undefined) data.email = email || null;
+        if (skills !== undefined) data.skills = Array.isArray(skills) ? skills : [];
+        if (isActive !== undefined) data.isActive = Boolean(isActive);
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ error: 'No fields provided to update' });
+        }
+
+        const technician = await prisma.technician.update({
+            where: { id: techId },
+            data,
+            include: { _count: { select: { bookings: true } } }
+        });
+
+        res.json(technician);
+    } catch (error) {
+        console.error('Update technician error:', error);
+        if (error.code === 'P2025') return res.status(404).json({ error: 'Technician not found' });
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.includes('phone') ? 'phone' : 'email';
+            return res.status(409).json({ error: `A technician with this ${field} already exists` });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 export default router;
+
