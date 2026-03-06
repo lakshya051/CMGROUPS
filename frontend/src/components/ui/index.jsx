@@ -97,12 +97,12 @@ export function SkeletonCard() {
 }
 
 // ─── 5. QuantitySelector ────────────────────────────────────────────────────────
-export function QuantitySelector({ value, onChange, min = 1, max = MAX_CART_QUANTITY }) {
+export function QuantitySelector({ value, onChange, min = 1, max = MAX_CART_QUANTITY, disabled = false }) {
   return (
-    <div className="flex items-center border border-border-default rounded overflow-hidden">
+    <div className={`flex items-center border border-border-default rounded overflow-hidden ${disabled ? 'opacity-50' : ''}`}>
       <button
         onClick={() => onChange(Math.max(min, value - 1))}
-        disabled={value <= min}
+        disabled={disabled || value <= min}
         aria-label="Decrease quantity"
         className="px-sm py-xs hover:bg-surface-hover disabled:opacity-40 transition-colors duration-base"
       >
@@ -113,7 +113,7 @@ export function QuantitySelector({ value, onChange, min = 1, max = MAX_CART_QUAN
       </span>
       <button
         onClick={() => onChange(Math.min(max, value + 1))}
-        disabled={value >= max}
+        disabled={disabled || value >= max}
         aria-label="Increase quantity"
         className="px-sm py-xs hover:bg-surface-hover disabled:opacity-40 transition-colors duration-base"
       >

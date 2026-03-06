@@ -4,6 +4,8 @@ import { useAuth } from './AuthContext';
 import { ShopContext } from './ShopContext';
 import toast from 'react-hot-toast';
 
+const getErrorMessage = (err, fallback) => (err instanceof Error && err.message ? err.message : fallback);
+
 export const ShopProvider = ({ children }) => {
     const { user, refreshUser } = useAuth();
     const [cart, setCart] = useState([]);
@@ -158,6 +160,9 @@ export const ShopProvider = ({ children }) => {
             }
             productId = existing.id;
             variantId = existing.variantId || null;
+            variantName = existing.variantName || null;
+            price = existing.price || 0;
+            stock = existing.stock ?? 0;
         } else {
             productId = productObj.id || productObj.productId;
             variantId = variant ? variant.id : (productObj.variantId || null);
@@ -168,6 +173,21 @@ export const ShopProvider = ({ children }) => {
 
         const uid = variantId ? `${productId}-${variantId}` : `${productId}`;
         const newQtyNumber = Number(quantity);
+        const existingQuantity = cart.find(item => item.uniqueId === uid)?.quantity || 0;
+
+        if (!Number.isInteger(newQtyNumber) || newQtyNumber <= 0) {
+            return;
+        }
+
+        if (stock <= 0) {
+            toast.error('This item is out of stock');
+            return;
+        }
+
+        if (existingQuantity + newQtyNumber > stock) {
+            toast.error(`Only ${stock} item${stock === 1 ? '' : 's'} available in stock`);
+            return;
+        }
 
         // Optimistic update
         setCart(prev => {
@@ -196,7 +216,7 @@ export const ShopProvider = ({ children }) => {
                 // this avoids clobbering rapid-click increments.
             } catch (err) {
                 console.error('Failed to add item to cart:', err);
-                toast.error('Failed to add to cart');
+                toast.error(getErrorMessage(err, 'Failed to add to cart'));
                 // On error, revert to the real DB state
                 try { setCart(await cartAPI.get()); } catch { /* ignore */ }
             }
@@ -217,7 +237,7 @@ export const ShopProvider = ({ children }) => {
                 // Trust optimistic update; don't overwrite state on success
             } catch (err) {
                 console.error('Failed to remove item from cart:', err);
-                toast.error('Failed to remove from cart');
+                toast.error(getErrorMessage(err, 'Failed to remove from cart'));
                 try { setCart(await cartAPI.get()); } catch { /* ignore */ }
             }
         });
@@ -247,7 +267,7 @@ export const ShopProvider = ({ children }) => {
                 // when clicking +/- rapidly (each queued action already has the right boundedQty).
             } catch (err) {
                 console.error('Failed to update cart quantity:', err);
-                toast.error('Failed to update quantity');
+                toast.error(getErrorMessage(err, 'Failed to update quantity'));
                 try { setCart(await cartAPI.get()); } catch { /* ignore */ }
             }
         });
