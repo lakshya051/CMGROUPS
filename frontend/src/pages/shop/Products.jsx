@@ -410,7 +410,7 @@ const Products = () => {
 
             {/* ─── Sticky Compare Bar ────────────────────────────────── */}
             {compareList.length > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border-default shadow-glass">
+                <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border-default shadow-glass safe-bottom">
                     <div className="container mx-auto px-lg py-md flex items-center justify-between">
                         <div className="flex items-center gap-md">
                             <ArrowLeftRight size={18} className="text-trust" />

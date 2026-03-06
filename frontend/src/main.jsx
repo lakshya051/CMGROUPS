@@ -10,6 +10,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 // Configure native status bar — only runs inside the Capacitor shell (iOS/Android)
 if (Capacitor.isNativePlatform()) {
+    StatusBar.setOverlaysWebView({ overlay: false });
+    StatusBar.setBackgroundColor({ color: '#EAEDED' });
     StatusBar.setStyle({ style: Style.Light });
 }
 

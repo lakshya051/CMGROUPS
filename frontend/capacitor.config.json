@@ -9,6 +9,7 @@
   },
   "plugins": {
     "StatusBar": {
+      "overlaysWebView": false,
       "style": "LIGHT",
       "backgroundColor": "#EAEDED"
     },
