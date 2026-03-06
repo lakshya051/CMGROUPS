@@ -4,7 +4,7 @@ import prisma from '../lib/prisma.js';
 import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
 import { sendOrderConfirmationEmail } from '../utils/emailNotifications.js';
 import { generateInvoice } from '../utils/invoiceGenerator.js';
-import { calculateReferralReward } from '../utils/referralHelper.js';
+import { calculateOrderReferralPoints } from '../utils/referralHelper.js';
 
 const router = express.Router();
 
@@ -13,25 +13,6 @@ const checkoutTimingEnabled = process.env.CHECKOUT_TIMING_LOGS === 'true';
 function logCheckoutTiming(requestId, stage, startMs) {
     if (!checkoutTimingEnabled) return;
     console.log(`[CHECKOUT][${requestId}] ${stage} +${Date.now() - startMs}ms`);
-}
-
-async function calculateOrderReferralPoints(items = []) {
-    let totalReferrerPoints = 0;
-    let totalRefereePoints = 0;
-
-    for (const item of items) {
-        const product = item.product || {};
-        const quantity = item.quantity || 1;
-        const { referrerPoints, refereePoints } = await calculateReferralReward({
-            referrerPoints: product.referrerPoints,
-            refereePoints: product.refereePoints
-        });
-
-        totalReferrerPoints += referrerPoints * quantity;
-        totalRefereePoints += refereePoints * quantity;
-    }
-
-    return { referrerPoints: totalReferrerPoints, refereePoints: totalRefereePoints };
 }
 
 function aggregateItemQuantities(items = []) {

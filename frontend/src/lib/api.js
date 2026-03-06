@@ -468,6 +468,8 @@ export const referralsAPI = {
 
     getMyReferrals: (source) => apiFetch(`/referrals/my-referrals${source ? `?source=${source}` : ''}`),
 
+    getMyReceivedReferrals: () => apiFetch('/referrals/my-received'),
+
     applyWallet: (amount) =>
         apiFetch('/referrals/apply-wallet', {
             method: 'POST',

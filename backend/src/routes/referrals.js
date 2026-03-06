@@ -7,35 +7,48 @@ const router = express.Router();
 // GET /api/referrals/my-stats — Get my referral code, wallet, stats
 router.get('/my-stats', protect, async (req, res) => {
     try {
-        const user = await prisma.user.findUnique({
-            where: { id: req.user.id },
-            select: { referralCode: true, walletBalance: true }
-        });
-
-        const totalReferrals = await prisma.referral.count({
-            where: { referrerId: req.user.id }
-        });
-
-        const successfulReferrals = await prisma.referral.count({
-            where: { referrerId: req.user.id, status: 'rewarded' }
-        });
-
-        const pendingReferrals = await prisma.referral.count({
-            where: { referrerId: req.user.id, status: 'pending' }
-        });
-
-        const shoppingReferrals = await prisma.referral.count({
-            where: { referrerId: req.user.id, source: 'shopping' }
-        });
-
-        const courseReferrals = await prisma.referral.count({
-            where: { referrerId: req.user.id, source: 'course' }
-        });
-
-        const totalEarnings = await prisma.referral.aggregate({
-            where: { referrerId: req.user.id, status: 'rewarded' },
-            _sum: { rewardAmount: true }
-        });
+        const [
+            user,
+            totalReferrals,
+            successfulReferrals,
+            pendingReferrals,
+            shoppingReferrals,
+            courseReferrals,
+            serviceReferrals,
+            totalEarnings,
+            myReceivedEarnings
+        ] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: req.user.id },
+                select: { referralCode: true, walletBalance: true }
+            }),
+            prisma.referral.count({
+                where: { referrerId: req.user.id }
+            }),
+            prisma.referral.count({
+                where: { referrerId: req.user.id, status: 'rewarded' }
+            }),
+            prisma.referral.count({
+                where: { referrerId: req.user.id, status: 'pending' }
+            }),
+            prisma.referral.count({
+                where: { referrerId: req.user.id, source: 'shopping' }
+            }),
+            prisma.referral.count({
+                where: { referrerId: req.user.id, source: 'course' }
+            }),
+            prisma.referral.count({
+                where: { referrerId: req.user.id, source: 'service' }
+            }),
+            prisma.referral.aggregate({
+                where: { referrerId: req.user.id, status: 'rewarded' },
+                _sum: { rewardAmount: true }
+            }),
+            prisma.referral.aggregate({
+                where: { refereeId: req.user.id, status: 'rewarded' },
+                _sum: { refereeReward: true }
+            })
+        ]);
 
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
@@ -47,7 +60,9 @@ router.get('/my-stats', protect, async (req, res) => {
             pendingReferrals,
             shoppingReferrals,
             courseReferrals,
+            serviceReferrals,
             totalEarnings: totalEarnings._sum.rewardAmount || 0,
+            myReceivedEarnings: myReceivedEarnings._sum.refereeReward || 0,
             referralLink: `${baseUrl}/signup?ref=${user.referralCode}`
         });
     } catch (error) {
@@ -59,7 +74,7 @@ router.get('/my-stats', protect, async (req, res) => {
 // GET /api/referrals/my-referrals — List all people I referred (optionally filtered by ?source=)
 router.get('/my-referrals', protect, async (req, res) => {
     try {
-        const { source } = req.query; // 'shopping' | 'course' | undefined (all)
+        const { source } = req.query; // 'shopping' | 'course' | 'service' | undefined
         const where = { referrerId: req.user.id };
         if (source) where.source = source;
 
@@ -76,6 +91,26 @@ router.get('/my-referrals', protect, async (req, res) => {
         res.json(referrals);
     } catch (error) {
         console.error('Get my referrals error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/referrals/my-received — Referrals where I was the referee
+router.get('/my-received', protect, async (req, res) => {
+    try {
+        const referrals = await prisma.referral.findMany({
+            where: { refereeId: req.user.id },
+            include: {
+                referrer: {
+                    select: { id: true, name: true, email: true, referralCode: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json(referrals);
+    } catch (error) {
+        console.error('Get my received referrals error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
