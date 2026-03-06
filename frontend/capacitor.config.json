@@ -6,6 +6,8 @@
     "_comment": "Uncomment url + cleartext ONLY for live-reload dev testing on a physical device. Remove before production.",
     "iosScheme": "ionic",
     "androidScheme": "http"
+    "url":"https://cmgroups.vercel.app/"
+    "cleartext" : true
   },
   "plugins": {
     "StatusBar": {
