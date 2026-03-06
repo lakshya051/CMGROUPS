@@ -163,7 +163,7 @@ const Navbar = () => {
     );
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border-default">
+        <header className="fixed safe-top-offset top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border-default">
             <div className="md:hidden flex flex-col">
                 <div className="container mx-auto flex h-16 items-center gap-3 px-4">
                     <button

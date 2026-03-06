@@ -23,7 +23,7 @@ const CompareWidget = () => {
     if (compareList.length === 0) return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 safe-bottom">
             <div className="glass-panel p-4 shadow-sm border border-border-default w-80 max-w-[calc(100vw-2rem)] bg-surface/95 backdrop-blur-xl">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-border-default">
                     <h3 className="font-bold text-sm">Compare Products ({compareList.length}/4)</h3>
