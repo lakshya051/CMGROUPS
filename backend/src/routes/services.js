@@ -2,7 +2,9 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { sendServiceBookingEmail } from '../utils/emailNotifications.js';
+import { sendServiceNotification } from '../utils/serviceNotifications.js';
 import { calculateReferralReward } from '../utils/referralHelper.js';
+import { generateServiceInvoicePdf } from '../utils/serviceInvoiceGenerator.js';
 
 const router = express.Router();
 
@@ -41,12 +43,61 @@ const getServiceSettings = async () => {
     if (!prisma.serviceSettings || typeof prisma.serviceSettings.findFirst !== 'function') {
         return getDefaultServiceSettings();
     }
-
     const settings = await withDbRetry(() => prisma.serviceSettings.findFirst());
     return settings || getDefaultServiceSettings();
 };
 
+/** Generate a 6-digit numeric OTP string */
+const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
+
+/**
+ * Safe booking select — always excludes pickupOtp from responses.
+ * OTP is only surfaced via notification emails.
+ */
+const BOOKING_SAFE_SELECT = {
+    id: true,
+    userId: true,
+    serviceType: true,
+    description: true,
+    deviceType: true,
+    deviceBrand: true,
+    date: true,
+    timeSlot: true,
+    status: true,
+    referralCodeUsed: true,
+    customerName: true,
+    customerPhone: true,
+    address: true,
+    city: true,
+    pincode: true,
+    landmark: true,
+    estimatedPrice: true,
+    finalPrice: true,
+    adminNotes: true,
+    assignedTo: true,
+    // pickupOtp intentionally excluded
+    otpVerified: true,
+    otpGeneratedAt: true,
+    technicianId: true,
+    estimatedCompletionDate: true,
+    invoiceUrl: true,
+    cancelledAt: true,
+    cancellationReason: true,
+    customerRating: true,
+    customerReview: true,
+    confirmedAt: true,
+    pickedUpAt: true,
+    completedAt: true,
+    deliveredAt: true,
+    createdAt: true,
+    user: { select: { id: true, name: true, email: true, phone: true } },
+    technician: { select: { id: true, name: true, phone: true, skills: true } },
+    invoice: true
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/services/available-slots (Public)
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/available-slots', async (req, res) => {
     try {
         const { date } = req.query;
@@ -89,7 +140,9 @@ router.get('/available-slots', async (req, res) => {
     }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/services/book (Protected)
+// ─────────────────────────────────────────────────────────────────────────────
 router.post('/book', protect, async (req, res) => {
     try {
         const {
@@ -104,7 +157,6 @@ router.post('/book', protect, async (req, res) => {
             return res.status(400).json({ error: 'Service type, date, timeSlot, name, phone, address, city, and pincode are required' });
         }
 
-        // Check slot availability
         const targetDate = new Date(date);
         targetDate.setHours(0, 0, 0, 0);
         const nextDate = new Date(targetDate);
@@ -142,8 +194,6 @@ router.post('/book', protect, async (req, res) => {
             }
         }
 
-        // Generated OTP logic removed
-
         const booking = await withDbRetry(() => prisma.serviceBooking.create({
             data: {
                 userId: req.user.id,
@@ -164,10 +214,10 @@ router.post('/book', protect, async (req, res) => {
             }
         }));
 
-        // Respond immediately — email and notification fire in background
-        res.status(201).json({ ...booking });
+        // Respond immediately — notifications fire in background
+        res.status(201).json({ ...booking, pickupOtp: undefined });
 
-        // Background: send confirmation email + in-app notification (non-blocking)
+        // Background: send confirmation email + in-app notification
         const userEmail = req.user?.email;
         Promise.resolve().then(async () => {
             try {
@@ -196,11 +246,15 @@ router.post('/book', protect, async (req, res) => {
     }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/services/my-bookings (Protected)
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/my-bookings', protect, async (req, res) => {
     try {
+        // Use explicit select to exclude pickupOtp
         const bookings = await prisma.serviceBooking.findMany({
             where: { userId: req.user.id },
+            select: BOOKING_SAFE_SELECT,
             orderBy: { createdAt: 'desc' }
         });
         res.json(bookings);
@@ -213,7 +267,9 @@ router.get('/my-bookings', protect, async (req, res) => {
     }
 });
 
-// GET /api/services (Admin - paginated bookings)
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/services (Admin — paginated bookings, NO OTP)
+// ─────────────────────────────────────────────────────────────────────────────
 router.get('/', protect, adminOnly, async (req, res) => {
     try {
         const { page = 1, limit = 20, status } = req.query;
@@ -231,7 +287,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
         const [bookings, total, groupedStatuses] = await Promise.all([
             withDbRetry(() => prisma.serviceBooking.findMany({
                 where,
-                include: { user: { select: { name: true, email: true, phone: true } } },
+                select: BOOKING_SAFE_SELECT,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take
@@ -267,10 +323,43 @@ router.get('/', protect, adminOnly, async (req, res) => {
     }
 });
 
-// PATCH /api/services/:id/status (Admin - update status + pricing + notes)
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/services/:id/assign (Admin — assign technician)
+// ─────────────────────────────────────────────────────────────────────────────
+router.patch('/:id/assign', protect, adminOnly, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const { technicianId } = req.body;
+
+        if (!technicianId) {
+            return res.status(400).json({ error: 'technicianId is required' });
+        }
+
+        const technician = await prisma.technician.findUnique({ where: { id: parseInt(technicianId) } });
+        if (!technician) {
+            return res.status(404).json({ error: 'Technician not found' });
+        }
+
+        const booking = await prisma.serviceBooking.update({
+            where: { id: bookingId },
+            data: { technicianId: parseInt(technicianId), assignedTo: technician.name },
+            select: BOOKING_SAFE_SELECT
+        });
+
+        res.json(booking);
+    } catch (error) {
+        console.error('Assign technician error:', error);
+        if (error.code === 'P2025') return res.status(404).json({ error: 'Booking not found' });
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/services/:id/status (Admin — update status + pricing + OTP generation)
+// ─────────────────────────────────────────────────────────────────────────────
 router.patch('/:id/status', protect, adminOnly, async (req, res) => {
     try {
-        const { status, estimatedPrice, finalPrice, adminNotes, assignedTo } = req.body;
+        const { status, estimatedPrice, finalPrice, adminNotes, assignedTo, estimatedCompletionDate, cancellationReason } = req.body;
 
         const updateData = {};
 
@@ -283,21 +372,102 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             if (status === 'Picked Up') updateData.pickedUpAt = now;
             if (status === 'Completed') updateData.completedAt = now;
             if (status === 'Delivered') updateData.deliveredAt = now;
+            if (status === 'Cancelled') {
+                updateData.cancelledAt = now;
+                if (cancellationReason) updateData.cancellationReason = cancellationReason;
+            }
+
+            // ── OTP GENERATION on "Confirmed" ──────────────────────────────
+            if (status === 'Confirmed') {
+                if (estimatedPrice === undefined || estimatedPrice === null) {
+                    return res.status(400).json({ error: 'estimatedPrice is required when confirming a booking' });
+                }
+                const otp = generateOtp();
+                updateData.pickupOtp = otp;
+                updateData.otpGeneratedAt = now;
+                updateData.otpVerified = false;
+            }
         }
 
         if (estimatedPrice !== undefined) updateData.estimatedPrice = parseFloat(estimatedPrice);
         if (finalPrice !== undefined) updateData.finalPrice = parseFloat(finalPrice);
         if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
         if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+        if (estimatedCompletionDate !== undefined) updateData.estimatedCompletionDate = new Date(estimatedCompletionDate);
 
         const booking = await prisma.serviceBooking.update({
             where: { id: parseInt(req.params.id) },
             data: updateData,
-            include: { user: { select: { id: true, name: true, email: true, phone: true } } }
+            include: {
+                user: { select: { id: true, name: true, email: true, phone: true } },
+                technician: { select: { id: true, name: true, phone: true, skills: true } },
+                invoice: true
+            }
         });
 
-        // Send In-App Notification
+        // ── INVOICE GENERATION on "Completed" ────────────────────────────
+        if (status === 'Completed' && booking.finalPrice != null) {
+            try {
+                const laborCost = booking.finalPrice / 1.18; // back-calculate ex-GST
+                const partsCost = 0;
+                const gst = booking.finalPrice - laborCost;
+                const invoiceNumber = `SINV-${Date.now()}-${booking.id}`;
+                const technicianName = booking.technician?.name || booking.assignedTo || 'TechNova Technician';
+
+                // Create ServiceInvoice record
+                const serviceInvoice = await prisma.serviceInvoice.create({
+                    data: {
+                        bookingId: booking.id,
+                        invoiceNumber,
+                        serviceType: booking.serviceType,
+                        technicianName,
+                        laborCost: parseFloat(laborCost.toFixed(2)),
+                        partsCost,
+                        gst: parseFloat(gst.toFixed(2)),
+                        totalAmount: booking.finalPrice,
+                    }
+                });
+
+                // Generate PDF buffer and convert to base64 data URL
+                const pdfBuffer = await generateServiceInvoicePdf(booking, serviceInvoice);
+                const pdfDataUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
+
+                // Store PDF URL in both ServiceInvoice and ServiceBooking
+                await prisma.serviceInvoice.update({
+                    where: { id: serviceInvoice.id },
+                    data: { pdfUrl: pdfDataUrl }
+                });
+
+                await prisma.serviceBooking.update({
+                    where: { id: booking.id },
+                    data: { invoiceUrl: pdfDataUrl }
+                });
+
+                // Refresh booking with invoice
+                booking.invoiceUrl = pdfDataUrl;
+                booking.invoice = { ...serviceInvoice, pdfUrl: pdfDataUrl };
+
+                console.log(`[Invoice] Generated service invoice ${invoiceNumber} for SRV-${booking.id}`);
+            } catch (invoiceErr) {
+                console.error('[Invoice] Service invoice generation failed (non-blocking):', invoiceErr.message);
+            }
+        }
+
+        // ── SEND STATUS NOTIFICATION ─────────────────────────────────────
         if (status) {
+            // Re-fetch with OTP for notification sending (won't be in response)
+            const bookingWithOtp = await prisma.serviceBooking.findUnique({
+                where: { id: booking.id },
+                include: {
+                    user: { select: { id: true, name: true, email: true, phone: true } },
+                    technician: { select: { id: true, name: true, phone: true } }
+                }
+            });
+
+            // Send email notification (has OTP access, never sends it in response)
+            await sendServiceNotification(bookingWithOtp, status);
+
+            // In-app notification
             try {
                 await prisma.notification.create({
                     data: {
@@ -313,7 +483,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
-        // *** REFERRAL AND TIER UPDATE ON SERVICE COMPLETION ***
+        // ── REFERRAL & TIER UPDATE ON COMPLETION ─────────────────────────
         if (status === 'Completed' && req.body.isPaid === true) {
             const fullBooking = await prisma.serviceBooking.findUnique({
                 where: { id: booking.id },
@@ -322,7 +492,6 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
             if (fullBooking && fullBooking.user) {
                 try {
-                    // Prefer referralCodeUsed on the booking, fall back to referredById at signup
                     let referrerId = null;
                     if (fullBooking.referralCodeUsed) {
                         const codeOwner = await prisma.user.findFirst({
@@ -334,85 +503,60 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                     }
 
                     if (referrerId && referrerId !== fullBooking.userId) {
-                    // Prevent duplicate rewards
-                    const existingReferral = await prisma.referral.findFirst({
-                        where: {
-                            refereeId: fullBooking.userId,
-                            referrerId,
-                            source: 'shopping'
-                        }
-                    });
-
-                    if (!existingReferral) {
-                        await prisma.$transaction(async (tx) => {
-                            const serviceTypeObj = await tx.serviceType.findUnique({
-                                where: { title: fullBooking.serviceType }
-                            });
-
-                            const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward({
-                                referrerPoints: serviceTypeObj?.referrerPoints,
-                                refereePoints: serviceTypeObj?.refereePoints
-                            });
-
-                            if (rewardAmount > 0) {
-
-                                // Credit referrer
-                                await tx.user.update({
-                                    where: { id: referrerId },
-                                    data: { walletBalance: { increment: rewardAmount } }
-                                });
-
-                                await tx.referral.create({
-                                    data: {
-                                        referrerId,
-                                        refereeId: fullBooking.userId,
-                                        status: 'rewarded',
-                                        rewardAmount,
-                                        refereeReward: refereePoints > 0 ? refereePoints : null,
-                                        completedAt: new Date()
-                                    }
-                                });
-
-                                // Credit buyer
-                                await tx.user.update({
-                                    where: { id: fullBooking.userId },
-                                    data: { walletBalance: { increment: refereePoints } }
-                                });
-
-                                // TIER SYSTEM
-                                const tierSettings = await prisma.referralSettings.findFirst();
-                                if (tierSettings && tierSettings.tierSystemEnabled) {
-                                    const tiers = await tx.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
-
-                                    // Update Referrer
-                                    const upRef = await tx.user.update({
-                                        where: { id: referrerId },
-                                        data: { tierPoints: { increment: rewardAmount } },
-                                        select: { id: true, tierPoints: true, tier: true }
-                                    });
-                                    const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                    if (nRT !== upRef.tier) await tx.user.update({ where: { id: referrerId }, data: { tier: nRT } });
-
-                                    // Update Buyer
-                                    const upBuy = await tx.user.update({
-                                        where: { id: fullBooking.userId },
-                                        data: { tierPoints: { increment: rewardAmount } },
-                                        select: { id: true, tierPoints: true, tier: true }
-                                    });
-                                    const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                    if (nBT !== upBuy.tier) await tx.user.update({ where: { id: fullBooking.userId }, data: { tier: nBT } });
-                                }
-                            }
+                        const existingReferral = await prisma.referral.findFirst({
+                            where: { refereeId: fullBooking.userId, referrerId, source: 'shopping' }
                         });
+
+                        if (!existingReferral) {
+                            await prisma.$transaction(async (tx) => {
+                                const serviceTypeObj = await tx.serviceType.findUnique({
+                                    where: { title: fullBooking.serviceType }
+                                });
+
+                                const { referrerPoints: rewardAmount, refereePoints } = await calculateReferralReward({
+                                    referrerPoints: serviceTypeObj?.referrerPoints,
+                                    refereePoints: serviceTypeObj?.refereePoints
+                                });
+
+                                if (rewardAmount > 0) {
+                                    await tx.user.update({ where: { id: referrerId }, data: { walletBalance: { increment: rewardAmount } } });
+                                    await tx.referral.create({
+                                        data: {
+                                            referrerId,
+                                            refereeId: fullBooking.userId,
+                                            status: 'rewarded',
+                                            rewardAmount,
+                                            refereeReward: refereePoints > 0 ? refereePoints : null,
+                                            completedAt: new Date()
+                                        }
+                                    });
+                                    await tx.user.update({ where: { id: fullBooking.userId }, data: { walletBalance: { increment: refereePoints } } });
+
+                                    const tierSettings = await prisma.referralSettings.findFirst();
+                                    if (tierSettings && tierSettings.tierSystemEnabled) {
+                                        const tiers = await tx.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
+
+                                        const upRef = await tx.user.update({ where: { id: referrerId }, data: { tierPoints: { increment: rewardAmount } }, select: { id: true, tierPoints: true, tier: true } });
+                                        const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                        if (nRT !== upRef.tier) await tx.user.update({ where: { id: referrerId }, data: { tier: nRT } });
+
+                                        const upBuy = await tx.user.update({ where: { id: fullBooking.userId }, data: { tierPoints: { increment: rewardAmount } }, select: { id: true, tierPoints: true, tier: true } });
+                                        const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                        if (nBT !== upBuy.tier) await tx.user.update({ where: { id: fullBooking.userId }, data: { tier: nBT } });
+                                    }
+                                }
+                            });
+                        }
                     }
-                    } // end if (referrerId)
                 } catch (err) {
                     console.error('Service referral/tier error:', err);
                 }
             }
         }
 
-        res.json(booking);
+        // Strip OTP from response
+        const { pickupOtp: _otp, ...safeBooking } = booking;
+        res.json(safeBooking);
     } catch (error) {
         console.error('Update booking error:', error);
         if (isDbUnavailableError(error)) {
@@ -422,6 +566,120 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
     }
 });
 
-// verify-otp removed
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/services/:id/verify-otp (Protected — customer or admin)
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/:id/verify-otp', protect, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const { otp } = req.body;
+
+        if (!otp) {
+            return res.status(400).json({ error: 'OTP is required' });
+        }
+
+        // Fetch with OTP for validation
+        const booking = await prisma.serviceBooking.findUnique({
+            where: { id: bookingId },
+            include: { user: { select: { id: true, name: true, email: true } }, technician: true }
+        });
+
+        if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+        // Customers can only verify their own bookings; admins can verify any
+        if (req.user.role !== 'admin' && booking.userId !== req.user.id) {
+            return res.status(403).json({ error: 'Unauthorised' });
+        }
+
+        if (!booking.pickupOtp) {
+            return res.status(400).json({ error: 'No OTP has been generated for this booking' });
+        }
+
+        if (booking.otpVerified) {
+            return res.status(400).json({ error: 'OTP has already been verified' });
+        }
+
+        if (String(otp).trim() !== String(booking.pickupOtp).trim()) {
+            return res.status(400).json({ error: 'Invalid OTP. Please check and try again.' });
+        }
+
+        // OTP valid — progress booking to "In Progress"
+        const updated = await prisma.serviceBooking.update({
+            where: { id: bookingId },
+            data: {
+                otpVerified: true,
+                status: 'In Progress',
+                pickedUpAt: new Date()
+            },
+            select: BOOKING_SAFE_SELECT
+        });
+
+        // Send notification
+        const notifyBooking = { ...updated, user: booking.user };
+        await sendServiceNotification(notifyBooking, 'In Progress');
+
+        // In-app notification
+        try {
+            await prisma.notification.create({
+                data: {
+                    userId: booking.userId,
+                    title: 'Device Picked Up',
+                    message: `Your device for SRV-${bookingId} has been picked up. Repair has started.`,
+                    type: 'service',
+                    link: `/dashboard/services`
+                }
+            });
+        } catch (_notifErr) { /* non-blocking */ }
+
+        res.json({ success: true, message: 'OTP verified. Booking is now In Progress.', booking: updated });
+    } catch (error) {
+        console.error('Verify OTP error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/services/:id/regenerate-otp (Admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+
+        const existing = await prisma.serviceBooking.findUnique({
+            where: { id: bookingId },
+            include: { user: { select: { id: true, name: true, email: true } }, technician: true }
+        });
+
+        if (!existing) return res.status(404).json({ error: 'Booking not found' });
+
+        if (!['Confirmed', 'Pending'].includes(existing.status)) {
+            return res.status(400).json({ error: 'OTP can only be regenerated for Pending or Confirmed bookings' });
+        }
+
+        const newOtp = generateOtp();
+        const updated = await prisma.serviceBooking.update({
+            where: { id: bookingId },
+            data: {
+                pickupOtp: newOtp,
+                otpGeneratedAt: new Date(),
+                otpVerified: false
+            },
+            include: {
+                user: { select: { id: true, name: true, email: true } },
+                technician: true
+            }
+        });
+
+        // Send notification with new OTP (notification fn reads from booking.pickupOtp)
+        await sendServiceNotification(updated, 'Confirmed');
+
+        // Return safe response (no OTP)
+        const { pickupOtp: _otp, ...safeBooking } = updated;
+        res.json({ success: true, message: 'New OTP generated and sent to customer.', booking: safeBooking });
+    } catch (error) {
+        console.error('Regenerate OTP error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 
 export default router;
