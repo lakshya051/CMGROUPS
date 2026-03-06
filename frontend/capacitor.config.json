@@ -3,16 +3,20 @@
   "appName": "TechNova",
   "webDir": "dist",
   "server": {
-    "_comment": "Uncomment url + cleartext ONLY for live-reload dev testing on a physical device. Remove before production.",
-    "iosScheme": "ionic",
-    "androidScheme": "http"
-    "url":"https://cmgroups.vercel.app/"
-    "cleartext" : true
+    "url": "https://cmgroups.vercel.app/",
+    "errorPath": "error.html",
+    "cleartext": true
   },
   "plugins": {
     "StatusBar": {
       "style": "LIGHT",
       "backgroundColor": "#EAEDED"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "backgroundColor": "#ffffff",
+      "showSpinner": true
     }
   }
 }
