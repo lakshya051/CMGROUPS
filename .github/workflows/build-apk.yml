@@ -1,0 +1,48 @@
+name: Build Android APK
+
+# This allows you to trigger the build manually by clicking a button on GitHub
+on:
+  workflow_dispatch: 
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java (Android requirement)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Dependencies & Build React App
+        working-directory: ./frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          npm install
+          npm run build
+
+      - name: Sync Capacitor
+        working-directory: ./frontend
+        run: npx cap sync android
+
+      - name: Build APK (Gradle)
+        working-directory: ./frontend/android
+        # This command actually builds the Android app file
+        run: ./gradlew assembleDebug 
+
+      - name: Upload APK to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: TechNova-App
+          # This tells GitHub where to find the generated file and make it downloadable
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
