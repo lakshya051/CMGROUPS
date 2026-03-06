@@ -2,6 +2,7 @@ import React, { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search } from 'lucide-react';
 import Button from '../ui/Button';
+import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useShop } from '../../context/ShopContext';
 import { categoriesAPI, notificationsAPI } from '../../lib/api';
@@ -98,6 +99,7 @@ const Navbar = () => {
     const isActive = useCallback((path) => location.pathname === path, [location.pathname]);
     const mobileProfilePath = user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/sign-in';
     const hasSearchQuery = searchQuery.trim().length > 0;
+    const showSearchBar = !location.pathname.startsWith('/tally-erp');
 
     const handleClearSearch = useCallback(() => {
         setSearchQuery('');
@@ -179,6 +181,7 @@ const Navbar = () => {
                     </Link>
 
                     <div className="flex items-center gap-1">
+                        {user && <PointsBadge points={user.walletBalance} compact className="mr-1" />}
                         <Link
                             to={mobileProfilePath}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust"
@@ -203,9 +206,11 @@ const Navbar = () => {
                     </div>
                 </div>
 
-                <div className="border-t border-border-default bg-surface-hover px-4 py-3">
-                    {renderSearchForm({ mobile: true })}
-                </div>
+                {showSearchBar && (
+                    <div className="border-t border-border-default bg-surface-hover px-4 py-3">
+                        {renderSearchForm({ mobile: true })}
+                    </div>
+                )}
             </div>
 
             <div className="hidden md:flex container mx-auto px-4 h-16 items-center justify-between">
@@ -215,9 +220,11 @@ const Navbar = () => {
                 </Link>
 
                 {/* Desktop Search Bar */}
-                <div className="hidden md:flex flex-1 max-w-md mx-8">
-                    {renderSearchForm()}
-                </div>
+                {showSearchBar && (
+                    <div className="hidden md:flex flex-1 max-w-md mx-8">
+                        {renderSearchForm()}
+                    </div>
+                )}
 
                 {/* Desktop Nav */}
                 <nav className="hidden md:flex items-center gap-6 flex-shrink-0">
@@ -269,6 +276,7 @@ const Navbar = () => {
 
                 {/* Actions */}
                 <div className="hidden md:flex items-center gap-4">
+                    {user && <PointsBadge points={user.walletBalance} />}
                     <Link to="/wishlist" className="text-text-secondary hover:text-trust transition-colors">
                         <Heart size={20} />
                     </Link>
@@ -391,6 +399,9 @@ const Navbar = () => {
 
                     {user ? (
                         <>
+                            <div className="px-4">
+                                <PointsBadge points={user.walletBalance} className="w-full justify-center" />
+                            </div>
                             <Link
                                 to={user.role === 'admin' ? '/admin' : '/dashboard'}
                                 onClick={() => setIsOpen(false)}

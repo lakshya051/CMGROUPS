@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     BarChart,
     Bar,
@@ -12,7 +12,9 @@ import { DollarSign, ShoppingBag, Users, Activity, Package, Wrench, ArrowUpRight
 import { adminAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
 
-const AdminStatCard = ({ title, value, icon, subtext, color = "text-primary" }) => (
+const formatCurrency = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
+
+const AdminStatCard = ({ title, value, icon, subtext, color = 'text-primary' }) => (
     <div className="glass-panel p-6 hover:border-primary/20 transition-colors">
         <div className="flex items-center justify-between mb-4">
             <span className="text-text-muted text-sm font-medium uppercase tracking-wider">{title}</span>
@@ -21,9 +23,7 @@ const AdminStatCard = ({ title, value, icon, subtext, color = "text-primary" }) 
         <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-text-primary">{value}</span>
         </div>
-        <p className="text-xs text-text-secondary mt-2">
-            {subtext}
-        </p>
+        <p className="text-xs text-text-secondary mt-2">{subtext}</p>
     </div>
 );
 
@@ -43,7 +43,7 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         adminAPI.getStats()
-            .then(data => {
+            .then((data) => {
                 setStats({
                     revenue: data.revenue || 0,
                     orders: data.orders || 0,
@@ -56,13 +56,15 @@ const AdminDashboard = () => {
                     topProducts: data.topProducts || []
                 });
             })
-            .catch(err => console.error('Failed to fetch admin stats:', err))
+            .catch((err) => console.error('Failed to fetch admin stats:', err))
             .finally(() => setLoading(false));
     }, []);
 
     if (loading) {
         return <SectionLoader message="Loading dashboard analytics..." />;
     }
+
+    const hasRevenueData = stats.revenueChart.some((day) => Number(day.revenue) > 0);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -71,11 +73,10 @@ const AdminDashboard = () => {
                 <p className="text-sm text-text-secondary">Real-time overview of store performance.</p>
             </div>
 
-            {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <AdminStatCard
                     title="Total Revenue"
-                    value={`₹${stats.revenue.toLocaleString()}`}
+                    value={formatCurrency(stats.revenue)}
                     icon={<DollarSign size={20} />}
                     subtext="Lifetime earnings"
                     color="text-emerald-600 bg-emerald-50"
@@ -110,7 +111,6 @@ const AdminDashboard = () => {
                 />
             </div>
 
-            {/* Top Products Row */}
             {stats.topProducts.length > 0 && (
                 <div className="glass-panel p-6">
                     <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
@@ -124,44 +124,54 @@ const AdminDashboard = () => {
                                     {prod.sales}
                                 </div>
                                 <h3 className="text-sm font-medium mb-1 line-clamp-1" title={prod.title}>{prod.title}</h3>
-                                <p className="text-xs text-text-muted">₹{prod.price.toLocaleString()}</p>
+                                <p className="text-xs text-text-muted">{formatCurrency(prod.price)}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
 
-            {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Revenue Chart */}
                 <div className="glass-panel p-6">
                     <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                         <Activity size={18} className="text-primary" />
                         Revenue (Last 7 Days)
                     </h2>
                     <div className="h-80">
-                        {stats.revenueChart.length > 0 ? (
+                        {hasRevenueData ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={stats.revenueChart}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                                     <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
+                                    <YAxis
+                                        stroke="#64748b"
+                                        fontSize={12}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(value) => formatCurrency(value)}
+                                    />
                                     <Tooltip
                                         cursor={{ fill: '#f1f5f9' }}
-                                        contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        contentStyle={{
+                                            backgroundColor: '#ffffff',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '8px',
+                                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                        }}
+                                        formatter={(value) => [formatCurrency(value), 'Revenue']}
+                                        labelFormatter={(label, payload) => payload?.[0]?.payload?.date || label}
                                     />
                                     <Bar dataKey="revenue" fill="#ec4899" radius={[4, 4, 0, 0]} barSize={40} />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
                             <div className="h-full flex items-center justify-center text-text-muted text-sm">
-                                No revenue data for this week.
+                                No paid-order revenue in the last 7 days.
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Recent Activity */}
                 <div className="glass-panel p-6">
                     <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                         <ArrowUpRight size={18} className="text-primary" />
@@ -171,10 +181,12 @@ const AdminDashboard = () => {
                         {stats.activityFeed.length > 0 ? (
                             stats.activityFeed.map((item, idx) => (
                                 <li key={idx} className="flex items-start gap-4 py-4 border-b border-border-default last:border-0 last:pb-0 relative">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${item.type === 'order' ? 'bg-blue-100 text-blue-600' :
-                                        item.type === 'user' ? 'bg-violet-100 text-violet-600' :
-                                            'bg-orange-100 text-orange-600'
-                                        }`}>
+                                    <div
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${item.type === 'order' ? 'bg-blue-100 text-blue-600' :
+                                            item.type === 'user' ? 'bg-violet-100 text-violet-600' :
+                                                'bg-orange-100 text-orange-600'
+                                            }`}
+                                    >
                                         {item.type === 'order' ? <ShoppingBag size={14} /> :
                                             item.type === 'user' ? <Users size={14} /> :
                                                 <Wrench size={14} />}

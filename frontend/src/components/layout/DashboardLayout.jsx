@@ -22,6 +22,7 @@ import {
     X,
     Image
 } from 'lucide-react';
+import PointsBadge from '../ui/PointsBadge';
 
 const DashboardLayout = ({ role = 'customer' }) => {
     const { logout, user } = useAuth();
@@ -133,6 +134,9 @@ const DashboardLayout = ({ role = 'customer' }) => {
                         <p className="text-xs text-text-muted truncate">{user?.email}</p>
                     </div>
                 </div>
+                <div className="px-4 pb-3">
+                    <PointsBadge points={user?.walletBalance} className="w-full justify-center" />
+                </div>
                 <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
@@ -182,6 +186,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
                         CM<span className="text-primary">GROUPS</span>
                         <span className="text-xs ml-2 bg-page-bg border border-border-default px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
                     </span>
+                    {user && <PointsBadge points={user.walletBalance} compact className="ml-auto" />}
                 </div>
 
                 <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">

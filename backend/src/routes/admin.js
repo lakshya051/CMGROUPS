@@ -4,6 +4,29 @@ import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const formatDayKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getChartDayBuckets = (days = 7) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: days }, (_, index) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() - (days - 1 - index));
+
+        return {
+            date,
+            key: formatDayKey(date),
+            name: date.toLocaleDateString('en-US', { weekday: 'short' })
+        };
+    });
+};
+
 const DEFAULT_SERVICE_SETTINGS = {
     timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
     maxBookingsPerSlot: 2
@@ -192,28 +215,27 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
         const paidOrders = paidOrdersCount;
 
         // Revenue Chart Data (Last 7 Days)
-        const revenueChart = [];
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
+        const chartDays = getChartDayBuckets();
+        const chartStartDate = new Date(chartDays[0].date);
 
         const recentOrdersForChart = await prisma.order.findMany({
-            where: { isPaid: true, createdAt: { gte: sevenDaysAgo } },
+            where: { isPaid: true, createdAt: { gte: chartStartDate } },
             select: { total: true, createdAt: true }
         });
 
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-            const dayDate = d.toISOString().split('T')[0];
+        const revenueByDay = recentOrdersForChart.reduce((acc, order) => {
+            const dayKey = formatDayKey(new Date(order.createdAt));
+            const orderTotal = Number(order.total) || 0;
 
-            const dayRevenue = recentOrdersForChart
-                .filter(o => o.createdAt.toISOString().startsWith(dayDate))
-                .reduce((sum, o) => sum + o.total, 0);
+            acc.set(dayKey, (acc.get(dayKey) || 0) + orderTotal);
+            return acc;
+        }, new Map());
 
-            revenueChart.push({ name: dayName, revenue: dayRevenue });
-        }
+        const revenueChart = chartDays.map(({ key, name }) => ({
+            name,
+            date: key,
+            revenue: Number((revenueByDay.get(key) || 0).toFixed(2))
+        }));
 
         // Recent Activity Feed (Combine Orders, Users, Service Bookings)
         const [recentOrders, recentUsers, recentServices] = await Promise.all([
