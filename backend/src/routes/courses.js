@@ -132,7 +132,12 @@ router.post('/apply', protect, async (req, res) => {
     try {
         const { courseId, durationId, batchId, name, email, phone, message, paymentMode, referralCode } = req.body;
 
-        if (!courseId || !durationId || !batchId || !name || !email || !phone || !paymentMode) {
+        const normalizedName = String(name || '').trim() || String(req.user?.name || '').trim();
+        const normalizedEmail = String(email || '').trim() || String(req.user?.email || '').trim();
+        const normalizedPhone = String(phone || '').trim() || String(req.user?.phone || '').trim();
+        const normalizedPaymentMode = String(paymentMode || '').trim();
+
+        if (!courseId || !durationId || !batchId || !normalizedName || !normalizedEmail || !normalizedPhone || !normalizedPaymentMode) {
             return res.status(400).json({ error: 'courseId, durationId, batchId, name, email, phone, and paymentMode are required' });
         }
 
@@ -158,10 +163,12 @@ router.post('/apply', protect, async (req, res) => {
                 courseId: parseInt(courseId),
                 durationId: parseInt(durationId),
                 batchId: parseInt(batchId),
-                name, email, phone,
-                message: message || null,
-                paymentMode,
-                referralCode: referralCode || null,
+                name: normalizedName,
+                email: normalizedEmail,
+                phone: normalizedPhone,
+                message: typeof message === 'string' && message.trim() ? message.trim() : null,
+                paymentMode: normalizedPaymentMode,
+                referralCode: typeof referralCode === 'string' && referralCode.trim() ? referralCode.trim() : null,
                 status: 'Pending'
             },
             include: { course: true, duration: true, batch: true }

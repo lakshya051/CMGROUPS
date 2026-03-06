@@ -12,7 +12,21 @@ const ApplicationForm = ({ course, duration, onClose, onSuccess }) => {
     const [paymentMode, setPaymentMode] = useState('Installment');
 
     const formik = useFormik({
-        initialValues: { referralCode: '', message: '' },
+        enableReinitialize: true,
+        initialValues: {
+            name: user?.name || '',
+            email: user?.email || '',
+            phone: user?.phone || '',
+            referralCode: '',
+            message: ''
+        },
+        validate: (values) => {
+            const errors = {};
+            if (!values.name?.trim()) errors.name = 'Name is required';
+            if (!values.email?.trim()) errors.email = 'Email is required';
+            if (!values.phone?.trim()) errors.phone = 'Phone is required';
+            return errors;
+        },
         onSubmit: async (values, { setSubmitting }) => {
             if (!selectedBatch) {
                 toast.error('Please select a batch');
@@ -24,10 +38,10 @@ const ApplicationForm = ({ course, duration, onClose, onSuccess }) => {
                     courseId: course.id,
                     durationId: duration.id,
                     batchId: selectedBatch.id,
-                    name: user.name,
-                    email: user.email,
-                    phone: user.phone || '',
-                    message: values.message,
+                    name: values.name.trim(),
+                    email: values.email.trim(),
+                    phone: values.phone.trim(),
+                    message: values.message.trim(),
                     paymentMode,
                     referralCode: values.referralCode.trim() || null,
                 });
@@ -67,12 +81,55 @@ const ApplicationForm = ({ course, duration, onClose, onSuccess }) => {
                 </div>
 
                 <form onSubmit={formik.handleSubmit} className="p-md space-y-md">
-                    {/* Personal Info (read-only) */}
-                    <div className="bg-page-bg rounded-lg p-sm space-y-1 border border-border-default">
-                        <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-xs">Your Details</p>
-                        <div className="grid grid-cols-2 gap-xs text-sm text-text-primary">
-                            <div><span className="text-text-secondary">Name:</span> <span className="font-semibold">{user?.name}</span></div>
-                            <div><span className="text-text-secondary">Email:</span> <span className="font-semibold">{user?.email}</span></div>
+                    {/* Personal Info */}
+                    <div className="bg-page-bg rounded-lg p-sm space-y-sm border border-border-default">
+                        <p className="text-xs font-bold uppercase tracking-wider text-text-secondary">Your Details</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+                            <div>
+                                <label className="block text-xs font-semibold text-text-secondary mb-1">Name *</label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={formik.values.name}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                    placeholder="Your full name"
+                                    className={`w-full border rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none transition-colors duration-base ${formik.touched.name && formik.errors.name ? 'border-error' : 'border-border-default focus-visible:border-trust'}`}
+                                />
+                                {formik.touched.name && formik.errors.name && (
+                                    <p className="text-xs text-error mt-1">{formik.errors.name}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-text-secondary mb-1">Email *</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formik.values.email}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                    placeholder="name@example.com"
+                                    className={`w-full border rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none transition-colors duration-base ${formik.touched.email && formik.errors.email ? 'border-error' : 'border-border-default focus-visible:border-trust'}`}
+                                />
+                                {formik.touched.email && formik.errors.email && (
+                                    <p className="text-xs text-error mt-1">{formik.errors.email}</p>
+                                )}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-text-secondary mb-1">Phone *</label>
+                            <input
+                                type="tel"
+                                name="phone"
+                                value={formik.values.phone}
+                                onChange={formik.handleChange}
+                                onBlur={formik.handleBlur}
+                                placeholder="Enter phone number"
+                                className={`w-full border rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-muted focus-visible:outline-none transition-colors duration-base ${formik.touched.phone && formik.errors.phone ? 'border-error' : 'border-border-default focus-visible:border-trust'}`}
+                            />
+                            {formik.touched.phone && formik.errors.phone && (
+                                <p className="text-xs text-error mt-1">{formik.errors.phone}</p>
+                            )}
                         </div>
                     </div>
 

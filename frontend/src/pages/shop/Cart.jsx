@@ -62,6 +62,12 @@ const Cart = () => {
         }, 0)
     }, [cart])
 
+    const outOfStockItems = useMemo(
+        () => cart.filter(item => item.stock != null && item.stock <= 0),
+        [cart]
+    )
+    const hasOutOfStockItems = outOfStockItems.length > 0
+
     const deliveryProgress = Math.min(100, Math.round((subtotal / FREE_DELIVERY_THRESHOLD) * 100))
     const remainingForFreeDelivery = Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal)
 
@@ -157,6 +163,17 @@ const Cart = () => {
             </h1>
 
             {/* ─── Delivery Progress Bar ───────────────────────────── */}
+            {hasOutOfStockItems && (
+                <div className="bg-deal/10 border border-deal/30 rounded-lg p-md mb-lg">
+                    <p className="text-sm font-semibold text-deal">
+                        {outOfStockItems.length === 1 ? '1 item is' : `${outOfStockItems.length} items are`} out of stock in your cart.
+                    </p>
+                    <p className="text-sm text-text-secondary mt-xs">
+                        Remove them or save them for later before proceeding to checkout.
+                    </p>
+                </div>
+            )}
+
             {cart.length > 0 && (
                 <div className="bg-surface border border-border-default rounded-lg p-md mb-lg">
                     {remainingForFreeDelivery > 0 ? (
@@ -327,14 +344,22 @@ const Cart = () => {
                             {/* CTA */}
                             <button
                                 onClick={() => navigate('/checkout')}
-                                className="w-full bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold py-md rounded-lg text-sm flex items-center justify-center gap-sm transition-colors duration-base"
+                                disabled={hasOutOfStockItems}
+                                className={`w-full font-bold py-md rounded-lg text-sm flex items-center justify-center gap-sm transition-colors duration-base ${hasOutOfStockItems
+                                    ? 'bg-border-default text-text-muted cursor-not-allowed'
+                                    : 'bg-buy-primary hover:bg-buy-primary-hover text-text-primary'
+                                    }`}
                             >
-                                Proceed to Buy ({totalItems} item{totalItems > 1 ? 's' : ''})
+                                {hasOutOfStockItems
+                                    ? 'Remove unavailable items to continue'
+                                    : `Proceed to Buy (${totalItems} item${totalItems > 1 ? 's' : ''})`}
                                 <ArrowRight size={16} />
                             </button>
 
                             <p className="text-xs text-center text-text-muted">
-                                Secure Checkout powered by TechNova
+                                {hasOutOfStockItems
+                                    ? 'Checkout is disabled while unavailable items remain in your cart.'
+                                    : 'Secure Checkout powered by TechNova'}
                             </p>
                         </div>
                     </div>
@@ -382,9 +407,9 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
     const isLowStock = item.stock != null && item.stock > 0 && item.stock < 5
 
     return (
-        <div className="bg-surface border border-border-default rounded-lg p-md flex flex-wrap sm:flex-nowrap gap-md">
+        <div className={`rounded-lg p-md flex flex-wrap sm:flex-nowrap gap-md border ${inStock ? 'bg-surface border-border-default' : 'bg-deal/5 border-deal/30'}`}>
             {/* Image */}
-            <Link to={`/products/${item.id}`} className="w-[100px] h-[100px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0">
+            <Link to={`/products/${item.id}`} className={`w-[100px] h-[100px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0 ${inStock ? '' : 'opacity-60'}`}>
                 <img
                     src={item.image}
                     alt={item.title}
@@ -410,7 +435,12 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
 
                 {/* Stock badge */}
                 {!inStock ? (
-                    <p className="text-xs text-deal font-medium mt-xs">Out of Stock</p>
+                    <div className="mt-xs">
+                        <p className="text-xs text-deal font-medium">Out of Stock</p>
+                        <p className="text-xs text-text-muted mt-1">
+                            This item is unavailable. Remove it or save it for later to continue.
+                        </p>
+                    </div>
                 ) : isLowStock ? (
                     <p className="text-xs text-urgency font-medium mt-xs">Only {item.stock} left in stock</p>
                 ) : (
@@ -430,6 +460,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
                         value={item.quantity}
                         onChange={(newQty) => onQuantityChange(item.uniqueId, newQty)}
                         max={item.stock != null ? item.stock : undefined}
+                        disabled={!inStock}
                     />
                     <span className="text-border-default">|</span>
                     <button onClick={onRemove} className="text-xs text-trust hover:underline">
