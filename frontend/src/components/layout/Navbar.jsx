@@ -43,23 +43,41 @@ const Navbar = () => {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
+    const currentSearchContext = useMemo(() => {
+        if (location.pathname.startsWith('/courses')) {
+            return { path: '/courses', placeholder: 'Search courses...' };
+        }
+
+        if (location.pathname.startsWith('/services')) {
+            return { path: '/services', placeholder: 'Search services...' };
+        }
+
+        return { path: '/products', placeholder: 'Search products...' };
+    }, [location.pathname]);
+
     useEffect(() => {
-        if (location.pathname !== '/products') return;
+        const isSearchablePage = ['/products', '/courses', '/services']
+            .some((path) => location.pathname.startsWith(path));
+        if (!isSearchablePage) return;
 
         const nextQuery = debouncedSearchQuery.trim();
         const currentQuery = searchParams.get('q') || '';
         if (nextQuery === currentQuery) return;
 
-        const nextPath = nextQuery ? `/products?q=${encodeURIComponent(nextQuery)}` : '/products';
+        const nextPath = nextQuery
+            ? `${currentSearchContext.path}?q=${encodeURIComponent(nextQuery)}`
+            : currentSearchContext.path;
         navigate(nextPath, { replace: true });
-    }, [debouncedSearchQuery, location.pathname, navigate, searchParams]);
+    }, [currentSearchContext.path, debouncedSearchQuery, location.pathname, navigate, searchParams]);
 
     const handleSearch = useCallback((e) => {
         e.preventDefault();
-        if (searchQuery.trim()) {
-            navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
-        }
-    }, [navigate, searchQuery]);
+        const nextQuery = searchQuery.trim();
+        const nextPath = nextQuery
+            ? `${currentSearchContext.path}?q=${encodeURIComponent(nextQuery)}`
+            : currentSearchContext.path;
+        navigate(nextPath);
+    }, [currentSearchContext.path, navigate, searchQuery]);
 
     const handleMarkAllRead = useCallback(async () => {
         try {
@@ -91,7 +109,7 @@ const Navbar = () => {
                     <form onSubmit={handleSearch} className="relative w-full">
                         <input
                             type="text"
-                            placeholder="Search products..."
+                            placeholder={currentSearchContext.placeholder}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-4 pr-10 py-2 bg-surface border border-border-default rounded-lg text-sm text-text-primary focus:outline-none focus:border-trust focus:ring-2 focus:ring-trust/20 transition-all"

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, Clock, Users, ChevronRight, GraduationCap, Award } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { coursesAPI } from '../../lib/api';
@@ -10,6 +10,7 @@ const Courses = () => {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [category, setCategory] = useState('All');
+    const [searchParams] = useSearchParams();
 
     useEffect(() => {
         coursesAPI.getAll()
@@ -18,8 +19,16 @@ const Courses = () => {
             .finally(() => setLoading(false));
     }, []);
 
+    const searchQuery = (searchParams.get('q') || '').trim().toLowerCase();
     const categories = ['All', ...new Set(courses.map(c => c.category))];
-    const filtered = category === 'All' ? courses : courses.filter(c => c.category === category);
+    const filtered = useMemo(() => {
+        return courses.filter((course) => {
+            const matchesCategory = category === 'All' || course.category === category;
+            const courseName = (course.title || course.name || '').toLowerCase();
+            const matchesSearch = !searchQuery || courseName.includes(searchQuery);
+            return matchesCategory && matchesSearch;
+        });
+    }, [category, courses, searchQuery]);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center">
@@ -68,8 +77,12 @@ const Courses = () => {
                 {filtered.length === 0 ? (
                     <div className="text-center py-xl bg-surface border border-dashed border-border-default rounded-lg">
                         <BookOpen size={48} className="mx-auto text-text-muted mb-sm" />
-                        <h3 className="text-base font-bold text-text-primary">No courses available yet</h3>
-                        <p className="text-sm text-text-secondary mt-1">Check back soon!</p>
+                        <h3 className="text-base font-bold text-text-primary">
+                            {searchQuery ? 'No matching courses found' : 'No courses available yet'}
+                        </h3>
+                        <p className="text-sm text-text-secondary mt-1">
+                            {searchQuery ? 'Try a different search term or category.' : 'Check back soon!'}
+                        </p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">

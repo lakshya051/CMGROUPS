@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import {
     Wrench, Monitor, Cpu, CheckCircle, Calendar, X, MapPin, Phone, User,
@@ -60,6 +61,7 @@ const Services = () => {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [slotsLoading, setSlotsLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
+    const [searchParams] = useSearchParams();
 
     const deviceTypes = ['Laptop', 'Desktop', 'Printer', 'Monitor', 'Other'];
     const deviceBrands = ['HP', 'Dell', 'Lenovo', 'Asus', 'Acer', 'Apple', 'Samsung', 'MSI', 'Other'];
@@ -81,6 +83,14 @@ const Services = () => {
             .catch(() => setServices(defaultServices))
             .finally(() => setPageLoading(false));
     }, []);
+
+    const searchQuery = (searchParams.get('q') || '').trim().toLowerCase();
+    const filteredServices = useMemo(() => {
+        return services.filter((service) => {
+            const serviceName = (service.title || service.name || '').toLowerCase();
+            return !searchQuery || serviceName.includes(searchQuery);
+        });
+    }, [searchQuery, services]);
 
     const formik = useFormik({
         initialValues: {
@@ -197,8 +207,19 @@ const Services = () => {
                             <h2 className="text-2xl font-bold text-text-primary mb-2">Our Services</h2>
                             <p className="text-text-muted">Pick a service and book your slot in seconds.</p>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {services.map(service => (
+                        {filteredServices.length === 0 ? (
+                            <div className="bg-surface border border-dashed border-border-default rounded-xl p-10 text-center">
+                                <Wrench size={40} className="mx-auto text-text-muted mb-3" />
+                                <h3 className="text-lg font-bold text-text-primary">
+                                    {searchQuery ? 'No matching services found' : 'No services available right now'}
+                                </h3>
+                                <p className="text-sm text-text-muted mt-2">
+                                    {searchQuery ? 'Try a different search term.' : 'Please check back shortly.'}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredServices.map(service => (
                                 <div key={service.id}
                                     className="group bg-surface border border-border-default rounded-xl p-6 hover:border-trust/40 hover:shadow-lg transition-all duration-300 flex flex-col">
                                     {/* Icon */}
@@ -243,7 +264,8 @@ const Services = () => {
                                     </div>
                                 </div>
                             ))}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
