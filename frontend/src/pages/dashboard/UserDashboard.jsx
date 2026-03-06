@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Package, ArrowUpRight, Clock, ShoppingBag, TrendingUp } from 'lucide-react';
+import { Package, ArrowRight, ArrowUpRight, ShoppingBag, TrendingUp, Store, Wrench } from 'lucide-react';
 import { ordersAPI } from '../../lib/api';
 import { Link } from 'react-router-dom';
 
@@ -13,6 +13,30 @@ const StatCard = ({ title, value, icon, trend }) => (
         <div className="flex items-end gap-2">
             <span className="text-2xl font-bold text-text-primary">{value}</span>
             {trend && <span className="text-sm text-success mb-1 flex items-center font-bold">{trend} <ArrowUpRight size={14} /></span>}
+        </div>
+    </div>
+);
+
+const QuickActionCard = ({ to, icon, eyebrow, title, description, cta }) => (
+    <div className="bg-surface border border-border-default rounded-xl p-5 shadow-sm h-full">
+        <div className="flex h-full flex-col gap-4">
+            <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-trust/10 text-trust border border-trust/20">
+                    {icon}
+                </div>
+                <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-trust mb-1">{eyebrow}</p>
+                    <h2 className="text-lg font-bold text-text-primary">{title}</h2>
+                    <p className="text-sm text-text-secondary mt-1">{description}</p>
+                </div>
+            </div>
+            <Link
+                to={to}
+                className="mt-auto inline-flex items-center justify-center gap-2 self-start rounded-lg border border-trust/30 bg-trust/10 px-4 py-2.5 text-sm font-semibold text-trust transition-colors hover:bg-trust/15"
+            >
+                <span>{cta}</span>
+                <ArrowRight size={16} />
+            </Link>
         </div>
     </div>
 );
@@ -42,11 +66,28 @@ const UserDashboard = () => {
 
     return (
         <div className="space-y-lg">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-text-primary mb-1">Welcome back, {user?.name?.split(' ')[0]}!</h1>
-                    <p className="text-sm text-text-secondary">Here's what's happening with your account.</p>
-                </div>
+            <div>
+                <h1 className="text-2xl font-bold text-text-primary mb-1">Welcome back, {user?.name?.split(' ')[0]}!</h1>
+                <p className="text-sm text-text-secondary">Here's what's happening with your account.</p>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <QuickActionCard
+                    to="/products"
+                    icon={<Store size={22} />}
+                    eyebrow="Shop Access"
+                    title="Browse products from your dashboard"
+                    description="Quick access to the store without leaving your customer area."
+                    cta="Browse Shop"
+                />
+                <QuickActionCard
+                    to="/services"
+                    icon={<Wrench size={22} />}
+                    eyebrow="Service Access"
+                    title="Book support and repair services"
+                    description="Create a service request quickly for installation, repair, or onsite help."
+                    cta="Book My Service"
+                />
             </div>
 
             {/* Stats Grid */}

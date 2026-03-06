@@ -20,7 +20,8 @@ import {
     FileText,
     Menu,
     X,
-    Image
+    Image,
+    ArrowRight
 } from 'lucide-react';
 import PointsBadge from '../ui/PointsBadge';
 
@@ -44,8 +45,20 @@ const DashboardLayout = ({ role = 'customer' }) => {
     ];
 
     const shopLinks = [
-        { name: 'Browse Shop', path: '/products', icon: <Store size={20} /> },
-        { name: 'Book a Service', path: '/services', icon: <Wrench size={20} /> },
+        {
+            name: 'Browse Shop',
+            path: '/products',
+            icon: <Store size={20} />,
+            featured: true,
+            description: 'See the latest products and offers',
+        },
+        {
+            name: 'Book My Service',
+            path: '/services',
+            icon: <Wrench size={20} />,
+            featured: true,
+            description: 'Schedule support and repairs quickly',
+        },
     ];
 
     const adminLinks = [
@@ -86,6 +99,52 @@ const DashboardLayout = ({ role = 'customer' }) => {
 
             {/* Nav links */}
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                {/* Shop quick links for customers */}
+                {role === 'customer' && (
+                    <div className="mb-4 space-y-2">
+                        <p className="px-4 text-xs text-text-muted uppercase tracking-wider mb-2">Quick Links</p>
+                        {shopLinks.map(link => (
+                            <NavLink
+                                key={link.path}
+                                to={link.path}
+                                onClick={() => setSidebarOpen(false)}
+                                className={({ isActive }) =>
+                                    `group relative flex items-center gap-3 overflow-hidden rounded-2xl border px-4 py-4 transition-all ${isActive
+                                        ? 'border-trust/40 bg-trust/10 text-trust shadow-sm'
+                                        : 'border-trust/20 bg-surface text-text-primary hover:border-trust/40 hover:bg-surface-hover'
+                                    }`
+                                }
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors ${isActive
+                                            ? 'border-trust/30 bg-trust/15 text-trust'
+                                            : 'border-trust/20 bg-trust/10 text-trust group-hover:bg-trust/15'
+                                        }`}>
+                                            {link.icon}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-semibold tracking-wide ${isActive ? 'text-trust' : 'text-text-primary'}`}>{link.name}</span>
+                                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.2em] ${isActive
+                                                    ? 'bg-trust/15 text-trust'
+                                                    : 'bg-page-bg text-text-muted border border-border-default'
+                                                }`}>
+                                                    Quick
+                                                </span>
+                                            </div>
+                                            <p className={`mt-1 text-xs ${isActive ? 'text-trust/80' : 'text-text-muted'}`}>
+                                                {link.description}
+                                            </p>
+                                        </div>
+                                        <ArrowRight size={18} className={`shrink-0 transition-transform duration-200 group-hover:translate-x-1 ${isActive ? 'text-trust' : 'text-text-muted'}`} />
+                                    </>
+                                )}
+                            </NavLink>
+                        ))}
+                    </div>
+                )}
+
                 {links.map(link => (
                     <NavLink
                         key={link.path}
@@ -103,24 +162,6 @@ const DashboardLayout = ({ role = 'customer' }) => {
                         <span>{link.name}</span>
                     </NavLink>
                 ))}
-
-                {/* Shop quick links for customers */}
-                {role === 'customer' && (
-                    <div className="mt-4 pt-4 border-t border-border-default space-y-1">
-                        <p className="px-4 text-xs text-text-muted uppercase tracking-wider mb-2">Quick Links</p>
-                        {shopLinks.map(link => (
-                            <NavLink
-                                key={link.path}
-                                to={link.path}
-                                onClick={() => setSidebarOpen(false)}
-                                className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-text-muted hover:bg-surface-hover hover:text-text-primary"
-                            >
-                                {link.icon}
-                                <span>{link.name}</span>
-                            </NavLink>
-                        ))}
-                    </div>
-                )}
             </nav>
 
             {/* User footer */}
