@@ -55,3 +55,4 @@ tmp/
 temp/
 
 backend/serviceAccountKey.json
+frontend/android/google-services.json
