@@ -17,6 +17,7 @@
     "@capacitor/android": "^8.1.0",
     "@capacitor/core": "^8.1.0",
     "@capacitor/ios": "^8.1.0",
+    "@capacitor/push-notifications": "^8.0.2",
     "@capacitor/status-bar": "^8.0.1",
     "@clerk/clerk-react": "^5.61.2",
     "clsx": "^2.0.0",

@@ -34,6 +34,7 @@ model User {
   walletTransactions WalletTransaction[]
   productAlerts      ProductAlert[]
   notifications      Notification[]
+  deviceRegistrations DeviceRegistration[]
   wishlists          Wishlist[]
   cartItems          CartItem[]
   addresses          Address[]
@@ -521,6 +522,20 @@ model Notification {
 
   @@index([userId])
   @@index([userId, isRead])
+}
+
+model DeviceRegistration {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  platform   String
+  token      String   @unique
+  isActive   Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, platform, isActive])
 }
 
 model ReferralSettings {

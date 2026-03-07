@@ -5,6 +5,7 @@ import { sendServiceBookingEmail } from '../utils/emailNotifications.js';
 import { sendServiceNotification } from '../utils/serviceNotifications.js';
 import { calculateReferralReward } from '../utils/referralHelper.js';
 import { generateServiceInvoicePdf } from '../utils/serviceInvoiceGenerator.js';
+import { createUserNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -469,14 +470,16 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
             // In-app notification
             try {
-                await prisma.notification.create({
-                    data: {
-                        userId: booking.user.id,
-                        title: 'Service Status Updated',
-                        message: `Your service request SRV-${booking.id} is now ${status}.`,
-                        type: 'service',
-                        link: `/dashboard/services`
-                    }
+                await createUserNotification({
+                    userId: booking.user.id,
+                    title: 'Service Status Updated',
+                    message: `Your service request SRV-${booking.id} is now ${status}.`,
+                    type: 'service',
+                    link: '/dashboard/services',
+                    push: {
+                        enabled: true,
+                        body: `Your service request SRV-${booking.id} is now ${status}.`,
+                    },
                 });
             } catch (notifErr) {
                 console.error('In-app notification error:', notifErr);
@@ -643,14 +646,16 @@ router.post('/:id/verify-otp', protect, async (req, res) => {
 
         // In-app notification
         try {
-            await prisma.notification.create({
-                data: {
-                    userId: booking.userId,
-                    title: 'Device Picked Up',
-                    message: `Your device for SRV-${bookingId} has been picked up. Repair has started.`,
-                    type: 'service',
-                    link: `/dashboard/services`
-                }
+            await createUserNotification({
+                userId: booking.userId,
+                title: 'Device Picked Up',
+                message: `Your device for SRV-${bookingId} has been picked up. Repair has started.`,
+                type: 'service',
+                link: '/dashboard/services',
+                push: {
+                    enabled: true,
+                    body: `Repair work has started for SRV-${bookingId}.`,
+                },
             });
         } catch (_notifErr) { /* non-blocking */ }
 
@@ -695,6 +700,22 @@ router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
 
         // Send notification with new OTP (notification fn reads from booking.pickupOtp)
         await sendServiceNotification(updated, 'Confirmed');
+
+        try {
+            await createUserNotification({
+                userId: updated.userId,
+                title: 'Pickup OTP Updated',
+                message: `A new pickup OTP has been generated for SRV-${bookingId}. Check TechNova before technician pickup.`,
+                type: 'service',
+                link: '/dashboard/services',
+                push: {
+                    enabled: true,
+                    body: `A new pickup OTP is available in TechNova for SRV-${bookingId}.`,
+                },
+            });
+        } catch (notifErr) {
+            console.error('Pickup OTP notification error:', notifErr);
+        }
 
         // Return safe response (no OTP)
         const { pickupOtp: _otp, ...safeBooking } = updated;

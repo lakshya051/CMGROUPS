@@ -6,6 +6,7 @@ import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useShop } from '../../context/ShopContext';
 import { categoriesAPI, notificationsAPI } from '../../lib/api';
+import { getNotificationsRefreshEventName } from '../../lib/pushNotifications';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -23,15 +24,38 @@ const Navbar = () => {
     const [syncing, setSyncing] = useState(false);
     const { cart } = useShop();
 
+    const loadNotifications = useCallback(() => {
+        if (!user) {
+            setNotifications([]);
+            setUnreadCount(0);
+            return;
+        }
+
+        notificationsAPI.getAll().then(res => {
+            setNotifications(res.notifications);
+            setUnreadCount(res.unreadCount);
+        }).catch(console.error);
+    }, [user]);
+
     React.useEffect(() => {
         categoriesAPI.getAll().then(setCategories).catch(console.error);
-        if (user) {
-            notificationsAPI.getAll().then(res => {
-                setNotifications(res.notifications);
-                setUnreadCount(res.unreadCount);
-            }).catch(console.error);
-        }
-    }, [user]);
+    }, []);
+
+    React.useEffect(() => {
+        loadNotifications();
+    }, [loadNotifications]);
+
+    React.useEffect(() => {
+        const eventName = getNotificationsRefreshEventName();
+        const handleRefresh = () => {
+            loadNotifications();
+        };
+
+        window.addEventListener(eventName, handleRefresh);
+        return () => {
+            window.removeEventListener(eventName, handleRefresh);
+        };
+    }, [loadNotifications]);
 
     useEffect(() => {
         const queryFromUrl = searchParams.get('q') || '';
@@ -356,7 +380,7 @@ const Navbar = () => {
                                     setSyncing(true);
                                     const ok = await refreshUser();
                                     setSyncing(false);
-                                    if (!ok) logout();
+                                    if (!ok) void logout();
                                 }}
                                 disabled={syncing}
                                 className="text-xs text-trust hover:underline disabled:opacity-50"
@@ -364,7 +388,7 @@ const Navbar = () => {
                                 {syncing ? 'Syncing...' : 'Retry Login'}
                             </button>
                             <button
-                                onClick={logout}
+                                onClick={() => { void logout(); }}
                                 className="text-xs text-text-muted hover:text-error transition-colors"
                                 title="Sign out and try again"
                             >
@@ -411,7 +435,7 @@ const Navbar = () => {
                                 </Button>
                             </Link>
                             <button
-                                onClick={() => { logout(); setIsOpen(false); }}
+                                onClick={() => { void logout(); setIsOpen(false); }}
                                 className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-text-muted hover:text-error rounded-lg transition-colors"
                             >
                                 <LogOut size={16} /> Logout
@@ -432,7 +456,7 @@ const Navbar = () => {
                                 {syncing ? 'Syncing...' : 'Retry Login'}
                             </button>
                             <button
-                                onClick={() => { logout(); setIsOpen(false); }}
+                                onClick={() => { void logout(); setIsOpen(false); }}
                                 className="w-full text-sm text-text-muted hover:text-error transition-colors flex items-center justify-center gap-1"
                             >
                                 <LogOut size={14} /> Sign Out & Try Again
