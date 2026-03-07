@@ -205,7 +205,17 @@ export const alertsAPI = {
 export const notificationsAPI = {
     getAll: () => apiFetch('/notifications'),
     markRead: (id) => apiFetch(`/notifications/${id}/read`, { method: 'PATCH' }),
-    markAllRead: () => apiFetch('/notifications/read-all', { method: 'POST' })
+    markAllRead: () => apiFetch('/notifications/read-all', { method: 'POST' }),
+    registerDevice: (token, platform = 'android') =>
+        apiFetch('/notifications/device', {
+            method: 'PUT',
+            body: JSON.stringify({ token, platform })
+        }),
+    unregisterDevice: (token) =>
+        apiFetch('/notifications/device', {
+            method: 'DELETE',
+            body: JSON.stringify({ token })
+        })
 };
 
 // ============ REVIEWS ============

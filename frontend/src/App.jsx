@@ -9,6 +9,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import { useDataSeeder } from './hooks/useDataSeeder';
 import { Toaster } from 'react-hot-toast';
 import CompareWidget from './components/shop/CompareWidget';
+import PushNotificationsBridge from './components/system/PushNotificationsBridge';
 
 // After a new deployment, old cached JS may reference chunk filenames that
 // no longer exist. This wrapper retries by reloading the page once.
@@ -84,6 +85,7 @@ function App() {
     return (
         <AuthProvider>
             <ShopProvider>
+                <PushNotificationsBridge />
                 <Toaster position="top-center" />
                 <CompareWidget />
                 <Suspense fallback={<PageLoader />}>

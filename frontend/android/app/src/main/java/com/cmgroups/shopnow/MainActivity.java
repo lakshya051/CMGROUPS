@@ -1,4 +1,4 @@
-package com.cmgroups.technova;
+package com.cmgroups.shopnow;
 
 import com.getcapacitor.BridgeActivity;
 

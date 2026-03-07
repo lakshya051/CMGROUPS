@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "883268541386",
+    "project_id": "cmgroups-78dbb",
+    "storage_bucket": "cmgroups-78dbb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:883268541386:android:8b891729a70aa9781dcd33",
+        "android_client_info": {
+          "package_name": "com.cmgroups.shopnow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVDWcE_-rE6-15_w-RLnSn12EMMoWQxRs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

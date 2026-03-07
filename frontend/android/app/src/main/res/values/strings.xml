@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">TechNova</string>
-    <string name="title_activity_main">TechNova</string>
-    <string name="package_name">com.cmgroups.technova</string>
-    <string name="custom_url_scheme">com.cmgroups.technova</string>
+    <string name="app_name">technova</string>
+    <string name="title_activity_main">technova</string>
+    <string name="package_name">com.cmgroups.shopnow</string>
+    <string name="custom_url_scheme">com.cmgroups.shopnow</string>
 </resources>

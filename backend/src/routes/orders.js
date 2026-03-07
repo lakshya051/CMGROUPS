@@ -5,6 +5,7 @@ import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
 import { sendOrderConfirmationEmail } from '../utils/emailNotifications.js';
 import { generateInvoice } from '../utils/invoiceGenerator.js';
 import { calculateOrderReferralPoints } from '../utils/referralHelper.js';
+import { createUserNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -348,14 +349,17 @@ router.post('/', optionalProtect, async (req, res) => {
             }
 
             if (userId && order.paymentOtp) {
-                prisma.notification.create({
-                    data: {
-                        userId,
-                        title: `Payment OTP for Order #${order.id}`,
-                        message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
-                        type: 'order',
-                        link: '/dashboard/orders'
-                    }
+                createUserNotification({
+                    userId,
+                    title: `Payment OTP for Order #${order.id}`,
+                    message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
+                    type: 'order',
+                    link: '/dashboard/orders',
+                    push: {
+                        enabled: true,
+                        title: 'Payment OTP Ready',
+                        body: 'Your payment OTP is available in TechNova.',
+                    },
                 }).catch((notifErr) => {
                     console.error('Order OTP notification error (non-blocking):', notifErr);
                 });
@@ -705,14 +709,16 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
         // Send In-App Notification
         try {
-            await prisma.notification.create({
-                data: {
-                    userId: order.userId,
-                    title: 'Order Status Updated',
-                    message: `Your order #${order.id} is now ${status}.`,
-                    type: 'order',
-                    link: `/dashboard/orders`
-                }
+            await createUserNotification({
+                userId: order.userId,
+                title: 'Order Status Updated',
+                message: `Your order #${order.id} is now ${status}.`,
+                type: 'order',
+                link: '/dashboard/orders',
+                push: {
+                    enabled: true,
+                    body: `Your order #${order.id} is now ${status}.`,
+                },
             });
         } catch (notifErr) {
             console.error('In-app notification error:', notifErr);
@@ -861,6 +867,25 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                 // SMS disabled
             } catch (notifErr) {
                 console.error('Order notification error (non-blocking):', notifErr);
+            }
+        }
+
+        if (order.userId) {
+            try {
+                await createUserNotification({
+                    userId: order.userId,
+                    title: 'Payment Verified',
+                    message: `Payment received for order #${order.id}. Your order is now ${updatedOrder.status}.`,
+                    type: 'order',
+                    link: '/dashboard/orders',
+                    push: {
+                        enabled: true,
+                        title: 'Order Confirmed',
+                        body: `Payment received for order #${order.id}.`,
+                    },
+                });
+            } catch (notifErr) {
+                console.error('Payment verification notification error:', notifErr);
             }
         }
 

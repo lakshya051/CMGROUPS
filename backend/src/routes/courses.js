@@ -4,6 +4,7 @@ import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { generateCertificate } from '../utils/certificateGenerator.js';
 import { calculateReferralReward } from '../utils/referralHelper.js';
+import { createUserNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -290,14 +291,16 @@ router.patch('/applications/:id/status', protect, adminOnly, async (req, res) =>
         });
 
         // Notify student
-        await prisma.notification.create({
-            data: {
-                userId: app.userId,
-                title: `Course Application ${status}`,
-                message: `Your application for ${app.course.title} is now ${status}.`,
-                type: 'course',
-                link: '/dashboard/courses'
-            }
+        await createUserNotification({
+            userId: app.userId,
+            title: `Course Application ${status}`,
+            message: `Your application for ${app.course.title} is now ${status}.`,
+            type: 'course',
+            link: '/dashboard/courses',
+            push: {
+                enabled: true,
+                body: `Your application for ${app.course.title} is now ${status}.`,
+            },
         }).catch(() => { });
 
         res.json(app);
@@ -394,14 +397,16 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
         });
 
         // Notify student
-        await prisma.notification.create({
-            data: {
-                userId: application.userId,
-                title: 'Fee Payment Recorded',
+        await createUserNotification({
+            userId: application.userId,
+            title: 'Fee Payment Recorded',
                 message: `₹${amount} payment received for ${application.course.title}.`,
-                type: 'course',
-                link: '/dashboard/courses'
-            }
+            type: 'course',
+            link: '/dashboard/courses',
+            push: {
+                enabled: true,
+                body: `Payment recorded for ${application.course.title}.`,
+            },
         }).catch(() => { });
 
         res.status(201).json(payment);

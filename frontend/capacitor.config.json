@@ -1,6 +1,6 @@
 {
-  "appId": "com.cmgroups.technova",
-  "appName": "TechNova",
+  "appId": "com.cmgroups.shopnow",
+  "appName": "technova",
   "webDir": "dist",
   "server": {
     "url": "https://cmgroups.vercel.app/",
