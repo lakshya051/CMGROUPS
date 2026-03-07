@@ -84,6 +84,11 @@ const Checkout = () => {
     const [saveAddressChecked, setSaveAddressChecked] = useState(false);
     const [addressLabel, setAddressLabel] = useState('');
 
+    const resetSaveAddressState = () => {
+        setSaveAddressChecked(false);
+        setAddressLabel('');
+    };
+
     // ── Fetch saved addresses on mount ──────────────────────────────────────
     useEffect(() => {
         if (!user) return;
@@ -117,6 +122,14 @@ const Checkout = () => {
         onSubmit: () => setStep(2),
     });
 
+    const handleDeliveryFieldChange = (e) => {
+        if (selectedAddressId !== null) {
+            setSelectedAddressId(null);
+            resetSaveAddressState();
+        }
+        formik.handleChange(e);
+    };
+
     // ── GPS detection ────────────────────────────────────────────────────────
     const detectLocation = () => {
         if (!navigator.geolocation) {
@@ -147,6 +160,7 @@ const Checkout = () => {
     // ── Apply saved address to form ──────────────────────────────────────────
     const applyAddress = (addr) => {
         setSelectedAddressId(addr.id);
+        resetSaveAddressState();
         formik.setFieldValue('addressLine', addr.address);
         formik.setFieldValue('city', addr.city);
         formik.setFieldValue('postalCode', addr.pincode);
@@ -154,9 +168,11 @@ const Checkout = () => {
 
         if (addr.latitude && addr.longitude) {
             setGps({ lat: addr.latitude, lng: addr.longitude });
+            setManualLink('');
             setLocationStatus('success');
             setLocationMode('gps');
         } else if (addr.googleMapLink) {
+            setGps({ lat: null, lng: null });
             setManualLink(addr.googleMapLink);
             setLocationMode('link');
             setLocationStatus('idle');
@@ -164,6 +180,7 @@ const Checkout = () => {
             setLocationMode('gps');
             setLocationStatus('idle');
             setGps({ lat: null, lng: null });
+            setManualLink('');
         }
     };
 
@@ -195,7 +212,7 @@ const Checkout = () => {
             };
 
             // 1. Save address if checkbox is ticked
-            if (saveAddressChecked && user) {
+            if (saveAddressChecked && user && !selectedAddressId) {
                 const locationPayloadForSave = {
                     label: addressLabel.trim() || null,
                     address: formik.values.addressLine,
@@ -400,13 +417,16 @@ const Checkout = () => {
                                 <input
                                     type="tel"
                                     name="phone"
-                                    placeholder="Phone Number"
-                                    className="input-field"
+                                    placeholder="Phone Number *"
+                                    className={`input-field ${formik.touched.phone && formik.errors.phone ? 'border-red-500' : ''}`}
                                     value={formik.values.phone}
-                                    onChange={formik.handleChange}
+                                    onChange={handleDeliveryFieldChange}
                                     onBlur={formik.handleBlur}
                                     readOnly={step !== 1}
                                 />
+                                {formik.touched.phone && formik.errors.phone && (
+                                    <p className="text-red-400 text-sm mt-1">{formik.errors.phone}</p>
+                                )}
                             </div>
 
                             {/* Address */}
@@ -417,7 +437,7 @@ const Checkout = () => {
                                     placeholder="Address Line *"
                                     className={`input-field ${formik.touched.addressLine && formik.errors.addressLine ? 'border-red-500' : ''}`}
                                     value={formik.values.addressLine}
-                                    onChange={formik.handleChange}
+                                    onChange={handleDeliveryFieldChange}
                                     onBlur={formik.handleBlur}
                                     readOnly={step !== 1}
                                 />
@@ -510,7 +530,7 @@ const Checkout = () => {
                                         placeholder="City *"
                                         className={`input-field ${formik.touched.city && formik.errors.city ? 'border-red-500' : ''}`}
                                         value={formik.values.city}
-                                        onChange={formik.handleChange}
+                                        onChange={handleDeliveryFieldChange}
                                         onBlur={formik.handleBlur}
                                         readOnly={step !== 1}
                                     />
@@ -524,7 +544,7 @@ const Checkout = () => {
                                     placeholder="State"
                                     className="input-field"
                                     value={formik.values.state}
-                                    onChange={formik.handleChange}
+                                    onChange={handleDeliveryFieldChange}
                                     onBlur={formik.handleBlur}
                                     readOnly={step !== 1}
                                 />
@@ -535,7 +555,7 @@ const Checkout = () => {
                                         placeholder="PIN Code *"
                                         className={`input-field ${formik.touched.postalCode && formik.errors.postalCode ? 'border-red-500' : ''}`}
                                         value={formik.values.postalCode}
-                                        onChange={formik.handleChange}
+                                        onChange={handleDeliveryFieldChange}
                                         onBlur={formik.handleBlur}
                                         readOnly={step !== 1}
                                     />
@@ -648,27 +668,35 @@ const Checkout = () => {
                                 {/* ── Save Address Checkbox (Phase 3) ── */}
                                 {user && (
                                     <div className="border border-border-default rounded-xl p-4 space-y-3">
-                                        <label className="flex items-center gap-3 cursor-pointer select-none">
-                                            <input
-                                                type="checkbox"
-                                                className="w-4 h-4 rounded accent-trust cursor-pointer"
-                                                checked={saveAddressChecked}
-                                                onChange={(e) => setSaveAddressChecked(e.target.checked)}
-                                            />
-                                            <div>
-                                                <span className="font-semibold text-sm text-text-primary">Save this address for future orders</span>
-                                                <p className="text-xs text-text-muted">Quickly auto-fill next time</p>
+                                        {selectedAddressId ? (
+                                            <div className="text-sm text-text-secondary">
+                                                Using a saved address. Edit the delivery fields above if you want to save this as a new address.
                                             </div>
-                                        </label>
-                                        {saveAddressChecked && (
-                                            <input
-                                                type="text"
-                                                placeholder="Label (e.g. Home, Office)"
-                                                className="input-field text-sm"
-                                                value={addressLabel}
-                                                onChange={(e) => setAddressLabel(e.target.value)}
-                                                maxLength={30}
-                                            />
+                                        ) : (
+                                            <>
+                                                <label className="flex items-center gap-3 cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 rounded accent-trust cursor-pointer"
+                                                        checked={saveAddressChecked}
+                                                        onChange={(e) => setSaveAddressChecked(e.target.checked)}
+                                                    />
+                                                    <div>
+                                                        <span className="font-semibold text-sm text-text-primary">Save this address for future orders</span>
+                                                        <p className="text-xs text-text-muted">Quickly auto-fill next time</p>
+                                                    </div>
+                                                </label>
+                                                {saveAddressChecked && (
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Label (e.g. Home, Office)"
+                                                        className="input-field text-sm"
+                                                        value={addressLabel}
+                                                        onChange={(e) => setAddressLabel(e.target.value)}
+                                                        maxLength={30}
+                                                    />
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 )}
