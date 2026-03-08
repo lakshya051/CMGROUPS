@@ -1,267 +1,330 @@
-# Referral System Audit & Fix Plan
-
-After fully auditing all three referral flows (Products, Services, Courses), here is a complete breakdown of what works, what is broken, and what needs to be fixed.
+# TechNova — PWA + TWA + Play Store Implementation Plan
 
 ---
 
-## Summary of Findings
+## YOUR ONLY JOB IS TO PRODUCE A PLAN
 
-### ✅ What Works
-
-| Area | Status |
-|------|--------|
-| **Products** — referral code validated at checkout | ✅ Works |
-| **Products** — `referralCodeUsed` saved to Order | ✅ Works |
-| **Products** — points awarded on Delivered + isPaid (instant path for non-returnable items) | ✅ Works |
-| **Products** — both referrer and referee credited | ✅ Works |
-| **Courses** — referral code saved to `CourseApplication.referralCode` | ✅ Works |
-| **Courses** — points awarded on first fee payment | ✅ Works |
-| **Courses** — both referrer and referee get wallet + WalletTransaction | ✅ Works |
-| **Services** — referral code validated and saved to `referralCodeUsed` | ✅ Works |
+Do not install anything. Do not write any code. Do not modify any file.
+Read the entire codebase, assess what exists, and produce one detailed plan document.
+Nothing gets built until I approve the plan.
 
 ---
 
-### ❌ Bugs Found
+## PLATFORM COVERAGE THIS PLAN TARGETS
 
-#### Bug 1 — Services: Referral NEVER triggered (Critical)
-**File:** [services.js](file:///d:/final/CMGROUPS/backend/src/routes/services.js) line 487  
-**Problem:** The service referral trigger has this condition:
-```js
-if (status === 'Completed' && req.body.isPaid === true) {
 ```
-The admin updates service status via `PATCH /api/services/:id/status`. The request body contains `status`, `estimatedPrice`, `finalPrice`, etc. — but `isPaid` is **never sent by the admin panel**. So `req.body.isPaid` is always `undefined`, meaning this block **never runs**. Services referral is completely broken.
-
-**Fix:** Remove `isPaid` check from the condition. Service referral should trigger when status becomes `'Delivered'` (when service is finished and returned to customer), not `'Completed'` (which is internal status). Or use `'Completed'` but drop the `isPaid` guard.
-
-#### Bug 2 — Services: Wrong `source` field on Referral record (Critical)
-**File:** [services.js](file:///d:/final/CMGROUPS/backend/src/routes/services.js) line 507  
-**Problem:** When checking for an existing referral to prevent duplicates:
-```js
-where: { refereeId: fullBooking.userId, referrerId, source: 'shopping' }
+PWA (foundation — works on all platforms)
+ ├── Android  → TWA → Google Play Store
+ ├── iOS      → PWA install via Safari (Add to Home Screen)
+ └── Desktop  → PWA install via Chrome / Edge
 ```
-The source check is hardcoded to `'shopping'`, not `'service'`. So:
-- It won't find an existing service referral → allows duplicate rewards.
-- The [Referral](file:///d:/final/CMGROUPS/frontend/src/lib/api.js#423-424) record created for services also doesn't set `source` (defaults to `'shopping'`), making it invisible in referral stats under the `service` category.
 
-**Fix:** Change the `source` to `'service'` in both the findFirst query and the referral.create call.
-
-#### Bug 3 — Services: Referral record missing `source` and `orderId` context
-**File:** [services.js](file:///d:/final/CMGROUPS/backend/src/routes/services.js) ~line 523–531  
-**Problem:** The `referral.create` call inside the transaction is missing the `source: 'service'` field, so it defaults to `'shopping'`. The booking ID is also not linked.
-
-**Fix:** Add `source: 'service'` and link `orderId` to the booking ID (or add a `bookingId` field if needed — but the schema doesn't have one, so we can omit orderId).
-
-#### Bug 4 — Products: [calculateOrderReferralPoints](file:///d:/final/CMGROUPS/backend/src/routes/orders.js#18-36) silently returns 0 if product has no points set (Medium)
-**File:** [orders.js](file:///d:/final/CMGROUPS/backend/src/routes/orders.js) lines 18–35, [referralHelper.js](file:///d:/final/CMGROUPS/backend/src/utils/referralHelper.js) lines 8–19  
-**Problem:** If a product's `referrerPoints` is `null` or `0`, [calculateReferralReward](file:///d:/final/CMGROUPS/backend/src/utils/referralHelper.js#3-21) returns `{referrerPoints: 0, refereePoints: 0}`. If ALL items in an order have no points configured, the referral reward is 0 and no Referral record is created — silently, with no feedback. This is by design but means no fallback to the global [ReferralSettings](file:///d:/final/CMGROUPS/frontend/src/lib/api.js#425-426) default.
-
-**Current behavior:** If you use a referral code but buy products without `referrerPoints` set, neither the referrer nor the buyer gets anything, and the [Referral](file:///d:/final/CMGROUPS/frontend/src/lib/api.js#423-424) record is never created.
-
-**Fix (Option A):** Fall back to `ReferralSettings.pointsPerProductPurchase` if a product has no specific `referrerPoints`. This is the most complete fix.
-
-#### Bug 5 — Services: `WalletTransaction` records NOT created for referral credits
-**File:** [services.js](file:///d:/final/CMGROUPS/backend/src/routes/services.js) ~lines 522–533  
-**Problem:** The service referral logic credits the wallets:
-```js
-await tx.user.update({ ... walletBalance: { increment: rewardAmount } });
-await tx.user.update({ ... walletBalance: { increment: refereePoints } });
-```
-But unlike the courses flow, there are **no `WalletTransaction` records** created. So the user's wallet shows the balance but their transaction history shows nothing.
-
-**Fix:** Add `walletTransaction.create` calls for both referrer and referee (same as the courses flow).
-
-#### Bug 6 — Courses: Referral record has no `WalletTransaction` for referee
-**File:** [courses.js](file:///d:/final/CMGROUPS/backend/src/routes/courses.js) line 372–373  
-**Status:** Actually ✅ — referee wallet transaction IS created on line 373. This is fine.
-
-#### Bug 7 — Products: `referralEligibleAt` cron job not implemented
-**File:** [orders.js](file:///d:/final/CMGROUPS/backend/src/routes/orders.js) — returnable items set `referralEligibleAt` but no cron processes it  
-**Problem:** When an order has returnable items, the code sets `referralEligibleAt` to `deliveredAt + returnWindowDays`. But there is no cron job that processes orders where `referralEligibleAt < now()` to distribute the referral reward. These orders get lost.  
-Check: `backend/src/cron/` — let me verify.
+TWA (Trusted Web Activity) is Android-only. It wraps the PWA and submits it to Play Store as a real Android app. iOS App Store requires a different approach (Capacitor) and is NOT in scope for this plan.
 
 ---
 
-## Proposed Changes
+## STEP 1 — READ THE ENTIRE CODEBASE
 
-### `backend/src/routes/services.js`
+Before writing a single word of the plan, read:
 
-#### [MODIFY] Fix Bug 1, 2, 3, 5 in service referral trigger
+- `package.json` — every dependency and script
+- `vite.config.js` — build config, output directory, any existing PWA plugin
+- `index.html` — every meta tag, link tag, existing manifest reference
+- `public/` folder — every file that already exists there
+- `src/main.jsx` and `src/App.jsx` — entry point and routing
+- Any file named `manifest.json`, `manifest.webmanifest`, `sw.js`, `service-worker.js`, or `registerSW.js`
+- `capacitor.config.ts` or `capacitor.config.json` if it exists
+- `tailwind.config.js` — brand colors and tokens
+- Any `.env` files — for deployed URL
+- Any deployment config files — `vercel.json`, `netlify.toml`, `render.yaml`, etc.
 
-Change the condition from `isPaid === true` to just trigger on `'Delivered'` status, fix the `source` field, and add `WalletTransaction` records:
+Then answer these questions from what you find in the code — do not assume anything:
 
-```diff
-- if (status === 'Completed' && req.body.isPaid === true) {
-+ if (status === 'Delivered') {
-    ...
-    const existingReferral = await prisma.referral.findFirst({
--     where: { refereeId: fullBooking.userId, referrerId, source: 'shopping' }
-+     where: { refereeId: fullBooking.userId, referrerId, source: 'service' }
-    });
-
-    if (!existingReferral) {
-      await tx.referral.create({
-        data: {
-          ...
-+         source: 'service',
-        }
-      });
-+     // Add WalletTransaction for referrer
-+     await tx.walletTransaction.create({ ... });
-+     // Add WalletTransaction for referee
-+     await tx.walletTransaction.create({ ... });
-    }
 ```
-
-### `backend/src/routes/orders.js` (Bug 4)
-
-#### [MODIFY] Fall back to global ReferralSettings if product has no points
-
-In `calculateOrderReferralPoints`, if sum is 0, fall back to `ReferralSettings.pointsPerProductPurchase`:
-
-```diff
-async function calculateOrderReferralPoints(items = []) {
-+   const settings = await prisma.referralSettings.findFirst();
-    let totalReferrerPoints = 0;
-    let totalRefereePoints = 0;
-
-    for (const item of items) {
-        const product = item.product || {};
-        const quantity = item.quantity || 1;
-        const { referrerPoints, refereePoints } = await calculateReferralReward({
-            referrerPoints: product.referrerPoints,
-+           refereePoints: product.refereePoints,
-+           fallback: settings?.pointsPerProductPurchase ?? 0,
-+           fallbackReferee: settings ? Math.round(settings.pointsPerProductPurchase / 2) : 0
-        });
-        ...
-    }
-```
-
-> [!IMPORTANT]
-> This requires `referralHelper.js` to be updated to accept a `fallback` option.
-
-### `backend/src/utils/referralHelper.js` (Bug 4)
-
-#### [MODIFY] Accept optional fallback points
-
-```diff
-export async function calculateReferralReward(overrides = {}) {
--   const referrerPoints = overrides.referrerPoints;
--   const refereePoints = overrides.refereePoints;
--   if (referrerPoints == null || referrerPoints === 0) {
--       return { referrerPoints: 0, refereePoints: 0 };
--   }
-+   const referrerPoints = overrides.referrerPoints ?? overrides.fallback ?? 0;
-+   const refereePoints = overrides.refereePoints ?? overrides.fallbackReferee ?? Math.round(referrerPoints / 2);
-+   if (!referrerPoints) return { referrerPoints: 0, refereePoints: 0 };
-    return { referrerPoints, refereePoints };
-}
+1. Does a service worker already exist? [file path or "none"]
+2. Does a web manifest already exist? [file path or "none"]
+3. Does a vite-plugin-pwa or similar PWA plugin exist in package.json? [yes/no]
+4. Does Capacitor exist in the project? [yes/no, what platforms are added]
+5. What icons currently exist in public/? [list every file and size]
+6. What is the app's primary brand color from tailwind.config.js?
+7. What is the deployed URL if found in any config or env file? [or "not found"]
+8. What build output directory does Vite use? [from vite.config.js]
+9. Is there a privacy policy page in the routes? [yes/no]
+10. What is the app name used consistently across the codebase?
 ```
 
 ---
 
-#### Bug 7 — Cron: Only samples first item's referral points (not all items)
-**File:** `cron/referrals.js` lines 39–45  
-**Problem:** The nightly cron that handles returnable-product orders does:
-```js
-const firstItem = order.items[0];
-const product = firstItem.product || {};
-const { referrerPoints } = await calculateReferralReward({ referrerPoints: product.referrerPoints, ... });
-```
-It only checks the **first item in the order** instead of summing across all items. If the first product has `referrerPoints = null` but the second product has points set, the reward will be 0.
+## STEP 2 — PRODUCE `PWA_TWA_PLAN.md`
 
-> [!NOTE]  
-> The cron job itself does exist and runs nightly at midnight (`0 0 * * *`). The `referralEligibleAt` mechanism for returnable-product orders is wired up correctly; only the point calculation is wrong.
-
-**Fix:** Replace the single-item calculation with the already-existing `calculateOrderReferralPoints(order.items)` helper from `orders.js`. Extract that function to a shared utility to avoid code duplication.
+Based entirely on what you find in the codebase, produce this document:
 
 ---
 
-## UI Changes (New Request)
+### SECTION 1 — CURRENT STATE AUDIT
 
-### Backend — New Endpoint: `GET /api/referrals/my-received`
+Fill this from the codebase findings:
 
-**File:** `backend/src/routes/referrals.js`  
-The current `/my-referrals` endpoint only returns referrals **where the user is the referrer** (code owner). There's no way for users to see referrals they received *as a referee* (i.e., orders they placed using someone else's code).
+```
+PWA Readiness:
+- Service worker: [exists / missing]
+- Web manifest: [exists / missing]
+- HTTPS: [confirmed / unknown / missing]
+- Installability: [passes / fails / unknown]
+- Existing PWA plugin: [name / none]
+- Icons available: [list sizes found]
+- Viewport meta: [quote the current value from index.html]
 
-**Add a new route:**
-```js
-// GET /api/referrals/my-received — referrals where I was the referee (used someone else's code)
-router.get('/my-received', protect, async (req, res) => {
-    const referrals = await prisma.referral.findMany({
-        where: { refereeId: req.user.id },
-        include: {
-            referrer: { select: { id: true, name: true, email: true } }
-        },
-        orderBy: { createdAt: 'desc' }
-    });
-    res.json(referrals);
-});
+Capacitor Status:
+- Installed: [yes / no]
+- Platforms added: [ios / android / none]
+- Config file: [path / none]
+- Conflict risk with TWA: [assess this from what you see]
 ```
 
-Also **add `myReceivedEarnings`** to the `/my-stats` endpoint by aggregating `refereeReward` from this user's referee referrals.
+---
+
+### SECTION 2 — PWA IMPLEMENTATION PLAN
+
+Based on what is missing from the audit above, plan exactly what needs to be built.
+
+**2.1 Recommended PWA Plugin**
+Based on the current Vite setup, which plugin should be used?
+- `vite-plugin-pwa` — most common for Vite projects, handles manifest + service worker automatically
+- Manual service worker — more control, more work
+- Something else already in the codebase
+
+Recommend one and explain why based on what you see in the project.
+
+**2.2 Web App Manifest Plan**
+List every field the manifest needs. Derive the values from the codebase:
+- `name` — from app name found in codebase
+- `short_name` — max 12 characters
+- `start_url`
+- `display` — choose between standalone/fullscreen and explain why
+- `theme_color` — from the brand color in tailwind.config.js
+- `background_color` — from the brand color in tailwind.config.js
+- `icons` — list every size needed and whether it already exists or needs to be created:
+
+| Size | Purpose | Exists? | Action |
+|------|---------|---------|--------|
+| 192x192 | Android Chrome installability (required) | | |
+| 512x512 | Play Store + splash screen (required) | | |
+| 180x180 | iOS touch icon | | |
+| 144x144 | Windows tile | | |
+| 512x512 maskable | Android adaptive icon | | |
+
+- `shortcuts` — based on the actual routes in App.jsx, propose 3-4 app shortcuts
+- `screenshots` — which pages should be screenshotted for Play Store (list the routes)
+- `categories` — based on what TechNova actually does
+
+**2.3 Service Worker Caching Strategy**
+Based on what routes and API calls exist in the codebase, define the caching strategy:
+
+For each type of resource, recommend a strategy and explain why:
+
+| Resource Type | Examples from codebase | Strategy | Reason |
+|--------------|----------------------|----------|--------|
+| Static assets (JS, CSS) | | | |
+| Product images | | | |
+| API: product listing | | | |
+| API: order status | | | |
+| API: auth/me | | | |
+| API: checkout/payment | | | |
+| Page routes | | | |
+
+List what must NEVER be cached (auth tokens, payment routes, checkout).
+
+**2.4 Offline Experience**
+For each major route in App.jsx, define what happens with no internet:
+
+| Route | Offline behavior |
+|-------|----------------|
+| / (homepage) | |
+| /products | |
+| /cart | |
+| /checkout | |
+| /orders | |
+| /services | |
+| /courses | |
+
+Design an offline fallback page — what it shows, based on the existing design system.
+
+**2.5 Install Prompt Plan**
+- Android: `beforeinstallprompt` event — when to show, what it says, when to suppress
+- iOS: manual instruction banner — how to detect Safari/iOS, what instructions to show
+- Desktop: when to show Chrome/Edge install prompt
 
 ---
 
-### Frontend — `UserReferrals.jsx`
+### SECTION 3 — TWA IMPLEMENTATION PLAN
 
-#### What's currently missing:
-1. **Table: Referee Reward column** — The table shows referrals you *made* but only shows `rewardAmount` (your cut). It should also show `refereeReward` (what the buyer received), so you can see the full reward breakdown.
-2. **Stats: Received as referee** — The 3 stat cards show your own earnings as referrer. Add a 4th card or sub-line showing earnings you received *as a referee* (from someone else's code).
-3. **Received Referrals section** — Add a second tab/section "Received" showing referrals where you were the referee, listing who referred you, the source, and points you got.
-4. **Source column** — Add a `source` badge (Shopping / Course / Service) to the referral table.
+**3.1 TWA Tool Recommendation**
+Two options — recommend one based on the project setup:
 
-#### Changes:
-- Add a **4th stat card: "Earned as Referee"** — fetched from `/referrals/my-stats` (new `myReceivedEarnings` field).
-- Rename tab `'all'` → split into **"Sent" (referrals you made)** and **"Received" (referrals you got as referee)**.
-- In the table for "Sent" referrals: add a **"Referee Got"** column showing `ref.refereeReward`.
-- In the table for "Received" referrals: show who referred you, source badge, and `refereeReward` you got.
-- Add a `source` badge column to the sent referrals table (Shopping / Course / Service).
-- Update "How It Works" to mention service referrals.
+| | Bubblewrap (Google CLI) | PWABuilder (Microsoft web tool) |
+|-|------------------------|--------------------------------|
+| Requires | Android Studio + Java | Just a browser + deployed URL |
+| Output | Full Android Studio project | Ready APK/AAB download |
+| Customization | Full | Limited |
+| Best for | Teams with Android experience | Teams without Android experience |
+
+Which is right for this project and why?
+
+**3.2 Technical Requirements Checklist**
+List every requirement TWA has and whether TechNova currently meets it:
+
+| Requirement | Required value | Current status | Action needed |
+|-------------|---------------|----------------|---------------|
+| HTTPS | Must have valid SSL | | |
+| Service worker | Must exist and be active | | |
+| Web manifest | Must have 192px + 512px icons | | |
+| start_url | Must be / | | |
+| Lighthouse PWA score | Must be ≥ 80 | Unknown — run Lighthouse | |
+| assetlinks.json | Must be served at /.well-known/assetlinks.json | | |
+
+**3.3 Digital Asset Links (assetlinks.json) Plan**
+This is the most critical TWA requirement. Plan exactly how it will be implemented:
+
+- Where will the file be served from? (Express route on backend, or static file in public/)
+- What information is needed to generate it? (list each piece of data)
+- When can it be generated? (what must happen first)
+- How will it be verified after deployment?
+
+**3.4 TWA Configuration Values**
+Based on the codebase, propose values for every TWA config field:
+
+```
+packageId:          com.[company].[appname]  (derive from codebase)
+appName:            [from codebase]
+launcherName:       [max 12 chars]
+startUrl:           /
+themeColor:         [from tailwind.config.js brand color]
+backgroundColor:    [from tailwind.config.js]
+iconUrl:            [path to 512x512 icon]
+display:            standalone
+orientation:        portrait
+enableNotifications: true
+```
+
+**3.5 Signing Keystore Plan**
+- What command generates the keystore
+- What values to use (alias, organization name)
+- Where to store it (must NOT be in git)
+- What happens if it is lost (explain the consequence clearly)
+- Whether to use Google Play App Signing (recommended — explain why)
 
 ---
 
-### Frontend — `AdminReferrals.jsx`
+### SECTION 4 — PLAY STORE SUBMISSION PLAN
 
-#### What's currently missing:
-1. **Source column** — The table has no "Source" column showing whether the referral is for shopping, course, or service. This is stored in `ref.source`.
-2. **Course Name column** — For `source: 'course'`, the DB has `ref.courseName`. It should be shown in the admin table.
-3. **Admin table: referee info already present** — ✅ The admin page already shows both "Referrer Reward" and "Referee Reward" columns.
+**4.1 Account Requirements**
+List everything needed before submission:
+- Google Play Developer account ($25 one-time)
+- Developer name for public listing
+- Privacy policy URL — does it exist on the site? [check routes]
+- Content rating answers
 
-#### Changes:
-- Add a **Source** column (after the "Date" column) with badges: 🛒 Shopping / 🎓 Course / 🔧 Service.
-- When source is `'course'`, show `ref.courseName` as a sub-line under the Source badge.
-- Also add `source` to the backend admin `/admin/referrals` response (it's already in the Referral model, just needs to be included in the response — it IS already returned since the `findMany` includes all fields).
+**4.2 Store Listing Assets Required**
+
+| Asset | Size/Spec | Exists? | Action |
+|-------|----------|---------|--------|
+| App icon | 512x512 PNG | | |
+| Feature graphic | 1024x500 PNG | | |
+| Phone screenshots (min 2) | 320-3840px | | |
+| Short description | Max 80 chars | | |
+| Full description | Max 4000 chars | | |
+
+**4.3 Store Listing Copy**
+Based on the business description found in the codebase, draft:
+- Short description (80 chars max)
+- Full description outline (key sections to cover)
+- Which screens to screenshot for the listing
+
+**4.4 Release Track Sequence**
+Recommend the rollout order:
+```
+Internal Testing → Closed Testing → Open Testing → Production
+```
+What to test at each stage and when to advance.
 
 ---
 
+### SECTION 5 — IOS PWA PLAN
 
-### Manual Testing Steps (after fixes are deployed)
+Since TWA is Android-only, iOS users get PWA via Safari.
 
-**Test 1 — Service Referral**
-1. Log in as User A (referrer). Note their referral code from `/dashboard/referrals`.
-2. Log in as User B (referee). Book a service, enter User A's referral code.
-3. Admin: Go to service booking → set status to `Delivered`.
-4. **Expected:** Both User A and User B should have wallet balances increased by the `ServiceType.referrerPoints` / `refereePoints` values.
-5. **Also check:** A `Referral` record with `source: 'service'` should appear in User A's referral stats.
+**5.1 iOS-Specific Requirements**
+List every iOS meta tag needed in index.html that is currently missing.
 
-**Test 2 — Product Referral (product with points set)**
-1. Ensure at least one product has `referrerPoints` set in admin.
-2. User B places order using User A's referral code.
-3. Admin: Mark order as `Delivered` (after verifying payment).
-4. **Expected:** Both wallets credited. Referral record created.
+**5.2 iOS Install Banner Component**
+Plan a component that:
+- Detects Safari on iOS (user agent)
+- Shows "Tap Share → Add to Home Screen" instructions
+- Appears after [X] seconds or on second visit
+- Can be dismissed and won't reappear for [X] days
 
-**Test 3 — Product Referral (product WITHOUT points set, after Bug 4 fix)**
-1. Ensure a product has `referrerPoints = null`.
-2. User B places order using User A's referral code.
-3. Admin: Mark order `Delivered`.
-4. **Expected:** Fallback to global `pointsPerProductPurchase` from `ReferralSettings`.
+**5.3 iOS Limitations for TechNova**
+List which TechNova features work and don't work on iOS PWA:
 
-**Test 4 — Course Referral**
-1. User B applies for a course, enters User A's referral code.
-2. Admin records first fee payment.
-3. **Expected:** Both wallets credited by Course's `referrerPoints`/`refereePoints`.
+| Feature | Works on iOS PWA? | Notes |
+|---------|------------------|-------|
+| Push notifications | Only iOS 16.4+ | |
+| Offline mode | Yes | |
+| Add to Home Screen | Yes (manual) | |
+| Camera (for service photos) | Yes | |
+| Background sync | No | |
 
-**Test 5 — Duplicate Prevention**
-1. Repeat Tests 1–4 with the same users.
-2. **Expected:** No duplicate Referral records created, no duplicate wallet credits.
+---
+
+### SECTION 6 — IMPLEMENTATION ORDER
+
+Produce a week-by-week timeline based on the actual gaps found in Section 1:
+
+```
+Week 1 — PWA Foundation
+  [list specific tasks based on what is missing]
+
+Week 2 — TWA Build  
+  [list specific tasks]
+
+Week 3 — Play Store Submission
+  [list specific tasks]
+
+Week 4 — Testing and Launch
+  [list specific tasks]
+```
+
+---
+
+### SECTION 7 — RISK REGISTER
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|-----------|
+| [identify risks from the codebase] | | | |
+
+Include at minimum: HTTPS missing, Lighthouse score below 80, keystore loss, assetlinks.json mismatch, Capacitor conflict with TWA.
+
+---
+
+### SECTION 8 — QUESTIONS FOR THE OWNER
+
+List every piece of information that cannot be found in the codebase and must be confirmed before building:
+
+Format as:
+```
+1. [Question] — needed for [what it blocks]
+2. [Question] — needed for [what it blocks]
+```
+
+---
+
+## AFTER PRODUCING THE PLAN
+
+Stop. Do not install anything. Do not create any files.
+
+Show me `PWA_TWA_PLAN.md` and wait for:
+1. My approval of the plan
+2. My answers to Section 8 questions
+
+Building starts only after both are received.
