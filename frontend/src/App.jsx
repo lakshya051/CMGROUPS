@@ -10,6 +10,8 @@ import { useDataSeeder } from './hooks/useDataSeeder';
 import { Toaster } from 'react-hot-toast';
 import CompareWidget from './components/shop/CompareWidget';
 import PushNotificationsBridge from './components/system/PushNotificationsBridge';
+import InstallPromptBanner from './components/pwa/InstallPromptBanner';
+import IOSInstallPrompt from './components/pwa/IOSInstallPrompt';
 
 // After a new deployment, old cached JS may reference chunk filenames that
 // no longer exist. This wrapper retries by reloading the page once.
@@ -41,6 +43,8 @@ const Home = lazyRetry(() => import('./pages/Home'));
 const Services = lazyRetry(() => import('./pages/Services'));
 const TallyERP = lazyRetry(() => import('./pages/TallyERP'));
 const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage'));
+const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazyRetry(() => import('./pages/TermsOfService'));
 
 // Shop
 const Products = lazyRetry(() => import('./pages/shop/Products'));
@@ -88,6 +92,8 @@ function App() {
                 <PushNotificationsBridge />
                 <Toaster position="top-center" />
                 <CompareWidget />
+                <InstallPromptBanner />
+                <IOSInstallPrompt />
                 <Suspense fallback={<PageLoader />}>
                     <Routes>
                         {/* Public Routes */}
@@ -110,6 +116,8 @@ function App() {
                                 <ProtectedRoute><CoursePlayer /></ProtectedRoute>
                             } />
                             <Route path="tally-erp" element={<TallyERP />} />
+                            <Route path="privacy-policy" element={<PrivacyPolicy />} />
+                            <Route path="terms-of-service" element={<TermsOfService />} />
                         </Route>
 
                         {/* User Dashboard */}

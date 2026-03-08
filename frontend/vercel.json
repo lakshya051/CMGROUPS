@@ -1,4 +1,18 @@
 {
+    "headers": [
+        {
+            "source": "/.well-known/assetlinks.json",
+            "headers": [
+                { "key": "Content-Type", "value": "application/json" }
+            ]
+        },
+        {
+            "source": "/manifest.webmanifest",
+            "headers": [
+                { "key": "Content-Type", "value": "application/manifest+json" }
+            ]
+        }
+    ],
     "rewrites": [
         {
             "source": "/(.*)",

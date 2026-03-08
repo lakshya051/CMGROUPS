@@ -84,9 +84,9 @@ const Footer = () => {
                 <div className="border-t border-border-default mt-8 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-text-muted">
                     <p>&copy; 2026 CMGROUPS. All rights reserved.</p>
                     <div className="flex gap-6">
-                        <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
-                        <a href="#" className="hover:text-primary transition-colors">Terms of Service</a>
-                        <a href="#" className="hover:text-primary transition-colors">Refund Policy</a>
+                        <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+                        <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
+                        <Link to="/terms-of-service" className="hover:text-primary transition-colors">Refund Policy</Link>
                     </div>
                 </div>
             </div>
