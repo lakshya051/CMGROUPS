@@ -218,21 +218,23 @@ router.post('/book', protect, async (req, res) => {
         // Respond immediately — notifications fire in background
         res.status(201).json({ ...booking, pickupOtp: undefined });
 
-        // Background: send confirmation email + in-app notification
+        // Background: send confirmation email + notification
         const userEmail = req.user?.email;
         Promise.resolve().then(async () => {
             try {
                 if (userEmail) {
                     await sendServiceBookingEmail(userEmail, booking.id, null);
                 }
-                await prisma.notification.create({
-                    data: {
-                        userId: req.user.id,
-                        title: 'Service Booked Successfully',
-                        message: `Your ${serviceType} request (SRV-${booking.id}) has been received.`,
-                        type: 'service',
-                        link: `/dashboard/services`
-                    }
+                await createUserNotification({
+                    userId: req.user.id,
+                    title: 'Service Booked Successfully',
+                    message: `Your ${serviceType} request (SRV-${booking.id}) has been received.`,
+                    type: 'service',
+                    link: '/dashboard/services',
+                    push: {
+                        enabled: true,
+                        body: `Your ${serviceType} request SRV-${booking.id} has been received.`,
+                    },
                 });
             } catch (notifErr) {
                 console.error('Service notification error (non-blocking):', notifErr);

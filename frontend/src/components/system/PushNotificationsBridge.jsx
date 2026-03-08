@@ -12,6 +12,8 @@ import {
 } from '../../lib/pushNotifications';
 import { useAuth } from '../../context/AuthContext';
 
+const DEFAULT_PUSH_CHANNEL_ID = 'default';
+
 const PushNotificationsBridge = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -83,6 +85,15 @@ const PushNotificationsBridge = () => {
 
         const ensurePushRegistration = async () => {
             try {
+                await PushNotifications.createChannel({
+                    id: DEFAULT_PUSH_CHANNEL_ID,
+                    name: 'General Updates',
+                    description: 'Order, service, and account notifications',
+                    importance: 5,
+                    visibility: 1,
+                    vibration: true,
+                });
+
                 let permissionStatus = await PushNotifications.checkPermissions();
                 if (permissionStatus.receive === 'prompt') {
                     permissionStatus = await PushNotifications.requestPermissions();
