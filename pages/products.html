@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container">
+            <div class="section-header">
+                <span class="section-subtitle">Catalog</span>
+                <h1 class="section-title">Shop Premium Gear</h1>
+            </div>
+
+            <div class="products-layout">
+                <!-- Sidebar -->
+                <aside class="filters-sidebar">
+                    <div class="filter-group">
+                        <h3 class="filter-title">Search</h3>
+                        <input type="text" id="search-products" class="form-input" placeholder="Search products...">
+                    </div>
+
+                    <div class="filter-group">
+                        <h3 class="filter-title">Categories</h3>
+                        <label class="filter-option">
+                            <input type="radio" name="category" value="All" class="category-filter" checked> All
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="category" value="Components" class="category-filter"> Components
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="category" value="Peripherals" class="category-filter"> Peripherals
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="category" value="Accessories" class="category-filter"> Accessories
+                        </label>
+                    </div>
+
+                    <div class="filter-group">
+                        <h3 class="filter-title">Price Range</h3>
+                        <input type="range" class="form-input" min="0" max="200000" step="5000">
+                        <div class="flex justify-between"
+                            style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                            <span>₹0</span>
+                            <span>₹2L+</span>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Grid -->
+                <div id="product-grid" class="card-grid" style="align-content: start;">
+                    <!-- Products will be injected here -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module" src="../scripts/products.js"></script>
+</body>
+
+</html>

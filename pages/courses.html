@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courses | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container">
+            <div class="section-header">
+                <span class="section-subtitle">Academy</span>
+                <h1 class="section-title">Master New Skills</h1>
+                <p class="text-muted" style="max-width: 600px; margin: 0 auto; margin-top: 1rem;">
+                    From building your first PC to mastering Python automation. TechNova Academy offers premium courses
+                    for hardware enthusiasts.
+                </p>
+            </div>
+
+            <div class="card-grid" id="courses-grid"
+                style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+                <!-- Injected via JS -->
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module">
+        import { getCourses } from '../scripts/courses_data.js';
+
+        const grid = document.getElementById('courses-grid');
+        const courses = getCourses();
+
+        grid.innerHTML = courses.map(course => `
+            <div class="card glass-panel" style="display: flex; flex-direction: column;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">${course.image}</div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="status-badge status-pending" style="background: rgba(0, 242, 254, 0.1); color: var(--secondary-color);">
+                        ${course.level}
+                    </span>
+                    <span style="color: var(--text-muted); font-size: 0.9rem;">${course.duration}</span>
+                </div>
+                <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.75rem;">${course.title}</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; flex-grow: 1;">${course.description}</p>
+                <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 1.25rem; font-weight: 700; color: var(--primary-color);">₹${course.price.toLocaleString()}</span>
+                    <a href="course-detail.html?id=${course.id}" class="btn btn-outline" style="padding: 0.4rem 1rem;">View Details</a>
+                </div>
+            </div>
+        `).join('');
+    </script>
+</body>
+
+</html>

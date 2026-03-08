@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container">
+            <div class="dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="dashboard-sidebar">
+                    <div
+                        style="text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+                        <div
+                            style="width: 80px; height: 80px; background: var(--bg-dark); border-radius: 50%; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; border: 2px solid var(--primary-color); font-size: 2rem;">
+                            👤
+                        </div>
+                        <h3 id="user-name-display">User Name</h3>
+                        <p id="user-email-display" style="font-size: 0.85rem; color: var(--text-muted);">
+                            user@example.com</p>
+                    </div>
+
+                    <nav>
+                        <div class="dashboard-nav-item active" data-section="profile">
+                            <span>👤</span> My Profile
+                        </div>
+                        <div class="dashboard-nav-item" data-section="orders">
+                            <span>📦</span> My Orders
+                        </div>
+                        <div class="dashboard-nav-item" data-section="loyalty">
+                            <span>💎</span> Loyalty Points
+                        </div>
+                        <div class="dashboard-nav-item" data-section="referrals">
+                            <span>🤝</span> Referrals
+                        </div>
+                        <div class="dashboard-nav-item" data-section="courses">
+                            <span>🎓</span> My Courses
+                        </div>
+                        <div class="dashboard-nav-item" data-section="services">
+                            <span>🔧</span> Service Requests
+                        </div>
+                    </nav>
+                </aside>
+
+                <!-- Content Area -->
+                <div class="dashboard-content">
+
+                    <!-- Profile Section -->
+                    <div id="profile" class="dashboard-section active">
+                        <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 2rem;">Edit Profile</h2>
+                        <form class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                            <div class="form-group">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" id="profile-name" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" id="profile-email" class="form-input" disabled
+                                    style="opacity: 0.7;">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Phone Number</label>
+                                <input type="tel" id="profile-phone" class="form-input">
+                            </div>
+                            <div class="form-group" style="grid-column: 1/-1;">
+                                <button type="button" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Orders Section -->
+                    <div id="orders" class="dashboard-section">
+                        <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 2rem;">Order History</h2>
+                        <div id="orders-list">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Loyalty Section -->
+                    <div id="loyalty" class="dashboard-section">
+                        <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 2rem;">Loyalty Program</h2>
+
+                        <div id="loyalty-card-container">
+                            <!-- Injected JS -->
+                        </div>
+
+                        <h3 style="margin-bottom: 1rem;">Points History</h3>
+                        <div id="points-history-list">
+                            <p class="text-muted">No history available.</p>
+                        </div>
+                    </div>
+                    <div id="referrals" class="dashboard-section">
+                        <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 2rem;">Refer & Earn</h2>
+
+                        <div class="referral-card glass-panel"
+                            style="text-align: center; padding: 3rem; margin-bottom: 2rem;">
+                            <p style="margin-bottom: 1rem; color: var(--text-muted);">Share your unique code and earn
+                                <strong>500 points</strong> for every friend who joins!
+                            </p>
+                            <div class="referral-code-box" id="my-referral-code">LOADING...</div>
+                            <button class="btn btn-outline" onclick="copyReferralCode()" style="margin-top: 1rem;">Copy
+                                Code</button>
+                        </div>
+
+                        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                            <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+                                <div style="font-size: 2rem; color: var(--primary-color); font-weight: 700;"
+                                    id="ref-count">0</div>
+                                <div style="color: var(--text-muted);">Total Referrals</div>
+                            </div>
+                            <div class="glass-panel" style="padding: 1.5rem; text-align: center;">
+                                <div style="font-size: 2rem; color: #4ade80; font-weight: 700;" id="ref-earned">0 pts
+                                </div>
+                                <div style="color: var(--text-muted);">Points Earned</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="courses" class="dashboard-section">
+                        <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 2rem;">My Learning</h2>
+
+                        <div id="my-courses-grid" class="card-grid"
+                            style="gap: 1.5rem; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+                            <!-- Injected JS -->
+                        </div>
+                    </div>
+
+                    <div id="services" class="dashboard-section">
+                        <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 2rem;">Service Requests</h2>
+                        <a href="services.html" class="btn btn-outline"
+                            style="margin-bottom: 1.5rem; display: inline-block;">+ New Request</a>
+                        <div id="services-list">
+                            <!-- Injected JS -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module" src="../scripts/dashboard.js"></script>
+</body>
+
+</html>

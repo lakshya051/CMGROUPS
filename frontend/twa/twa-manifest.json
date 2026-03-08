@@ -1,0 +1,54 @@
+{
+  "packageId": "com.cmgroups.shopnow",
+  "host": "cmgroups.vercel.app",
+  "name": "CMGROUPS - Technology, Services & Education",
+  "launcherName": "CMGROUPS",
+  "display": "standalone",
+  "themeColor": "#e91e63",
+  "backgroundColor": "#EAEDED",
+  "startUrl": "/",
+  "iconUrl": "https://cmgroups.vercel.app/icons/icon-512x512.png",
+  "maskableIconUrl": "https://cmgroups.vercel.app/icons/icon-512x512-maskable.png",
+  "shortcuts": [
+    {
+      "name": "Browse Products",
+      "short_name": "Products",
+      "url": "/products",
+      "icons": [{ "src": "https://cmgroups.vercel.app/icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Cart",
+      "short_name": "Cart",
+      "url": "/cart",
+      "icons": [{ "src": "https://cmgroups.vercel.app/icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Orders",
+      "short_name": "Orders",
+      "url": "/dashboard/orders",
+      "icons": [{ "src": "https://cmgroups.vercel.app/icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Courses",
+      "short_name": "Courses",
+      "url": "/courses",
+      "icons": [{ "src": "https://cmgroups.vercel.app/icons/icon-96x96.png", "sizes": "96x96" }]
+    }
+  ],
+  "orientation": "portrait",
+  "signing": {
+    "keystore": "cmgroups-upload-key.jks",
+    "alias": "cmgroups-upload"
+  },
+  "generatorApp": "bubblewrap-cli",
+  "enableNotifications": true,
+  "splashScreenFadeOutDuration": 300,
+  "fallbackType": "customtabs",
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "minSdkVersion": 24,
+  "navigationColor": "#EAEDED",
+  "navigationColorDark": "#1a1a2e",
+  "navigationDividerColor": "#DDDDDD",
+  "navigationDividerColorDark": "#333333"
+}

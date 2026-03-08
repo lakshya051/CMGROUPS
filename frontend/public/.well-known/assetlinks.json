@@ -1,0 +1,11 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.cmgroups.shopnow",
+    "sha256_cert_fingerprints": [
+      "TODO:REPLACE_WITH_UPLOAD_KEY_FINGERPRINT",
+      "TODO:REPLACE_WITH_PLAY_APP_SIGNING_FINGERPRINT"
+    ]
+  }
+}]

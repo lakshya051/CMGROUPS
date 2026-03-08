@@ -1,0 +1,28 @@
+{
+  "body": {
+    "items": [
+      {
+        "productId": 33,
+        "variantId": 13,
+        "quantity": 3,
+        "price": 41900
+      }
+    ],
+    "total": 125700,
+    "paymentMethod": "pay_at_store",
+    "shippingAddress": {
+      "fullName": "Rahul Sharma",
+      "email": "rahul@example.com",
+      "phone": "9876500001",
+      "address": "ihig",
+      "city": "gh",
+      "state": "hg",
+      "postalCode": "201063"
+    },
+    "referralCode": null,
+    "useWallet": false,
+    "walletUsed": 0
+  },
+  "message": "\nInvalid `tx.productVariant.updateMany()` invocation in\nD:\\website\\backend\\src\\routes\\orders.js:166:60\n\n  163 // 3. Decrement stock for each product/variant (race-condition safe)\n  164 for (const item of items) {\n  165     if (item.variantId) {\n→ 166         const result = await tx.productVariant.updateMany(\nTransaction API error: Transaction already closed: A query cannot be executed on an expired transaction. The timeout for this transaction was 5000 ms, however 5404 ms passed since the start of the transaction. Consider increasing the interactive transaction timeout or doing less work in the transaction.",
+  "stack": "PrismaClientKnownRequestError: \nInvalid `tx.productVariant.updateMany()` invocation in\nD:\\website\\backend\\src\\routes\\orders.js:166:60\n\n  163 // 3. Decrement stock for each product/variant (race-condition safe)\n  164 for (const item of items) {\n  165     if (item.variantId) {\n→ 166         const result = await tx.productVariant.updateMany(\nTransaction API error: Transaction already closed: A query cannot be executed on an expired transaction. The timeout for this transaction was 5000 ms, however 5404 ms passed since the start of the transaction. Consider increasing the interactive transaction timeout or doing less work in the transaction.\n    at $n.handleRequestError (D:\\website\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:7315)\n    at $n.handleAndLogRequestError (D:\\website\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:6623)\n    at $n.request (D:\\website\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:121:6307)\n    at async l (D:\\website\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:130:9633)\n    at async D:\\website\\backend\\src\\routes\\orders.js:166:36\n    at async Proxy._transactionWithCallback (D:\\website\\backend\\node_modules\\@prisma\\client\\runtime\\library.js:130:8000)\n    at async D:\\website\\backend\\src\\routes\\orders.js:110:23"
+}

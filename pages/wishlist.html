@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Wishlist | TechNova</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div id="header-container"></div>
+
+    <main id="main-content">
+        <section class="container">
+            <h1 class="section-title">My Wishlist</h1>
+
+            <div id="wishlist-grid" class="card-grid"
+                style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+                <!-- Injected via JS -->
+            </div>
+
+            <div id="empty-msg" style="display: none; text-align: center; color: var(--text-muted); padding: 3rem;">
+                <h3>Your wishlist is empty.</h3>
+                <a href="products.html" class="btn btn-primary" style="margin-top: 1rem;">Browse Products</a>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-container"></div>
+
+    <script type="module" src="../scripts/app.js"></script>
+    <script type="module">
+        import { getWishlist, toggleWishlist } from '../scripts/products.js';
+        import { getProductById } from '../scripts/products_data.js';
+
+        function renderWishlist() {
+            const wishlist = getWishlist();
+            const grid = document.getElementById('wishlist-grid');
+
+            if (wishlist.length === 0) {
+                grid.innerHTML = '';
+                document.getElementById('empty-msg').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('empty-msg').style.display = 'none';
+            grid.innerHTML = wishlist.map(id => {
+                const p = getProductById(id);
+                if (!p) return '';
+                return `
+                    <div class="card glass-panel" style="display: flex; flex-direction: column;">
+                         <div class="card-image">${p.image}</div>
+                         <h3 class="card-title">${p.title}</h3>
+                         <div class="card-price">₹${p.price.toLocaleString()}</div>
+                         
+                         <div style="margin-top: auto; display: flex; gap: 0.5rem;">
+                             <a href="product-detail.html?id=${p.id}" class="btn btn-primary" style="flex-grow: 1; text-align: center;">View</a>
+                             <button onclick="window.removeWish('${p.id}')" class="btn btn-outline" style="color: #f87171; border-color: #f87171;">✕</button>
+                         </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.removeWish = (id) => {
+            toggleWishlist(id);
+            renderWishlist();
+        };
+
+        renderWishlist();
+    </script>
+</body>
+
+</html>

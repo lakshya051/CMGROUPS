@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | TechNova</title>
+    <link rel="stylesheet" href="../../styles/main.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .admin-layout {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            min-height: 100vh;
+        }
+
+        .admin-sidebar {
+            background: #0f172a;
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1rem;
+        }
+
+        .admin-content {
+            padding: 2rem;
+            background: #1e293b;
+        }
+
+        .stat-card {
+            background: #334155;
+            padding: 1.5rem;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .admin-nav-item {
+            padding: 1rem;
+            color: #94a3b8;
+            cursor: pointer;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-nav-item:hover,
+        .admin-nav-item.active {
+            background: rgba(0, 242, 254, 0.1);
+            color: var(--primary-color);
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body style="background: #1e293b;">
+
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <h2 style="color: var(--primary-color); margin-bottom: 2rem; padding: 0 1rem;">TechNova Admin</h2>
+            <nav>
+                <div class="admin-nav-item active" onclick="switchTab('overview')">Overview</div>
+                <div class="admin-nav-item" onclick="switchTab('orders')">Orders</div>
+                <div class="admin-nav-item" onclick="switchTab('services')">Service Requests</div>
+                <div class="admin-nav-item" onclick="switchTab('products')">Products (Mock)</div>
+                <div class="admin-nav-item" onclick="logout()" style="margin-top: auto; color: #f87171;">Logout</div>
+            </nav>
+        </aside>
+
+        <main class="admin-content">
+            <!-- Overview -->
+            <div id="overview" class="admin-section">
+                <h1 style="margin-bottom: 2rem;">Dashboard Overview</h1>
+                <div class="grid" style="grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 3rem;">
+                    <div class="stat-card">
+                        <h3 style="font-size: 0.9rem; color: #94a3b8;">Total Revenue</h3>
+                        <div style="font-size: 2rem; font-weight: 700;" id="stat-revenue">₹0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3 style="font-size: 0.9rem; color: #94a3b8;">Active Users</h3>
+                        <div style="font-size: 2rem; font-weight: 700;" id="stat-users">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3 style="font-size: 0.9rem; color: #94a3b8;">Pending Services</h3>
+                        <div style="font-size: 2rem; font-weight: 700;" id="stat-pending-srv">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders -->
+            <div id="orders" class="admin-section hidden">
+                <h1 style="margin-bottom: 2rem;">All Orders</h1>
+                <div id="orders-list"></div>
+            </div>
+
+            <!-- Services -->
+            <div id="services" class="admin-section hidden">
+                <h1 style="margin-bottom: 2rem;">Service Requests</h1>
+                <div id="services-list"></div>
+            </div>
+
+            <!-- Products -->
+            <div id="products" class="admin-section hidden">
+                <h1 style="margin-bottom: 2rem;">Product Managment</h1>
+                <p>Mock Product Interface - Editing disabled in this demo.</p>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { checkAdminAuth, logoutAdmin, getStats, updateServiceStatus } from '../../scripts/admin.js';
+
+        // Auth Check
+        checkAdminAuth();
+        window.logout = logoutAdmin;
+
+        // Tabs
+        window.switchTab = (id) => {
+            document.querySelectorAll('.admin-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+
+            document.querySelectorAll('.admin-nav-item').forEach(el => el.classList.remove('active'));
+            // Highlight active nav item logic tailored for simple implementation
+        };
+
+        // Render Data
+        const stats = getStats();
+        document.getElementById('stat-revenue').textContent = `₹${stats.totalSales.toLocaleString()}`;
+        document.getElementById('stat-users').textContent = stats.usersCount;
+        document.getElementById('stat-pending-srv').textContent = stats.pendingServices;
+
+        // Users Orders
+        document.getElementById('orders-list').innerHTML = `
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>Customer</th><th>Date</th><th>Total</th><th>Status</th></tr></thead>
+                <tbody>
+                    ${stats.orders.map(o => `
+                        <tr>
+                            <td>${o.id}</td>
+                            <td>${o.customer}</td>
+                            <td>${o.date}</td>
+                            <td>₹${o.total.toLocaleString()}</td>
+                            <td><span class="status-badge status-success">${o.status}</span></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+
+        // Services
+        function renderServices() {
+            const currentStats = getStats(); // Re-fetch
+            document.getElementById('services-list').innerHTML = `
+                <table class="data-table">
+                    <thead><tr><th>ID</th><th>Service</th><th>Details</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                        ${currentStats.bookings.map(b => `
+                            <tr>
+                                <td>${b.id}</td>
+                                <td>${b.serviceType}</td>
+                                <td>${b.details.substring(0, 30)}...</td>
+                                <td><span class="status-badge">${b.status}</span></td>
+                                <td>
+                                    ${b.status === 'Pending' ? `
+                                        <button class="btn btn-primary" style="padding: 0.2rem 0.6rem; font-size: 0.8rem;" onclick="updateSrv('${b.id}', 'In Progress')">Approve</button>
+                                    ` : ''}
+                                    ${b.status === 'In Progress' ? `
+                                        <button class="btn btn-outline" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; border-color: #4ade80; color: #4ade80;" onclick="updateSrv('${b.id}', 'Completed')">Complete</button>
+                                    ` : ''}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        renderServices();
+
+        window.updateSrv = (id, status) => {
+            if (updateServiceStatus(id, status)) {
+                renderServices();
+            }
+        };
+
+    </script>
+</body>
+
+</html>

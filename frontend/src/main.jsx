@@ -1,0 +1,34 @@
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
+import { ClerkProvider } from '@clerk/clerk-react'
+import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style } from '@capacitor/status-bar'
+import App from './App.jsx'
+import './index.css'
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Configure native status bar — only runs inside the Capacitor shell (iOS/Android)
+if (Capacitor.isNativePlatform()) {
+    StatusBar.setOverlaysWebView({ overlay: false });
+    StatusBar.setBackgroundColor({ color: '#EAEDED' });
+    StatusBar.setStyle({ style: Style.Light });
+}
+
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+
+if (!PUBLISHABLE_KEY) {
+    throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in .env')
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+        <ErrorBoundary>
+            <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+                <BrowserRouter>
+                    <App />
+                </BrowserRouter>
+            </ClerkProvider>
+        </ErrorBoundary>
+    </React.StrictMode>,
+)

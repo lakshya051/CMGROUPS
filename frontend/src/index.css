@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --safe-area-top: env(safe-area-inset-top, 0px);
+        --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    html,
+    body,
+    #root {
+        min-height: 100%;
+    }
+
+    body {
+        @apply bg-background text-text-main font-sans antialiased;
+        /* prevent horizontal overflow site-wide */
+        overflow-x: hidden;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        @apply font-heading font-bold;
+    }
+
+    /* All images responsive by default */
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+@layer components {
+    .btn {
+        @apply px-4 py-2 rounded-lg font-medium transition-colors duration-base;
+    }
+
+    .btn-primary {
+        @apply bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold;
+    }
+
+    .btn-outline {
+        @apply border border-border-default bg-surface hover:bg-surface-hover text-text-primary;
+    }
+
+    .glass-panel {
+        @apply bg-surface border border-border-default rounded-lg shadow-sm hover:shadow-md transition-shadow duration-base;
+    }
+
+    .input-field {
+        @apply w-full bg-surface border border-border-default rounded-lg px-4 py-2 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-trust focus:ring-1 focus:ring-trust transition-colors text-sm;
+        /* text-base prevents iOS auto-zoom on input focus */
+    }
+
+    /* Auto scroll wrapper for data tables */
+    .table-scroll {
+        @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+    }
+
+    /* Prevent long words from breaking layout */
+    .word-break {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    /* Mobile-safe page padding */
+    .page-pad {
+        @apply px-4 sm:px-6 lg:px-8 py-6 sm:py-10;
+    }
+}
+
+/* ─── Capacitor / Mobile Native Improvements ─────────────────────────────── */
+
+/* 1. Disable pull-to-refresh — feels wrong in a native app shell */
+body {
+    overscroll-behavior: none;
+}
+
+/* 2. Remove the blue/grey tap flash on iOS WebView */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 3. Prevent text selection on interactive UI elements */
+button,
+nav,
+.no-select {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* 4. Momentum (inertia) scrolling on iOS for scrollable containers */
+.scrollable {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+}
+
+/* 5. Safe area inset helpers — apply to fixed headers / bottom navs */
+.safe-top {
+    padding-top: var(--safe-area-top);
+}
+
+.safe-bottom {
+    padding-bottom: var(--safe-area-bottom);
+}
+
+.safe-top-offset {
+    top: var(--safe-area-top);
+}
+
+.safe-screen {
+    min-height: 100vh;
+    padding-bottom: var(--safe-area-bottom);
+}
