@@ -42,6 +42,7 @@ const PageLoader = () => (
 const Home = lazyRetry(() => import('./pages/Home'));
 const Services = lazyRetry(() => import('./pages/Services'));
 const TallyERP = lazyRetry(() => import('./pages/TallyERP'));
+const CCTVSecurity = lazyRetry(() => import('./pages/CCTVSecurity'));
 const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazyRetry(() => import('./pages/TermsOfService'));
@@ -81,6 +82,7 @@ const AdminReferralSettings = lazyRetry(() => import('./pages/admin/AdminReferra
 const AdminCourses = lazyRetry(() => import('./pages/admin/AdminCourses'));
 const AdminEnrollments = lazyRetry(() => import('./pages/admin/AdminEnrollments'));
 const AdminTallyEnquiries = lazyRetry(() => import('./pages/admin/AdminTallyEnquiries'));
+const AdminCCTVEnquiries = lazyRetry(() => import('./pages/admin/AdminCCTVEnquiries'));
 const AdminBanners = lazyRetry(() => import('./pages/admin/AdminBanners'));
 
 function App() {
@@ -116,6 +118,7 @@ function App() {
                                 <ProtectedRoute><CoursePlayer /></ProtectedRoute>
                             } />
                             <Route path="tally-erp" element={<TallyERP />} />
+                            <Route path="cctv" element={<CCTVSecurity />} />
                             <Route path="privacy-policy" element={<PrivacyPolicy />} />
                             <Route path="terms-of-service" element={<TermsOfService />} />
                         </Route>
@@ -149,6 +152,7 @@ function App() {
                             <Route path="courses" element={<AdminCourses />} />
                             <Route path="enrollments" element={<AdminEnrollments />} />
                             <Route path="tally-enquiries" element={<AdminTallyEnquiries />} />
+                            <Route path="cctv-enquiries" element={<AdminCCTVEnquiries />} />
                             <Route path="banners" element={<AdminBanners />} />
                         </Route>
 

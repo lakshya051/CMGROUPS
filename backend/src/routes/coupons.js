@@ -3,6 +3,84 @@ import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
+const DISCOUNT_TYPES = ['percent', 'fixed'];
+
+const parseOptionalNumber = (value, fieldName, { integer = false, min = 0 } = {}) => {
+    if (value === undefined) return undefined;
+    if (value === null || value === '') return null;
+
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+        throw new Error(`${fieldName} must be a valid ${integer ? 'integer' : 'number'}`);
+    }
+
+    if (integer && !Number.isInteger(parsed)) {
+        throw new Error(`${fieldName} must be a whole number`);
+    }
+
+    if (parsed < min) {
+        throw new Error(`${fieldName} must be at least ${min}`);
+    }
+
+    return parsed;
+};
+
+const parseOptionalDate = (value, fieldName) => {
+    if (value === undefined) return undefined;
+    if (value === null || value === '') return null;
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        throw new Error(`${fieldName} must be a valid date`);
+    }
+
+    return parsed;
+};
+
+const buildCouponData = (body, { partial = false } = {}) => {
+    const data = {};
+
+    if (!partial || body.code !== undefined) {
+        const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
+        if (!code) {
+            throw new Error('Coupon code is required');
+        }
+        data.code = code;
+    }
+
+    if (!partial || body.discountType !== undefined) {
+        if (!DISCOUNT_TYPES.includes(body.discountType)) {
+            throw new Error('discountType must be "percent" or "fixed"');
+        }
+        data.discountType = body.discountType;
+    }
+
+    if (!partial || body.value !== undefined) {
+        const value = Number(body.value);
+        if (Number.isNaN(value) || value <= 0) {
+            throw new Error('value must be greater than 0');
+        }
+        data.value = value;
+    }
+
+    const minOrderAmount = parseOptionalNumber(body.minOrderAmount, 'minOrderAmount');
+    if (minOrderAmount !== undefined) data.minOrderAmount = minOrderAmount;
+
+    const maxUses = parseOptionalNumber(body.maxUses, 'maxUses', { integer: true, min: 1 });
+    if (maxUses !== undefined) data.maxUses = maxUses;
+
+    const expiresAt = parseOptionalDate(body.expiresAt, 'expiresAt');
+    if (expiresAt !== undefined) data.expiresAt = expiresAt;
+
+    if (body.active !== undefined) {
+        if (typeof body.active !== 'boolean') {
+            throw new Error('active must be a boolean');
+        }
+        data.active = body.active;
+    }
+
+    return data;
+};
 
 // POST /api/coupons/validate (Public - validate a coupon code)
 router.post('/validate', async (req, res) => {
@@ -45,26 +123,21 @@ router.get('/', protect, adminOnly, async (req, res) => {
 // POST /api/coupons (Admin - create coupon)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { code, discountType, value } = req.body;
-
-        if (!code || !discountType || value === undefined) {
-            return res.status(400).json({ error: 'Code, discountType, and value are required' });
+        let couponData;
+        try {
+            couponData = buildCouponData(req.body);
+        } catch (validationError) {
+            return res.status(400).json({ error: validationError.message });
         }
 
-        if (!['percent', 'fixed'].includes(discountType)) {
-            return res.status(400).json({ error: 'discountType must be "percent" or "fixed"' });
-        }
-
-        const existing = await prisma.coupon.findUnique({ where: { code: code.toUpperCase() } });
+        const existing = await prisma.coupon.findUnique({ where: { code: couponData.code } });
         if (existing) {
             return res.status(400).json({ error: 'Coupon code already exists' });
         }
 
         const coupon = await prisma.coupon.create({
             data: {
-                code: code.toUpperCase(),
-                discountType,
-                value: parseFloat(value),
+                ...couponData,
                 active: true
             }
         });
@@ -79,15 +152,27 @@ router.post('/', protect, adminOnly, async (req, res) => {
 // PATCH /api/coupons/:id (Admin - toggle active / update)
 router.patch('/:id', protect, adminOnly, async (req, res) => {
     try {
-        const { active, value, discountType } = req.body;
-        const updateData = {};
+        const couponId = Number(req.params.id);
+        if (!Number.isInteger(couponId)) {
+            return res.status(400).json({ error: 'Invalid coupon id' });
+        }
 
-        if (active !== undefined) updateData.active = active;
-        if (value !== undefined) updateData.value = parseFloat(value);
-        if (discountType) updateData.discountType = discountType;
+        let updateData;
+        try {
+            updateData = buildCouponData(req.body, { partial: true });
+        } catch (validationError) {
+            return res.status(400).json({ error: validationError.message });
+        }
+
+        if (updateData.code) {
+            const existing = await prisma.coupon.findUnique({ where: { code: updateData.code } });
+            if (existing && existing.id !== couponId) {
+                return res.status(400).json({ error: 'Coupon code already exists' });
+            }
+        }
 
         const coupon = await prisma.coupon.update({
-            where: { id: parseInt(req.params.id) },
+            where: { id: couponId },
             data: updateData
         });
 
