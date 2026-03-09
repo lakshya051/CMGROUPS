@@ -296,6 +296,9 @@ const Navbar = () => {
                     <Link to="/tally-erp" className={`text-sm font-medium transition-colors ${isActive('/tally-erp') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}>
                         Tally ERP
                     </Link>
+                    <Link to="/cctv" className={`text-sm font-medium transition-colors ${isActive('/cctv') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}>
+                        CCTV Security
+                    </Link>
                 </nav>
 
                 {/* Actions */}
@@ -411,6 +414,7 @@ const Navbar = () => {
                     <Link to="/services" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Services</Link>
                     <Link to="/courses" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Academy</Link>
                     <Link to="/tally-erp" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Tally ERP</Link>
+                    <Link to="/cctv" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>CCTV Security</Link>
                     <div className="h-px bg-border-default my-2"></div>
                     <div className="flex items-center justify-between px-4">
                         <Link to="/wishlist" className="flex items-center gap-2 text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>
