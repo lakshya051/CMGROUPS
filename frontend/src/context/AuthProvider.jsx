@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
-import { authAPI, notificationsAPI, setTokenGetter } from '../lib/api';
-import { clearCurrentPushToken, getCurrentPushToken } from '../lib/pushNotifications';
+import { authAPI, setTokenGetter } from '../lib/api';
 import { AuthContext } from './AuthContext';
 
 const MAX_RETRIES = 3;
@@ -69,17 +68,6 @@ export const AuthProvider = ({ children }) => {
     }, [isLoaded, isSignedIn, getToken]);
 
     const logout = useCallback(async () => {
-        const currentPushToken = getCurrentPushToken();
-
-        if (currentPushToken) {
-            try {
-                await notificationsAPI.unregisterDevice(currentPushToken);
-            } catch (error) {
-                console.error('Push device unregister failed:', error);
-            }
-        }
-
-        clearCurrentPushToken();
         setUser(null);
         await signOut();
     }, [signOut]);
