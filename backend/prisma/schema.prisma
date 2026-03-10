@@ -35,6 +35,7 @@ model User {
   productAlerts      ProductAlert[]
   notifications      Notification[]
   deviceRegistrations DeviceRegistration[]
+  pushSubscriptions  PushSubscription[]
   wishlists          Wishlist[]
   cartItems          CartItem[]
   addresses          Address[]
@@ -536,6 +537,18 @@ model DeviceRegistration {
   updatedAt  DateTime @updatedAt
 
   @@index([userId, platform, isActive])
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model ReferralSettings {

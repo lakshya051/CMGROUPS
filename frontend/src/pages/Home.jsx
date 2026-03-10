@@ -18,6 +18,12 @@ const Home = () => {
     const [recentlyViewed, setRecentlyViewed] = useState([]);
 
     useEffect(() => {
+        import('./shop/Products');
+        import('./shop/ProductDetail');
+        import('./shop/Cart');
+    }, []);
+
+    useEffect(() => {
         // Best sellers: top-rated products
         productsAPI.getAll({ sort: 'rating', limit: 10 })
             .then(res => setBestSellers(res.data || []))

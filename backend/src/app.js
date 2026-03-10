@@ -24,6 +24,7 @@ import webhookRoutes from './routes/webhooks.js';
 import cartRoutes from './routes/cart.js';
 import bannerRoutes from './routes/banners.js';
 import addressRoutes from './routes/addresses.js';
+import pushRoutes from './routes/push.js';
 
 dotenv.config();
 
@@ -53,9 +54,6 @@ app.use(cors({
         'http://localhost:5174',
         'http://localhost:3000',
         'https://cmgroups.vercel.app',
-        // Capacitor mobile origins
-        'capacitor://localhost',   // iOS
-        'http://localhost',        // Android WebView internal
     ],
     credentials: true
 }));
@@ -89,6 +87,7 @@ app.use('/api/cctv', cctvRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/addresses', addressRoutes);
+app.use('/api/push', pushRoutes);
 
 
 app.get('/', (req, res) => {

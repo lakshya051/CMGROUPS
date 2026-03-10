@@ -6,7 +6,6 @@ import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useShop } from '../../context/ShopContext';
 import { categoriesAPI, notificationsAPI } from '../../lib/api';
-import { getNotificationsRefreshEventName } from '../../lib/pushNotifications';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -46,7 +45,7 @@ const Navbar = () => {
     }, [loadNotifications]);
 
     React.useEffect(() => {
-        const eventName = getNotificationsRefreshEventName();
+        const eventName = 'technova:notifications:refresh';
         const handleRefresh = () => {
             loadNotifications();
         };
