@@ -21,6 +21,10 @@ export const AuthProvider = ({ children }) => {
     const tokenRef = useRef(null);
 
     useEffect(() => {
+        if (!auth) {
+            setLoading(false);
+            return;
+        }
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 const idToken = await fbUser.getIdToken();
@@ -63,6 +67,7 @@ export const AuthProvider = ({ children }) => {
     }, [firebaseUser]);
 
     const registerWithEmail = useCallback(async (email, password, name) => {
+        if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const idToken = await cred.user.getIdToken();
         tokenRef.current = idToken;
@@ -81,6 +86,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const loginWithGoogle = useCallback(async () => {
+        if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
         const provider = new GoogleAuthProvider();
         const cred = await signInWithPopup(auth, provider);
         const idToken = await cred.user.getIdToken();
@@ -92,10 +98,11 @@ export const AuthProvider = ({ children }) => {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
             body: JSON.stringify({ name: cred.user.displayName }),
         });
-        if (res.ok) {
-            const data = await res.json();
-            setUser(data.user);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error || `Server error (${res.status})`);
         }
+        setUser(data.user);
         return cred;
     }, []);
 
@@ -103,7 +110,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         tokenRef.current = null;
         setTokenGetter(null);
-        await signOut(auth);
+        if (auth) await signOut(auth);
     }, []);
 
     const refreshUser = useCallback(async () => {
@@ -133,12 +140,19 @@ export const AuthProvider = ({ children }) => {
                 isSignedIn: !!firebaseUser,
                 isAdmin: user?.role === 'admin',
                 firebaseUser,
+                firebaseConfigured: !!auth,
                 logout,
                 refreshUser,
-                loginWithEmail: (email, password) => signInWithEmailAndPassword(auth, email, password),
+                loginWithEmail: (email, password) => {
+                    if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
+                    return signInWithEmailAndPassword(auth, email, password);
+                },
                 registerWithEmail,
                 loginWithGoogle,
-                resetPassword: (email) => sendPasswordResetEmail(auth, email),
+                resetPassword: (email) => {
+                    if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
+                    return sendPasswordResetEmail(auth, email);
+                },
             }}
         >
             {loading ? null : children}

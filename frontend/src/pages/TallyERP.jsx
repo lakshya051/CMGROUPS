@@ -5,7 +5,7 @@ import {
     CheckCircle, ChevronDown, ChevronUp, FileText, Package, Users,
     Building2, Receipt, BarChart3, CreditCard, Wrench, GraduationCap,
     ShoppingCart, Stethoscope, UtensilsCrossed, Factory, BookOpen,
-    Calculator, Truck, Settings, Phone, MessageSquare, Star, Shield
+    Calculator, Truck, Settings, Phone, Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 

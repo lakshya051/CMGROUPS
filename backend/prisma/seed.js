@@ -207,7 +207,7 @@ async function main() {
                 stock: rand(5, 40),
                 category: t.cat,
                 brand: pick(BRANDS[t.type]),
-                image: IMAGES[t.type],
+                images: [IMAGES[t.type]],
                 description: `${t.title} — premium ${t.cat.toLowerCase()} product. High performance, excellent build quality.`,
                 rating: parseFloat((3.8 + Math.random() * 1.1).toFixed(1)),
                 numReviews: rand(10, 300),

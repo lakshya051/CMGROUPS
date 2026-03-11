@@ -108,9 +108,9 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                                     <div key={idx} className="flex items-center gap-3 p-3 hover:bg-surface-hover transition-colors">
                                         {/* Product Image */}
                                         <div className="w-14 h-14 rounded-lg bg-page-bg border border-border-default flex-shrink-0 overflow-hidden">
-                                            {product.image ? (
+                                            {(product.images?.[0] || product.image) ? (
                                                 <img
-                                                    src={product.image}
+                                                    src={product.images?.[0] || product.image}
                                                     alt={product.title}
                                                     loading="lazy"
                                                     width={56}

@@ -196,7 +196,7 @@ model Product {
   stock       Int
   category    String
   brand       String?
-  image       String
+  images      String[]  @default([])
   description String?
   specs       Json?
   rating      Float    @default(0)
@@ -230,6 +230,7 @@ model Wishlist {
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])
+  @@index([userId, createdAt])
 }
 
 model CartItem {
@@ -460,6 +461,8 @@ model Category {
   image       String?
   description String?
   createdAt   DateTime @default(now())
+
+  @@index([name])
 }
 
 model ServiceType {

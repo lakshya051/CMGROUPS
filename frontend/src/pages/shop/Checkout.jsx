@@ -723,7 +723,7 @@ const Checkout = () => {
                         {cart.map(item => (
                             <div key={item.id} className="flex gap-3 text-sm">
                                 <img
-                                    src={item.image}
+                                    src={item.images?.[0] || item.image}
                                     alt=""
                                     loading="lazy"
                                     width={48}

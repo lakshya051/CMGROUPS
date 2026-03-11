@@ -74,7 +74,7 @@ export default function IOSInstallPrompt() {
 
                     <div className="text-center mb-5">
                         <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                            <img src="/icons/icon-96x96.png" alt="CMGROUPS" className="w-10 h-10 rounded-lg" />
+                            <img src="/icons/icon-96x96.png" alt="CMGROUPS" loading="lazy" width={40} height={40} className="w-10 h-10 rounded-lg" />
                         </div>
                         <h3 className="font-heading font-bold text-lg text-text-primary">
                             Add CMGROUPS to your Home Screen

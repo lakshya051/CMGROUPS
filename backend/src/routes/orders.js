@@ -430,7 +430,7 @@ router.get('/my-orders', protect, async (req, res) => {
                                 select: {
                                     id: true,
                                     title: true,
-                                    image: true,
+                                    images: true,
                                     price: true,
                                     stock: true,
                                     isReturnable: true,
@@ -553,7 +553,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
                     variantId: true,
                     quantity: true,
                     price: true,
-                    product: { select: { id: true, title: true, image: true } }
+                    product: { select: { id: true, title: true, images: true } }
                 }
             }
         };

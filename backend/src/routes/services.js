@@ -239,7 +239,7 @@ router.post('/book', protect, async (req, res) => {
             } catch (notifErr) {
                 console.error('Service notification error (non-blocking):', notifErr);
             }
-        });
+        }).catch(err => console.error('Unhandled service notification error:', err));
     } catch (error) {
         console.error('Book service error:', error);
         if (isDbUnavailableError(error)) {

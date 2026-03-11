@@ -63,7 +63,7 @@ const AdminUsers = () => {
 
     const handleRoleToggle = async (user) => {
         const newRole = user.role === 'admin' ? 'customer' : 'admin';
-        if (!window.confirm(`Change ${user.name}'s role to ${newRole}?`)) return;
+        if (!window.confirm(`Change ${user.name || user.email || 'this user'}'s role to ${newRole}?`)) return;
 
         try {
             await adminAPI.updateUserRole(user.id, newRole);
@@ -176,10 +176,10 @@ const AdminUsers = () => {
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                                                    {user.name.charAt(0).toUpperCase()}
+                                                    {(user.name || user.email || '?').charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="font-medium">{user.name}</p>
+                                                    <p className="font-medium">{user.name || user.email || '—'}</p>
                                                     <p className="text-xs text-text-muted">{user.email}</p>
                                                 </div>
                                             </div>
@@ -351,10 +351,10 @@ const AdminUsers = () => {
                         <div className="p-md border-b border-border-default flex items-center justify-between sticky top-0 bg-surface z-10 shrink-0">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xl">
-                                    {selectedUserForModal.name.charAt(0).toUpperCase()}
+                                    {(selectedUserForModal.name || selectedUserForModal.email || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-text-primary">{selectedUserForModal.name}</h2>
+                                    <h2 className="text-xl font-bold text-text-primary">{selectedUserForModal.name || selectedUserForModal.email || '—'}</h2>
                                     <p className="text-sm text-text-secondary">{selectedUserForModal.email}</p>
                                 </div>
                             </div>

@@ -471,6 +471,27 @@ export const bannersAPI = {
         apiFetch(`/admin/banners/${id}`, { method: 'DELETE' }),
 };
 
+// ============ UPLOAD ============
+export const uploadAPI = {
+    upload: (base64Image, folder = 'products') =>
+        apiFetch('/upload', {
+            method: 'POST',
+            body: JSON.stringify({ image: base64Image, folder })
+        }),
+
+    uploadMultiple: (base64Images, folder = 'products') =>
+        apiFetch('/upload/multiple', {
+            method: 'POST',
+            body: JSON.stringify({ images: base64Images, folder })
+        }),
+
+    deleteImage: (url) =>
+        apiFetch('/upload', {
+            method: 'DELETE',
+            body: JSON.stringify({ url })
+        }),
+};
+
 // ============ REFERRALS ============
 export const referralsAPI = {
     getMyStats: () => apiFetch('/referrals/my-stats'),

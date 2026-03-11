@@ -284,13 +284,47 @@ router.post('/sync', async (req, res) => {
                 existingItems.map((item) => [cartItemKey(item.productId, item.variantId), item])
             );
 
+            const productIds = [...new Set([...incomingItems.values()].map(i => i.productId))];
+            const variantIds = [...new Set(
+                [...incomingItems.values()].filter(i => i.variantId != null).map(i => i.variantId)
+            )];
+
+            const [products, variants] = await Promise.all([
+                prisma.product.findMany({
+                    where: { id: { in: productIds } },
+                    select: { id: true, title: true, stock: true },
+                }),
+                variantIds.length > 0
+                    ? prisma.productVariant.findMany({
+                        where: { id: { in: variantIds } },
+                        select: { id: true, productId: true, name: true, stock: true },
+                    })
+                    : [],
+            ]);
+
+            const productMap = new Map(products.map(p => [p.id, p]));
+            const variantMap = new Map(variants.map(v => [v.id, v]));
+
             for (const incoming of incomingItems.values()) {
                 const key = cartItemKey(incoming.productId, incoming.variantId);
                 const existing = existingByKey.get(key);
                 let allowedQuantity = 0;
 
                 try {
-                    const target = await getStockTarget(prisma, incoming.productId, incoming.variantId);
+                    const product = productMap.get(incoming.productId);
+                    if (!product) throw createHttpError(404, 'Product not found');
+
+                    let target;
+                    if (incoming.variantId == null) {
+                        target = { label: product.title, stock: product.stock };
+                    } else {
+                        const variant = variantMap.get(incoming.variantId);
+                        if (!variant || variant.productId !== incoming.productId) {
+                            throw createHttpError(404, 'Product variant not found');
+                        }
+                        target = { label: variant.name, stock: variant.stock };
+                    }
+
                     const desiredQuantity = existing
                         ? Math.max(existing.quantity, incoming.quantity)
                         : incoming.quantity;
