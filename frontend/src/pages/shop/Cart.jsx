@@ -227,7 +227,7 @@ const Cart = () => {
                                     >
                                         <div className="w-[80px] h-[80px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0">
                                             <img
-                                                src={item.image}
+                                                src={item.images?.[0] || item.image}
                                                 alt={item.title}
                                                 loading="lazy"
                                                 width={80}
@@ -383,7 +383,7 @@ const Cart = () => {
                             >
                                 <div className="w-full h-[120px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs mb-sm">
                                     <img
-                                        src={product.image}
+                                        src={product.images?.[0] || product.image}
                                         alt={product.title}
                                         loading="lazy"
                                         width={180}
@@ -413,7 +413,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
             {/* Image */}
             <Link to={`/products/${item.id}`} className={`w-[100px] h-[100px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0 ${inStock ? '' : 'opacity-60'}`}>
                 <img
-                    src={item.image}
+                    src={item.images?.[0] || item.image}
                     alt={item.title}
                     loading="lazy"
                     width={100}

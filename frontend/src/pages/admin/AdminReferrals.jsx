@@ -213,9 +213,9 @@ const AdminReferrals = () => {
                                                 <div className="space-y-1.5 max-w-xs">
                                                     {referral.order.items.map((item, itemIndex) => (
                                                         <div key={itemIndex} className="flex items-center gap-2">
-                                                            {item.product?.image ? (
+                                                            {(item.product?.images?.[0] || item.product?.image) ? (
                                                                 <img
-                                                                    src={item.product.image}
+                                                                    src={item.product.images?.[0] || item.product.image}
                                                                     alt={item.product.title}
                                                                     loading="lazy"
                                                                     width={32}

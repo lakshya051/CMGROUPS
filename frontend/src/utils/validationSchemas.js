@@ -110,7 +110,7 @@ export const addProductSchema = Yup.object({
         .min(0, 'Stock cannot be negative')
         .required('Stock is required'),
     category: Yup.string().required('Category is required'),
-    image: Yup.string().url('Please enter a valid image URL').required('Image URL is required'),
+    image: Yup.string().url('Please enter a valid image URL').optional().nullable(),
     brand: Yup.string().optional(),
     description: Yup.string().optional(),
     condition: Yup.string().required('Condition is required'),

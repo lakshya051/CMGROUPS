@@ -135,6 +135,7 @@ export default defineConfig(({ mode }) => ({
                     if (id.includes('firebase')) return 'vendor-firebase';
                     if (id.includes('lucide-react')) return 'ui';
                     if (id.includes('recharts')) return 'recharts';
+                    if (id.includes('framer-motion')) return 'vendor-motion';
                     if (id.includes('formik') || id.includes('yup')) return 'forms';
                     if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('react-hot-toast')) return 'utils';
                 },

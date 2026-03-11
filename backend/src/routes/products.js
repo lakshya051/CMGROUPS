@@ -123,10 +123,12 @@ router.get('/:id', async (req, res) => {
 // POST /api/products (Admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, price, stock, category, brand, image, description, specs, condition, isSecondHand, isReturnable, returnWindowDays, referrerPoints, refereePoints } = req.body;
+        const { title, price, stock, category, brand, image, images, description, specs, condition, isSecondHand, isReturnable, returnWindowDays, referrerPoints, refereePoints } = req.body;
 
-        if (!title || price === undefined || stock === undefined || !category || !image) {
-            return res.status(400).json({ error: 'Title, price, stock, category, and image are required.' });
+        const productImages = Array.isArray(images) ? images : (image ? [image] : []);
+
+        if (!title || price === undefined || stock === undefined || !category || productImages.length === 0) {
+            return res.status(400).json({ error: 'Title, price, stock, category, and at least one image are required.' });
         }
 
         const product = await prisma.product.create({
@@ -136,7 +138,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 stock: parseInt(stock),
                 category,
                 brand: brand || null,
-                image,
+                images: productImages,
                 description: description || null,
                 specs: specs || null,
                 condition: condition || 'New',
@@ -162,7 +164,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
-        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, ...otherData } = req.body;
+        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, ...otherData } = req.body;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
 
@@ -171,6 +173,12 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
             referrerPoints: referrerPoints !== undefined ? (referrerPoints === null ? null : parseFloat(referrerPoints)) : undefined,
             refereePoints: refereePoints !== undefined ? (refereePoints === null ? null : parseFloat(refereePoints)) : undefined
         };
+
+        if (images !== undefined) {
+            updateData.images = Array.isArray(images) ? images : [];
+        } else if (image !== undefined) {
+            updateData.images = image ? [image] : [];
+        }
 
         if (isReturnable !== undefined) updateData.isReturnable = isReturnable === true || isReturnable === 'true';
         if (returnWindowDays !== undefined) updateData.returnWindowDays = parseInt(returnWindowDays);
@@ -242,7 +250,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
             } catch (err) {
                 console.error('Alert trigger error:', err);
             }
-        })();
+        })().catch(err => console.error('Unhandled alert background error:', err));
 
         res.json(product);
     } catch (error) {

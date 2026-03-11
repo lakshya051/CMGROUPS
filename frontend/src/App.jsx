@@ -6,7 +6,7 @@ import { AuthProvider } from './context/AuthProvider';
 import { ShopProvider } from './context/ShopProvider';
 import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import { useDataSeeder } from './hooks/useDataSeeder';
+import ErrorBoundary from './components/ErrorBoundary';
 import { Toaster } from 'react-hot-toast';
 import CompareWidget from './components/shop/CompareWidget';
 import PushNotificationsBridge from './components/system/PushNotificationsBridge';
@@ -87,8 +87,6 @@ const AdminCCTVEnquiries = lazyRetry(() => import('./pages/admin/AdminCCTVEnquir
 const AdminBanners = lazyRetry(() => import('./pages/admin/AdminBanners'));
 
 function App() {
-    useDataSeeder();
-
     return (
         <AuthProvider>
             <NotificationProvider>
@@ -101,7 +99,7 @@ function App() {
                     <Suspense fallback={<PageLoader />}>
                         <Routes>
                             {/* Public Routes */}
-                            <Route path="/" element={<SharedLayout />}>
+                            <Route path="/" element={<ErrorBoundary><SharedLayout /></ErrorBoundary>}>
                                 <Route index element={<Home />} />
                                 <Route path="products" element={<Products />} />
                                 <Route path="products/:id" element={<ProductDetail />} />
@@ -130,7 +128,9 @@ function App() {
 
                             {/* User Dashboard */}
                             <Route path="/dashboard" element={
-                                <ProtectedRoute><DashboardLayout role="customer" /></ProtectedRoute>
+                                <ErrorBoundary>
+                                    <ProtectedRoute><DashboardLayout role="customer" /></ProtectedRoute>
+                                </ErrorBoundary>
                             }>
                                 <Route index element={<UserDashboard />} />
                                 <Route path="orders" element={<UserOrders />} />
@@ -142,7 +142,9 @@ function App() {
 
                             {/* Admin Dashboard */}
                             <Route path="/admin" element={
-                                <ProtectedRoute adminOnly={true}><DashboardLayout role="admin" /></ProtectedRoute>
+                                <ErrorBoundary>
+                                    <ProtectedRoute adminOnly={true}><DashboardLayout role="admin" /></ProtectedRoute>
+                                </ErrorBoundary>
                             }>
                                 <Route index element={<AdminDashboard />} />
                                 <Route path="products" element={<AdminProducts />} />

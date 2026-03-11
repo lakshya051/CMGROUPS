@@ -64,7 +64,7 @@ const DealCard = ({ product }) => {
         >
             <div className="aspect-square bg-page-bg border-b border-border-default p-4 flex items-center justify-center">
                 <img
-                    src={product.image}
+                    src={product.images?.[0] || product.image}
                     alt={product.title}
                     loading="lazy"
                     width={320}

@@ -35,7 +35,7 @@ const CompareWidget = () => {
                     {products.map(p => (
                         <div key={p.id} className="flex items-center gap-2 bg-page-bg/80 p-2 rounded border border-border-default">
                             <img
-                                src={p.image}
+                                src={p.images?.[0] || p.image}
                                 alt={p.title}
                                 loading="lazy"
                                 width={32}

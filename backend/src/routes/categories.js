@@ -1,5 +1,6 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
+import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -7,9 +8,13 @@ const router = express.Router();
 // GET /api/categories - List all categories (Public)
 router.get('/', async (req, res) => {
     try {
+        const cached = cache.get('categories:all');
+        if (cached) return res.json(cached);
+
         const categories = await prisma.category.findMany({
             orderBy: { name: 'asc' }
         });
+        cache.set('categories:all', categories, 300);
         res.json(categories);
     } catch (error) {
         console.error('Get categories error:', error);
@@ -32,6 +37,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
             data: { name, slug, image, description }
         });
 
+        cache.delByPrefix('categories:');
         res.status(201).json(category);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -48,6 +54,7 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
         await prisma.category.delete({
             where: { id: parseInt(req.params.id) }
         });
+        cache.delByPrefix('categories:');
         res.json({ success: true });
     } catch (error) {
         console.error('Delete category error:', error);
@@ -60,10 +67,14 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
 // GET /api/categories/service-types - List all active service types (Public)
 router.get('/service-types', async (req, res) => {
     try {
+        const cached = cache.get('serviceTypes:active');
+        if (cached) return res.json(cached);
+
         const serviceTypes = await prisma.serviceType.findMany({
             where: { active: true },
             orderBy: { createdAt: 'asc' }
         });
+        cache.set('serviceTypes:active', serviceTypes, 300);
         res.json(serviceTypes);
     } catch (error) {
         console.error('Get service types error:', error);
@@ -105,6 +116,7 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
             }
         });
 
+        cache.delByPrefix('serviceTypes:');
         res.status(201).json(serviceType);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -135,6 +147,7 @@ router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
             data
         });
 
+        cache.delByPrefix('serviceTypes:');
         res.json(serviceType);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -151,6 +164,7 @@ router.delete('/service-types/:id', protect, adminOnly, async (req, res) => {
         await prisma.serviceType.delete({
             where: { id: parseInt(req.params.id) }
         });
+        cache.delByPrefix('serviceTypes:');
         res.json({ success: true });
     } catch (error) {
         console.error('Delete service type error:', error);

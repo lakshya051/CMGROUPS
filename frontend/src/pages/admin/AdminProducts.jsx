@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Search, Plus, Trash2, Edit, X, Save, Image } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Package, Search, Plus, Trash2, Edit, X, Save, Image, Upload } from 'lucide-react';
 import Button from '../../components/ui/Button';
-import { productsAPI, categoriesAPI } from '../../lib/api';
+import { productsAPI, categoriesAPI, uploadAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
 import { useFormik } from 'formik';
 import { addProductSchema } from '../../utils/validationSchemas';
@@ -48,6 +48,12 @@ const AdminProducts = () => {
     const [variantStock, setVariantStock] = useState('');
     const [variantSku, setVariantSku] = useState('');
 
+    // Multi-image state
+    const [productImages, setProductImages] = useState([]);
+    const [imageUrlInput, setImageUrlInput] = useState('');
+    const [uploadingImages, setUploadingImages] = useState(false);
+    const fileInputRef = useRef(null);
+
     // Specs state (key-value pairs)
     const [specKey, setSpecKey] = useState('');
     const [specValue, setSpecValue] = useState('');
@@ -59,13 +65,20 @@ const AdminProducts = () => {
         validateOnChange: false,
         enableReinitialize: true,
         onSubmit: async (values, { setSubmitting, setErrors }) => {
+            const finalImages = productImages.length > 0 ? productImages : (values.image ? [values.image] : []);
+            if (finalImages.length === 0) {
+                setErrors({ image: 'At least one image is required' });
+                setSubmitting(false);
+                return;
+            }
+
             const productData = {
                 title: values.title,
                 price: parseFloat(values.price),
                 stock: parseInt(values.stock),
                 category: values.category,
                 brand: values.brand || null,
-                image: values.image,
+                images: finalImages,
                 description: values.description || null,
                 specs: Object.keys(specs).length > 0 ? specs : null,
                 isSecondHand: values.isSecondHand,
@@ -188,6 +201,8 @@ const AdminProducts = () => {
     const openAddModal = () => {
         setEditingProduct(null);
         setSpecs({});
+        setProductImages([]);
+        setImageUrlInput('');
         formik.resetForm();
         setShowModal(true);
     };
@@ -197,6 +212,8 @@ const AdminProducts = () => {
         setEditingProduct(product);
         setSpecs(product.specs || {});
         setVariants(product.variants || []);
+        setProductImages(product.images || (product.image ? [product.image] : []));
+        setImageUrlInput('');
         formik.resetForm({
             values: {
                 title: product.title || '',
@@ -204,7 +221,7 @@ const AdminProducts = () => {
                 stock: product.stock !== undefined ? product.stock : '',
                 category: product.category || '',
                 brand: product.brand || '',
-                image: product.image || '',
+                image: '',
                 description: product.description || '',
                 condition: product.condition || 'New',
                 isSecondHand: product.isSecondHand || false,
@@ -334,7 +351,7 @@ const AdminProducts = () => {
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded bg-surface p-1 flex-shrink-0">
                                                 <img
-                                                    src={product.image}
+                                                    src={product.images?.[0] || product.image}
                                                     alt=""
                                                     loading="lazy"
                                                     width={40}
@@ -610,30 +627,105 @@ const AdminProducts = () => {
                                 )}
                             </div>
 
-                            {/* Image URL */}
+                            {/* Product Images */}
                             <div>
                                 <label className="block text-sm font-medium text-text-muted mb-1">
-                                    Image URL <span className="text-error">*</span>
+                                    Product Images <span className="text-error">*</span>
                                 </label>
-                                <div>
-                                    <div className="flex gap-3">
-                                        <input type="url" name="image" className={`input-field flex-1 ${formik.touched.image && formik.errors.image ? 'border-red-500' : ''}`} placeholder="https://example.com/product.png" value={formik.values.image} onChange={formik.handleChange} onBlur={formik.handleBlur} />
-                                        {formik.values.image && (
-                                            <div className="w-12 h-12 rounded bg-surface p-1 flex-shrink-0 border border-border-default">
-                                                <img
-                                                    src={formik.values.image}
-                                                    alt="Preview"
-                                                    loading="lazy"
-                                                    width={48}
-                                                    height={48}
-                                                    onError={handleImageError}
-                                                    className="w-full h-full object-contain"
-                                                />
+
+                                {/* Current images */}
+                                {productImages.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-3">
+                                        {productImages.map((url, idx) => (
+                                            <div key={idx} className="relative group w-16 h-16 rounded-lg border border-border-default overflow-hidden bg-page-bg">
+                                                <img src={url} alt={`Product ${idx + 1}`} loading="lazy" width={64} height={64} onError={handleImageError} className="w-full h-full object-contain" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setProductImages(prev => prev.filter((_, i) => i !== idx))}
+                                                    className="absolute -top-1 -right-1 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                                {idx === 0 && <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center">Main</span>}
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
-                                    {formik.touched.image && formik.errors.image && <p className="text-red-400 text-sm mt-1">{formik.errors.image}</p>}
+                                )}
+
+                                {/* Add by URL */}
+                                <div className="flex gap-2 mb-2">
+                                    <input
+                                        type="url"
+                                        className="input-field flex-1"
+                                        placeholder="Paste image URL..."
+                                        value={imageUrlInput}
+                                        onChange={(e) => setImageUrlInput(e.target.value)}
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!imageUrlInput.trim()}
+                                        onClick={() => {
+                                            if (imageUrlInput.trim()) {
+                                                setProductImages(prev => [...prev, imageUrlInput.trim()]);
+                                                setImageUrlInput('');
+                                            }
+                                        }}
+                                    >
+                                        <Plus size={14} />
+                                    </Button>
                                 </div>
+
+                                {/* Upload files */}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                        const files = Array.from(e.target.files || []);
+                                        if (files.length === 0) return;
+                                        setUploadingImages(true);
+                                        try {
+                                            const base64Promises = files.map(file => new Promise((resolve) => {
+                                                const reader = new FileReader();
+                                                reader.onload = () => resolve(reader.result);
+                                                reader.readAsDataURL(file);
+                                            }));
+                                            const base64Images = await Promise.all(base64Promises);
+                                            const { urls } = await uploadAPI.uploadMultiple(base64Images);
+                                            setProductImages(prev => [...prev, ...urls]);
+                                        } catch (err) {
+                                            console.error('Upload failed:', err);
+                                        } finally {
+                                            setUploadingImages(false);
+                                            e.target.value = '';
+                                        }
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploadingImages}
+                                    className="w-full border-2 border-dashed border-border-default rounded-lg p-3 text-center text-sm text-text-muted hover:border-primary hover:text-primary transition-colors"
+                                >
+                                    {uploadingImages ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                            Uploading...
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <Upload size={16} /> Upload Images
+                                        </span>
+                                    )}
+                                </button>
+
+                                {productImages.length === 0 && formik.touched.image && (
+                                    <p className="text-red-400 text-sm mt-1">At least one image is required</p>
+                                )}
                             </div>
 
                             {/* Description */}

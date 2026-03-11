@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
     Clock, CheckCircle, Package, Truck, MapPin, Eye, Copy, Shield, X,
     Download, Search, ChevronDown, ShoppingCart, Calendar, CircleDot,
-    XCircle, ClipboardCopy,
+    ClipboardCopy,
 } from 'lucide-react'
 import { ordersAPI } from '../../lib/api'
 import { useShop } from '../../context/ShopContext'
@@ -344,7 +344,7 @@ const UserOrders = () => {
 // ─── OrderCard ──────────────────────────────────────────────────
 function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, onViewOtp, onTrack, isReturnable }) {
     const isCancelled = order.status === 'Cancelled'
-    const thumbnails = (order.items || []).filter(i => i.product?.image).slice(0, 3)
+    const thumbnails = (order.items || []).filter(i => i.product?.images?.[0] || i.product?.image).slice(0, 3)
 
     return (
         <div className="bg-surface border border-border-default rounded-lg overflow-hidden">
@@ -360,7 +360,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                                 style={{ zIndex: thumbnails.length - i }}
                             >
                                 <img
-                                    src={item.product.image}
+                                    src={item.product.images?.[0] || item.product.image}
                                     alt=""
                                     loading="lazy"
                                     width={40}
@@ -409,7 +409,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                     <div key={item.id} className="flex items-center gap-sm text-sm bg-page-bg border border-border-default rounded-lg p-sm">
                         <div className="w-10 h-10 bg-surface border border-border-default rounded p-xs flex-shrink-0">
                             <img
-                                src={item.product?.image}
+                                src={item.product?.images?.[0] || item.product?.image}
                                 alt=""
                                 loading="lazy"
                                 width={40}

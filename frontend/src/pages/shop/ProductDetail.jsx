@@ -18,7 +18,7 @@ const saveToRecentlyViewed = (product) => {
             id: product.id,
             title: product.title,
             price: product.price,
-            image: product.image,
+            image: product.images?.[0] || product.image,
             category: product.category,
             brand: product.brand,
             rating: product.rating,
@@ -41,6 +41,7 @@ const ProductDetail = () => {
 
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [activeImageIdx, setActiveImageIdx] = useState(0);
 
     const [selectedVariant, setSelectedVariant] = useState(null);
     const [isStockAlertSet, setIsStockAlertSet] = useState(false);
@@ -125,25 +126,48 @@ const ProductDetail = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
                 {/* Image Section */}
-                <div className="bg-surface rounded-lg p-xl flex items-center justify-center border border-border-default relative shadow-sm">
-                    <img
-                        src={product.image}
-                        alt={product.title}
-                        loading="eager"
-                        fetchPriority="high"
-                        decoding="async"
-                        width={800}
-                        height={800}
-                        onError={handleImageError}
-                        className="w-full max-w-md object-contain drop-shadow-2xl"
-                    />
-                    {isCurrentlyOutOfStock ? (
-                        <div className="absolute top-4 right-4 bg-error text-white px-3 py-1 rounded text-sm font-bold shadow-md">
-                            Out of Stock
-                        </div>
-                    ) : isCurrentlyLowStock && (
-                        <div className="absolute top-4 right-4 bg-warning text-white px-3 py-1 rounded text-sm font-bold shadow-md">
-                            Only {currentStock} left!
+                <div className="flex flex-col gap-3">
+                    <div className="bg-surface rounded-lg p-xl flex items-center justify-center border border-border-default relative shadow-sm">
+                        <img
+                            src={(product.images || [product.image])[activeImageIdx] || product.images?.[0] || product.image}
+                            alt={product.title}
+                            loading="eager"
+                            fetchPriority="high"
+                            decoding="async"
+                            width={800}
+                            height={800}
+                            onError={handleImageError}
+                            className="w-full max-w-md object-contain drop-shadow-2xl"
+                        />
+                        {isCurrentlyOutOfStock ? (
+                            <div className="absolute top-4 right-4 bg-error text-white px-3 py-1 rounded text-sm font-bold shadow-md">
+                                Out of Stock
+                            </div>
+                        ) : isCurrentlyLowStock && (
+                            <div className="absolute top-4 right-4 bg-warning text-white px-3 py-1 rounded text-sm font-bold shadow-md">
+                                Only {currentStock} left!
+                            </div>
+                        )}
+                    </div>
+                    {(product.images || []).length > 1 && (
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                            {product.images.map((img, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setActiveImageIdx(idx)}
+                                    className={`flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all ${activeImageIdx === idx ? 'border-primary ring-2 ring-primary/30' : 'border-border-default hover:border-primary/50'}`}
+                                >
+                                    <img
+                                        src={img}
+                                        alt={`${product.title} - ${idx + 1}`}
+                                        loading="lazy"
+                                        width={64}
+                                        height={64}
+                                        onError={handleImageError}
+                                        className="w-full h-full object-contain"
+                                    />
+                                </button>
+                            ))}
                         </div>
                     )}
                 </div>

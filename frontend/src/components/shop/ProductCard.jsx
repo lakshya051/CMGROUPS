@@ -60,7 +60,7 @@ const ProductCard = ({ product }) => {
                     aria-label={`View ${product.title}`}
                 >
                     <img
-                        src={product.image}
+                        src={product.images?.[0] || product.image}
                         alt={product.title}
                         loading="lazy"
                         decoding="async"

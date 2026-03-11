@@ -79,7 +79,7 @@ const Compare = () => {
                                     <div className="flex flex-col items-center">
                                         <div className="w-32 h-32 bg-surface rounded-lg p-2 shadow-sm mb-4 border border-border-default">
                                             <img
-                                                src={p.image}
+                                                src={p.images?.[0] || p.image}
                                                 alt={p.title}
                                                 loading="lazy"
                                                 width={128}

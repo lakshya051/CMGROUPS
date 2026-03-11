@@ -1,5 +1,6 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
+import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -476,6 +477,7 @@ router.post('/banners', protect, adminOnly, async (req, res) => {
             },
         });
 
+        cache.delByPrefix('banners:');
         res.status(201).json(banner);
     } catch (error) {
         console.error('Create banner error:', error);
@@ -503,6 +505,7 @@ router.patch('/banners/reorder', protect, adminOnly, async (req, res) => {
         await prisma.$transaction(updates);
 
         const banners = await prisma.banner.findMany({ orderBy: { displayOrder: 'asc' } });
+        cache.delByPrefix('banners:');
         res.json(banners);
     } catch (error) {
         console.error('Reorder banners error:', error);
@@ -531,6 +534,7 @@ router.patch('/banners/:id', protect, adminOnly, async (req, res) => {
             data,
         });
 
+        cache.delByPrefix('banners:');
         res.json(banner);
     } catch (error) {
         console.error('Update banner error:', error);
@@ -556,6 +560,7 @@ router.patch('/banners/:id/toggle', protect, adminOnly, async (req, res) => {
             data: { active: !existing.active },
         });
 
+        cache.delByPrefix('banners:');
         res.json(banner);
     } catch (error) {
         console.error('Toggle banner error:', error);
@@ -569,6 +574,7 @@ router.delete('/banners/:id', protect, adminOnly, async (req, res) => {
         const bannerId = parseInt(req.params.id);
 
         await prisma.banner.delete({ where: { id: bannerId } });
+        cache.delByPrefix('banners:');
         res.json({ success: true, message: 'Banner deleted' });
     } catch (error) {
         console.error('Delete banner error:', error);

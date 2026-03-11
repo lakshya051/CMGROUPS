@@ -24,6 +24,7 @@ import cartRoutes from './routes/cart.js';
 import bannerRoutes from './routes/banners.js';
 import addressRoutes from './routes/addresses.js';
 import pushRoutes from './routes/push.js';
+import uploadRoutes from './routes/upload.js';
 
 dotenv.config();
 
@@ -84,6 +85,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/', (req, res) => {
     res.json({ status: 'CMGROUPS API is running', version: '2.0.0' });
