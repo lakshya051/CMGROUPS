@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button';
 import { categoriesAPI } from '../../lib/api';
 import { useFormik } from 'formik';
 import { addCategorySchema } from '../../utils/validationSchemas';
+import { handleImageError } from '../../utils/image';
 
 const AdminCategories = () => {
     const [categories, setCategories] = useState([]);
@@ -95,11 +96,19 @@ const AdminCategories = () => {
                 {filteredCategories.map(category => (
                     <div key={category.id} className="glass-panel p-4 flex items-center justify-between hover:border-primary/30 transition-colors">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <div className="w-12 h-12 bg-page-bg rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {category.image ? (
-                                    <img src={category.image} alt="" className="w-full h-full object-cover" />
+                                    <img
+                                        src={category.image}
+                                        alt=""
+                                        loading="lazy"
+                                        width={48}
+                                        height={48}
+                                        onError={handleImageError}
+                                        className="w-full h-full object-cover"
+                                    />
                                 ) : (
-                                    <Folder className="text-gray-400" size={24} />
+                                    <Folder className="text-text-muted" size={24} />
                                 )}
                             </div>
                             <div>
@@ -121,7 +130,7 @@ const AdminCategories = () => {
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
                     <div className="glass-panel w-full max-w-md relative animate-in zoom-in duration-300">
-                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                        <div className="p-6 border-b border-border-default flex items-center justify-between">
                             <h2 className="text-xl font-bold">Add Category</h2>
                             <button onClick={closeModal}><X size={20} /></button>
                         </div>

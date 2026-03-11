@@ -12,17 +12,15 @@ datasource db {
 
 model User {
   id             Int      @id @default(autoincrement())
+  firebaseUid    String?  @unique
   email          String   @unique
-  password       String
-  name           String
+  name           String?
   phone          String?
-  referralCode   String?  @unique // Code this user shares
+  referralCode   String?  @unique
   walletBalance  Float    @default(0)
-  isVerified     Boolean  @default(true)
   tier           String   @default("Bronze")
-  otp            String?
-  otpExpires     DateTime?
-  referredById   Int?     // Who referred this user
+  tierPoints     Float    @default(0)
+  referredById   Int?
   referredBy     User?    @relation("UserReferrals", fields: [referredById], references: [id])
   role           String   @default("customer")
   createdAt      DateTime @default(now())
@@ -36,12 +34,20 @@ model User {
   walletTransactions WalletTransaction[]
   productAlerts      ProductAlert[]
   notifications      Notification[]
+  deviceRegistrations DeviceRegistration[]
+  pushSubscriptions  PushSubscription[]
   wishlists          Wishlist[]
+  cartItems          CartItem[]
+  addresses          Address[]
   
   // Education Module
   courseApplications CourseApplication[]
   enrollments        Enrollment[]
   attendances        Attendance[]
+
+  @@index([firebaseUid])
+  @@index([role])
+  @@index([createdAt])
 }
 
 model Course {
@@ -207,10 +213,12 @@ model Product {
   alerts      ProductAlert[]
   wishlists   Wishlist[]
   variants    ProductVariant[]
+  cartItems   CartItem[]
 
   @@index([category])
   @@index([isSecondHand])
   @@index([price])
+  @@index([rating])
 }
 
 model Wishlist {
@@ -223,6 +231,23 @@ model Wishlist {
 
   @@unique([userId, productId])
 }
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId, variantId])
+  @@index([userId])
+}
+
 
 model Order {
   id              Int         @id @default(autoincrement())
@@ -237,6 +262,8 @@ model Order {
   shippingAddress Json?
   guestInfo       Json?
   referralCodeUsed String?
+  couponCode      String?
+  discountAmount  Float       @default(0)
   createdAt       DateTime    @default(now())
   
   // Cancellation & Return Fields
@@ -248,12 +275,20 @@ model Order {
   deliveredAt     DateTime?
   referralEligibleAt DateTime?
 
+  // Smart Delivery location fields
+  latitude        Float?
+  longitude       Float?
+  googleMapLink   String?
+
   items           OrderItem[]
   referrals       Referral[]
 
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+  @@index([returnStatus])
+  @@index([isPaid])
+  @@index([isPaid, createdAt])
 }
 
 model OrderItem {
@@ -266,6 +301,10 @@ model OrderItem {
   price     Float
   variantId Int?
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
 }
 
 model Review {
@@ -281,6 +320,9 @@ model Review {
   helpfulVotes Int     @default(0)
   voters    Int[]      @default([]) // Store user IDs who voted
   createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([userId, productId])
 }
 
 model ServiceBooking {
@@ -294,6 +336,7 @@ model ServiceBooking {
   date           DateTime
   timeSlot       String?
   status         String   @default("Pending")
+  referralCodeUsed String?
   // Customer details
   customerName   String?
   customerPhone  String?
@@ -314,14 +357,74 @@ model ServiceBooking {
   completedAt    DateTime?
   deliveredAt    DateTime?
   createdAt      DateTime @default(now())
+
+  // --- Service Hub Upgrade Fields ---
+  // OTP verification
+  otpVerified              Boolean   @default(false)
+  otpGeneratedAt           DateTime?
+  // Technician assignment
+  technicianId             Int?
+  technician               Technician? @relation(fields: [technicianId], references: [id])
+  // Scheduling & invoice
+  estimatedCompletionDate  DateTime?
+  invoiceUrl               String?
+  // Cancellation
+  cancelledAt              DateTime?
+  cancellationReason       String?
+  // Customer feedback
+  customerRating           Int?
+  customerReview           String?
+
+  // Relations
+  invoice        ServiceInvoice?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([date])
+  @@index([date, timeSlot, status])
+  @@index([technicianId])
+}
+
+model Technician {
+  id        Int              @id @default(autoincrement())
+  name      String
+  phone     String           @unique
+  email     String?          @unique
+  skills    String[]         // e.g. ["Laptop Repair", "CCTV"]
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  bookings  ServiceBooking[]
+
+  @@index([isActive])
+}
+
+model ServiceInvoice {
+  id             Int            @id @default(autoincrement())
+  bookingId      Int            @unique
+  invoiceNumber  String         @unique
+  serviceType    String
+  technicianName String
+  laborCost      Float
+  partsCost      Float          @default(0)
+  gst            Float
+  totalAmount    Float
+  pdfUrl         String?
+  createdAt      DateTime       @default(now())
+  booking        ServiceBooking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
 }
 
 model Coupon {
-  id           Int      @id @default(autoincrement())
-  code         String   @unique
-  discountType String   // "percent" or "fixed"
-  value        Float
-  active       Boolean  @default(true)
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  discountType   String    // "percent" or "fixed"
+  value          Float
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  minOrderAmount Float?
+  maxUses        Int?
+  usedCount      Int       @default(0)
 }
 
 model Referral {
@@ -339,6 +442,15 @@ model Referral {
   courseName   String?   // name of the course (for display in portal)
   createdAt    DateTime  @default(now())
   completedAt  DateTime?
+
+  @@index([referrerId])
+  @@index([refereeId])
+  @@index([status])
+  @@index([source])
+  @@index([orderId])
+  @@index([referrerId, status])
+  @@index([referrerId, source])
+  @@index([refereeId, referrerId, source])
 }
 
 model Category {
@@ -361,6 +473,8 @@ model ServiceType {
   referrerPoints    Float?
   refereePoints     Float?
   createdAt   DateTime @default(now())
+
+  @@index([active])
 }
 
 model ProductVariant {
@@ -375,6 +489,10 @@ model ProductVariant {
   updatedAt   DateTime @updatedAt
 
   orderItems  OrderItem[] // so order items can reference a variant
+  cartItems   CartItem[]
+
+  @@index([productId])
+  @@index([productId, price])
 }
 
 model ProductAlert {
@@ -408,6 +526,32 @@ model Notification {
   @@index([userId, isRead])
 }
 
+model DeviceRegistration {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  platform   String
+  token      String   @unique
+  isActive   Boolean  @default(true)
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, platform, isActive])
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 model ReferralSettings {
   id                        Int      @id @default(autoincrement())
   pointsPerProductPurchase  Float    @default(200)
@@ -422,6 +566,13 @@ model ReferralSettings {
   @@unique([id]) // Single settings record
 }
 
+model TierConfig {
+  id        Int    @id @default(autoincrement())
+  tierName  String @unique
+  minPoints Float
+  color     String @default("#CD7F32")
+}
+
 model TallyEnquiry {
   id           Int      @id @default(autoincrement())
   name         String
@@ -433,6 +584,24 @@ model TallyEnquiry {
   status       String   @default("new") // "new" | "contacted" | "converted"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model CCTVEnquiry {
+  id            Int      @id @default(autoincrement())
+  name          String
+  phone         String
+  city          String
+  propertyType  String
+  camerasNeeded String
+  message       String?
+  status        String   @default("new") // "new" | "contacted" | "converted"
+  adminNotes    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status, createdAt])
 }
 
 model ServiceSettings {
@@ -443,3 +612,38 @@ model ServiceSettings {
   updatedAt          DateTime @updatedAt
 }
 
+model Banner {
+  id           Int      @id @default(autoincrement())
+  title        String
+  subtitle     String?
+  ctaLabel     String   @default("Shop Now")
+  ctaLink      String   @default("/products")
+  image        String?
+  gradient     String?
+  displayOrder Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([displayOrder])
+  @@index([active, displayOrder])
+}
+
+
+model Address {
+  id            String   @id @default(uuid())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String?
+  address       String
+  city          String
+  pincode       String
+  phone         String
+  latitude      Float?
+  longitude     Float?
+  googleMapLink String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+}

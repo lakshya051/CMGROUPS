@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import { protect } from '../middleware/auth.js';
+
 const router = express.Router();
-const prisma = require('../lib/prisma');
-const { protect } = require('../middleware/auth');
 
 // @route   GET /api/wishlist
 // @desc    Get user's wishlist items
@@ -109,4 +110,4 @@ router.delete('/', protect, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

@@ -1,11 +1,11 @@
-const express = require('express');
-const crypto = require('crypto');
-const prisma = require('../lib/prisma');
-const { protect, adminOnly, optionalProtect } = require('../middleware/auth');
-const { sendOrderConfirmationEmail } = require('../utils/emailNotifications');
-// SMS imports removed
-const { generateInvoice } = require('../utils/invoiceGenerator');
-const { calculateReferralReward } = require('../utils/referralHelper');
+import express from 'express';
+import crypto from 'crypto';
+import prisma from '../lib/prisma.js';
+import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
+import { sendOrderConfirmationEmail } from '../utils/emailNotifications.js';
+import { generateInvoice } from '../utils/invoiceGenerator.js';
+import { calculateOrderReferralPoints } from '../utils/referralHelper.js';
+import { createUserNotification } from '../utils/notifications.js';
 
 const router = express.Router();
 
@@ -16,22 +16,56 @@ function logCheckoutTiming(requestId, stage, startMs) {
     console.log(`[CHECKOUT][${requestId}] ${stage} +${Date.now() - startMs}ms`);
 }
 
-async function calculateOrderReferralPoints(items = []) {
-    let totalReferrerPoints = 0;
-    let totalRefereePoints = 0;
+function aggregateItemQuantities(items = []) {
+    const productIncrements = new Map();
+    const variantIncrements = new Map();
 
     for (const item of items) {
-        const product = item.product || {};
-        const { referrerPoints, refereePoints } = await calculateReferralReward({
-            referrerPoints: product.referrerPoints,
-            refereePoints: product.refereePoints
-        });
+        const quantity = Number(item.quantity) || 0;
+        if (quantity <= 0) continue;
 
-        totalReferrerPoints += referrerPoints;
-        totalRefereePoints += refereePoints;
+        if (item.variantId) {
+            const variantId = Number(item.variantId);
+            if (Number.isFinite(variantId)) {
+                variantIncrements.set(variantId, (variantIncrements.get(variantId) || 0) + quantity);
+            }
+            continue;
+        }
+
+        const productId = Number(item.productId);
+        if (Number.isFinite(productId)) {
+            productIncrements.set(productId, (productIncrements.get(productId) || 0) + quantity);
+        }
     }
 
-    return { referrerPoints: totalReferrerPoints, refereePoints: totalRefereePoints };
+    return { productIncrements, variantIncrements };
+}
+
+async function restoreStockForOrderItems(dbClient, items = []) {
+    const { productIncrements, variantIncrements } = aggregateItemQuantities(items);
+    const stockUpdates = [];
+
+    for (const [variantId, quantity] of variantIncrements.entries()) {
+        stockUpdates.push(
+            dbClient.productVariant.update({
+                where: { id: variantId },
+                data: { stock: { increment: quantity } }
+            })
+        );
+    }
+
+    for (const [productId, quantity] of productIncrements.entries()) {
+        stockUpdates.push(
+            dbClient.product.update({
+                where: { id: productId },
+                data: { stock: { increment: quantity } }
+            })
+        );
+    }
+
+    if (stockUpdates.length > 0) {
+        await Promise.all(stockUpdates);
+    }
 }
 
 // POST /api/orders (Optional Auth - place order)
@@ -39,7 +73,7 @@ router.post('/', optionalProtect, async (req, res) => {
     const checkoutStart = Date.now();
     const checkoutRequestId = `ord-${checkoutStart}-${Math.floor(Math.random() * 10000)}`;
     try {
-        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed } = req.body;
+        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ error: 'No items in order' });
@@ -151,13 +185,36 @@ router.post('/', optionalProtect, async (req, res) => {
         const paymentOtp = shouldGeneratePaymentOtp ? crypto.randomInt(100000, 999999).toString() : null;
 
         // *** TRANSACTION: wallet deduction + order creation + stock decrement ***
-        const order = await prisma.$transaction(async (tx) => {
+        const newOrderId = await prisma.$transaction(async (tx) => {
             // 1. Deduct wallet balance (if applicable)
             if (useWallet && parsedWalletUsed > 0 && req.user) {
                 await tx.user.update({
                     where: { id: req.user.id },
                     data: { walletBalance: { decrement: parsedWalletUsed } }
                 });
+            }
+
+            // 1.5 Real-time Stock Validation
+            for (const [variantId, quantityValue] of Object.entries(totalRequestedVariants)) {
+                const quantity = parseInt(quantityValue, 10);
+                const currentVariant = await tx.productVariant.findUnique({
+                    where: { id: parseInt(variantId, 10) },
+                    select: { stock: true, name: true }
+                });
+                if (!currentVariant || currentVariant.stock < quantity) {
+                    throw new Error(`Insufficient stock for "${currentVariant?.name || 'Variant ' + variantId}". Available: ${currentVariant?.stock || 0}, Requested: ${quantity}`);
+                }
+            }
+
+            for (const [productId, quantityValue] of Object.entries(totalRequestedProducts)) {
+                const quantity = parseInt(quantityValue, 10);
+                const currentProduct = await tx.product.findUnique({
+                    where: { id: parseInt(productId, 10) },
+                    select: { stock: true, title: true }
+                });
+                if (!currentProduct || currentProduct.stock < quantity) {
+                    throw new Error(`Insufficient stock for "${currentProduct?.title || 'Product ' + productId}". Available: ${currentProduct?.stock || 0}, Requested: ${quantity}`);
+                }
             }
 
             // 2. Decrement stock once per unique product/variant (race-condition safe)
@@ -191,7 +248,7 @@ router.post('/', optionalProtect, async (req, res) => {
                 }
             }
 
-            // 3. Create the order
+            // 3. Create the order (no include inside tx — keep tx fast to avoid timeout)
             const createdOrder = await tx.order.create({
                 data: {
                     userId: req.user ? req.user.id : null,
@@ -204,12 +261,15 @@ router.post('/', optionalProtect, async (req, res) => {
                     shippingAddress: shippingAddress || null,
                     guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
                     referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
+                    latitude: latitude ? parseFloat(latitude) : null,
+                    longitude: longitude ? parseFloat(longitude) : null,
+                    googleMapLink: googleMapLink || null,
                     items: {
                         create: items.map(item => {
                             const pId = parseInt(item.productId, 10);
                             const vId = item.variantId ? parseInt(item.variantId, 10) : null;
                             const qty = parseInt(item.quantity, 10);
-                            const prc = parseFloat(String(item.price).replace(/,/g, '')); // Robust parsing
+                            const prc = parseFloat(String(item.price).replace(/,/g, ''));
 
                             if (isNaN(pId) || isNaN(qty) || isNaN(prc)) {
                                 throw new Error('Invalid item data in cart');
@@ -223,23 +283,10 @@ router.post('/', optionalProtect, async (req, res) => {
                             };
                         })
                     }
-                },
-                include: {
-                    items: { include: { product: true } },
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                            phone: true,
-                            role: true,
-                            referralCode: true,
-                            walletBalance: true,
-                            isVerified: true,
-                            createdAt: true
-                        }
-                    }
                 }
+                // ⚠️  No `include` here — fetching relations inside an interactive
+                // transaction inflates round-trips and caused the 15 s timeout.
+                // We do a single follow-up query after the tx commits instead.
             });
 
             // 4. Record wallet debit transaction (after order creation so orderId is available)
@@ -255,10 +302,30 @@ router.post('/', optionalProtect, async (req, res) => {
                 });
             }
 
-            return createdOrder;
+            return createdOrder.id; // return id only; full fetch happens outside tx
         }, {
-            maxWait: 8000,
-            timeout: 15000
+            maxWait: 10000,
+            timeout: 20000  // bumped from 15 s; real fix is the removed include above
+        });
+
+        // Fetch full order AFTER the transaction has committed — no tx lock held here
+        const order = await prisma.order.findUnique({
+            where: { id: newOrderId },
+            include: {
+                items: { include: { product: true } },
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true,
+                        role: true,
+                        referralCode: true,
+                        walletBalance: true,
+                        createdAt: true
+                    }
+                }
+            }
         });
         logCheckoutTiming(checkoutRequestId, 'transaction_complete', checkoutStart);
 
@@ -282,14 +349,17 @@ router.post('/', optionalProtect, async (req, res) => {
             }
 
             if (userId && order.paymentOtp) {
-                prisma.notification.create({
-                    data: {
-                        userId,
-                        title: `Payment OTP for Order #${order.id}`,
-                        message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
-                        type: 'order',
-                        link: '/dashboard/orders'
-                    }
+                createUserNotification({
+                    userId,
+                    title: `Payment OTP for Order #${order.id}`,
+                    message: `Your payment OTP is ${order.paymentOtp}. Share it while making payment.`,
+                    type: 'order',
+                    link: '/dashboard/orders',
+                    push: {
+                        enabled: true,
+                        title: 'Payment OTP Ready',
+                        body: 'Your payment OTP is available in TechNova.',
+                    },
                 }).catch((notifErr) => {
                     console.error('Order OTP notification error (non-blocking):', notifErr);
                 });
@@ -328,7 +398,48 @@ router.get('/my-orders', protect, async (req, res) => {
                 skip,
                 take: limit,
                 orderBy: { createdAt: 'desc' },
-                include: { items: { include: { product: true } } }
+                select: {
+                    id: true,
+                    total: true,
+                    walletUsed: true,
+                    status: true,
+                    paymentMethod: true,
+                    paymentOtp: true,
+                    isPaid: true,
+                    shippingAddress: true,
+                    latitude: true,
+                    longitude: true,
+                    googleMapLink: true,
+                    guestInfo: true,
+                    referralCodeUsed: true,
+                    cancelReason: true,
+                    returnReason: true,
+                    returnStatus: true,
+                    refundStatus: true,
+                    refundAmount: true,
+                    deliveredAt: true,
+                    createdAt: true,
+                    items: {
+                        select: {
+                            id: true,
+                            productId: true,
+                            variantId: true,
+                            quantity: true,
+                            price: true,
+                            product: {
+                                select: {
+                                    id: true,
+                                    title: true,
+                                    image: true,
+                                    price: true,
+                                    stock: true,
+                                    isReturnable: true,
+                                    returnWindowDays: true
+                                }
+                            }
+                        }
+                    }
+                }
             }),
             prisma.order.count({ where: { userId: req.user.id } })
         ]);
@@ -353,7 +464,14 @@ router.get('/my-stats', protect, async (req, res) => {
     try {
         const orders = await prisma.order.findMany({
             where: { userId: req.user.id },
-            include: { items: { include: { product: true } } },
+            select: {
+                id: true,
+                total: true,
+                status: true,
+                isPaid: true,
+                createdAt: true,
+                items: { select: { id: true } }
+            },
             orderBy: { createdAt: 'desc' }
         });
 
@@ -379,11 +497,16 @@ router.get('/my-stats', protect, async (req, res) => {
     }
 });
 
-// GET /api/orders (Admin - all orders with optional pagination + status filter)
-// ?page=1&limit=50&status=Processing
+// GET /api/orders (Admin - paginated with status/search filters)
+// ?page=1&limit=20&status=Processing
 router.get('/', protect, adminOnly, async (req, res) => {
     try {
-        const { page, limit, status, search } = req.query;
+        const { page = 1, limit = 20, status, search } = req.query;
+        const parsedPage = Number.parseInt(page, 10);
+        const parsedLimit = Number.parseInt(limit, 10);
+        const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const take = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
+        const skip = (currentPage - 1) * take;
 
         const where = {};
         if (status) {
@@ -400,35 +523,53 @@ router.get('/', protect, adminOnly, async (req, res) => {
             }
         }
 
-        const usePagination = page !== undefined || limit !== undefined;
-        const take = usePagination ? parseInt(limit) || 50 : undefined;
-        const skip = usePagination ? ((parseInt(page) || 1) - 1) * take : undefined;
-
-        const include = {
-            user: { select: { name: true, email: true } },
-            items: { include: { product: true } }
+        const select = {
+            id: true,
+            userId: true,
+            total: true,
+            walletUsed: true,
+            status: true,
+            paymentMethod: true,
+            paymentOtp: true,
+            isPaid: true,
+            shippingAddress: true,
+            latitude: true,
+            longitude: true,
+            googleMapLink: true,
+            guestInfo: true,
+            referralCodeUsed: true,
+            cancelReason: true,
+            returnReason: true,
+            returnStatus: true,
+            refundStatus: true,
+            refundAmount: true,
+            deliveredAt: true,
+            createdAt: true,
+            user: { select: { id: true, name: true, email: true, phone: true } },
+            items: {
+                select: {
+                    id: true,
+                    productId: true,
+                    variantId: true,
+                    quantity: true,
+                    price: true,
+                    product: { select: { id: true, title: true, image: true } }
+                }
+            }
         };
 
-        if (usePagination) {
-            const [orders, total] = await Promise.all([
-                prisma.order.findMany({ where, include, orderBy: { createdAt: 'desc' }, take, skip }),
-                prisma.order.count({ where }),
-            ]);
-            return res.json({
-                data: orders,
-                total,
-                page: parseInt(page) || 1,
-                limit: take,
-                totalPages: Math.ceil(total / take),
-            });
-        }
+        const [orders, total] = await Promise.all([
+            prisma.order.findMany({ where, select, orderBy: { createdAt: 'desc' }, take, skip }),
+            prisma.order.count({ where }),
+        ]);
 
-        const orders = await prisma.order.findMany({
-            where,
-            include,
-            orderBy: { createdAt: 'desc' }
+        res.json({
+            data: orders,
+            total,
+            page: currentPage,
+            limit: take,
+            totalPages: Math.ceil(total / take),
         });
-        res.json(orders);
     } catch (error) {
         console.error('Get all orders error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -448,12 +589,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 include: { items: true }
             });
             if (order && order.status !== 'Cancelled') {
-                for (const item of order.items) {
-                    await prisma.product.update({
-                        where: { id: item.productId },
-                        data: { stock: { increment: item.quantity } }
-                    });
-                }
+                await restoreStockForOrderItems(prisma, order.items);
             }
         }
 
@@ -573,14 +709,16 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
         // Send In-App Notification
         try {
-            await prisma.notification.create({
-                data: {
-                    userId: order.userId,
-                    title: 'Order Status Updated',
-                    message: `Your order #${order.id} is now ${status}.`,
-                    type: 'order',
-                    link: `/dashboard/orders`
-                }
+            await createUserNotification({
+                userId: order.userId,
+                title: 'Order Status Updated',
+                message: `Your order #${order.id} is now ${status}.`,
+                type: 'order',
+                link: '/dashboard/orders',
+                push: {
+                    enabled: true,
+                    body: `Your order #${order.id} is now ${status}.`,
+                },
             });
         } catch (notifErr) {
             console.error('In-app notification error:', notifErr);
@@ -610,7 +748,6 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                         role: true,
                         referralCode: true,
                         walletBalance: true,
-                        isVerified: true,
                         createdAt: true
                     }
                 },
@@ -733,6 +870,25 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
             }
         }
 
+        if (order.userId) {
+            try {
+                await createUserNotification({
+                    userId: order.userId,
+                    title: 'Payment Verified',
+                    message: `Payment received for order #${order.id}. Your order is now ${updatedOrder.status}.`,
+                    type: 'order',
+                    link: '/dashboard/orders',
+                    push: {
+                        enabled: true,
+                        title: 'Order Confirmed',
+                        body: `Payment received for order #${order.id}.`,
+                    },
+                });
+            } catch (notifErr) {
+                console.error('Payment verification notification error:', notifErr);
+            }
+        }
+
         res.json({ success: true, message: 'Payment verified successfully!', order: updatedOrder });
     } catch (error) {
         console.error('Verify payment error:', error);
@@ -756,7 +912,6 @@ router.post('/:id/cancel', protect, async (req, res) => {
                         role: true,
                         referralCode: true,
                         walletBalance: true,
-                        isVerified: true,
                         createdAt: true
                     }
                 },
@@ -798,19 +953,7 @@ router.post('/:id/cancel', protect, async (req, res) => {
             }
 
             // 2. Restore stock for all items (variant-aware)
-            for (const item of order.items) {
-                if (item.variantId) {
-                    await tx.productVariant.update({
-                        where: { id: item.variantId },
-                        data: { stock: { increment: item.quantity } }
-                    });
-                } else {
-                    await tx.product.update({
-                        where: { id: item.productId },
-                        data: { stock: { increment: item.quantity } }
-                    });
-                }
-            }
+            await restoreStockForOrderItems(tx, order.items);
 
             // 3. Update order status
             const updatedOrder = await tx.order.update({
@@ -926,19 +1069,7 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
 
             // Restore stock if admin says the items are not defective (variant-aware)
             if (restoreStock) {
-                for (const item of order.items) {
-                    if (item.variantId) {
-                        await tx.productVariant.update({
-                            where: { id: item.variantId },
-                            data: { stock: { increment: item.quantity } }
-                        });
-                    } else {
-                        await tx.product.update({
-                            where: { id: item.productId },
-                            data: { stock: { increment: item.quantity } }
-                        });
-                    }
-                }
+                await restoreStockForOrderItems(tx, order.items);
             }
         });
 
@@ -993,4 +1124,4 @@ router.get('/:id/invoice', protect, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

@@ -69,7 +69,7 @@ export const profileUpdateSchema = Yup.object({
 export const checkoutSchema = Yup.object({
     fullName: nameSchema,
     email: emailSchema,
-    phone: optionalPhoneSchema,
+    phone: phoneSchema,
     addressLine: Yup.string().required('Address is required'),
     city: Yup.string().required('City is required'),
     state: Yup.string().optional(),

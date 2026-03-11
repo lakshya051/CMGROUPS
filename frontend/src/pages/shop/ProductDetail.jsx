@@ -6,6 +6,33 @@ import { alertsAPI, productsAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight } from 'lucide-react';
 import ReviewSection from '../../components/shop/ReviewSection';
+import { RECENTLY_VIEWED_KEY } from '../../constants';
+import { handleImageError } from '../../utils/image';
+
+const MAX_RECENTLY_VIEWED = 10;
+
+const saveToRecentlyViewed = (product) => {
+    try {
+        const existing = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]');
+        const snapshot = {
+            id: product.id,
+            title: product.title,
+            price: product.price,
+            image: product.image,
+            category: product.category,
+            brand: product.brand,
+            rating: product.rating,
+            stock: product.stock,
+            variants: product.variants || [],
+        };
+        // Remove duplicate then prepend
+        const filtered = existing.filter(p => p.id !== product.id);
+        const updated = [snapshot, ...filtered].slice(0, MAX_RECENTLY_VIEWED);
+        localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
+    } catch (e) {
+        // Silently ignore localStorage errors
+    }
+};
 
 const ProductDetail = () => {
     const { id } = useParams();
@@ -23,7 +50,10 @@ const ProductDetail = () => {
 
     useEffect(() => {
         productsAPI.getById(id)
-            .then(setProduct)
+            .then(data => {
+                setProduct(data);
+                if (data) saveToRecentlyViewed(data);
+            })
             .catch(console.error)
             .finally(() => setLoading(false));
     }, [id]);
@@ -95,20 +125,24 @@ const ProductDetail = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
                 {/* Image Section */}
-                <div className="bg-gray-50/50 rounded-2xl p-8 flex items-center justify-center border border-gray-100 relative">
+                <div className="bg-surface rounded-lg p-xl flex items-center justify-center border border-border-default relative shadow-sm">
                     <img
                         src={product.image}
                         alt={product.title}
-                        loading="lazy"
+                        loading="eager"
+                        fetchPriority="high"
                         decoding="async"
+                        width={800}
+                        height={800}
+                        onError={handleImageError}
                         className="w-full max-w-md object-contain drop-shadow-2xl"
                     />
                     {isCurrentlyOutOfStock ? (
-                        <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-md">
+                        <div className="absolute top-4 right-4 bg-error text-white px-3 py-1 rounded text-sm font-bold shadow-md">
                             Out of Stock
                         </div>
                     ) : isCurrentlyLowStock && (
-                        <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-md">
+                        <div className="absolute top-4 right-4 bg-warning text-white px-3 py-1 rounded text-sm font-bold shadow-md">
                             Only {currentStock} left!
                         </div>
                     )}
@@ -143,7 +177,7 @@ const ProductDetail = () => {
                             <Star fill="currentColor" size={20} />
                             <span className="font-bold text-lg">{product.rating}</span>
                         </div>
-                        <span className="text-text-muted">({product.reviews} reviews)</span>
+                        <span className="text-text-muted">({Array.isArray(product.reviews) ? product.reviews.length : (product.reviews || 0)} reviews)</span>
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -151,7 +185,7 @@ const ProductDetail = () => {
                             {hasMultipleVariants && !selectedVariant && (
                                 <span className="text-lg font-medium text-text-muted">Starting from</span>
                             )}
-                            <div className="text-3xl font-bold text-text-main">
+                            <div className="text-3xl font-bold text-text-primary">
                                 ₹{displayPrice.toLocaleString()}
                             </div>
                             {selectedVariant && selectedVariant.price < product.price && (
@@ -163,7 +197,7 @@ const ProductDetail = () => {
                         <Button
                             variant="ghost"
                             size="sm"
-                            className={`gap-2 ${isPriceAlertSet ? 'text-primary bg-primary/10' : 'text-text-muted'}`}
+                            className={`gap-2 ${isPriceAlertSet ? 'text-trust bg-trust/10' : 'text-text-muted'}`}
                             onClick={() => handleToggleAlert('PRICE_DROP')}
                         >
                             <TrendingDown size={18} />
@@ -171,16 +205,16 @@ const ProductDetail = () => {
                         </Button>
                     </div>
 
-                    <p className="text-text-muted leading-relaxed text-lg">
+                    <p className="text-text-secondary leading-relaxed text-lg">
                         {product.description}
                     </p>
 
                     {/* Variants Selector */}
                     {hasMultipleVariants && (
-                        <div className={`pt-4 border-t border-gray-100 ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
+                        <div className={`pt-4 border-t border-border-default ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
                             <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-sm font-bold text-text-main uppercase tracking-wider">Select Option:</h3>
-                                {errorMsg && <span className="text-sm font-medium text-red-500">{errorMsg}</span>}
+                                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Select Option:</h3>
+                                {errorMsg && <span className="text-sm font-medium text-error">{errorMsg}</span>}
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {product.variants.map(variant => {
@@ -196,9 +230,9 @@ const ProductDetail = () => {
                                                 }
                                             }}
                                             disabled={outOfStock}
-                                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all flex items-center gap-2 ${outOfStock ? 'opacity-40 cursor-not-allowed bg-gray-50 border-gray-200 line-through' : isSelected ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-text-main hover:border-primary hover:bg-gray-50'}`}
+                                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all flex items-center gap-2 ${outOfStock ? 'opacity-40 cursor-not-allowed bg-page-bg border-border-default line-through' : isSelected ? 'border-trust bg-trust/10 text-trust' : 'border-border-default text-text-primary hover:border-trust hover:bg-surface-hover'}`}
                                         >
-                                            {variant.name} {isSelected && !outOfStock && <CheckCircle size={14} className="text-primary" />}
+                                            {variant.name} {isSelected && !outOfStock && <CheckCircle size={14} className="text-trust" />}
                                         </button>
                                     );
                                 })}
@@ -218,7 +252,7 @@ const ProductDetail = () => {
                         </div>
                     )}
 
-                    <div className="flex gap-4 pt-4 border-t border-gray-100">
+                    <div className="flex gap-4 pt-4 border-t border-border-default">
                         {hasMultipleVariants && !selectedVariant ? (
                             <Button size="lg" className="flex-1 gap-2" variant="outline" onClick={handleAddToCartClick}>
                                 <ShoppingCart size={20} /> Select an Option
@@ -226,7 +260,7 @@ const ProductDetail = () => {
                         ) : isCurrentlyOutOfStock ? (
                             <Button
                                 size="lg"
-                                className={`flex-1 gap-2 ${isStockAlertSet ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-800 hover:bg-gray-900 border-none text-white'}`}
+                                className={`flex-1 gap-2 ${isStockAlertSet ? 'bg-success hover:bg-green-700' : 'bg-text-primary hover:bg-text-primary/90 border-none text-surface'}`}
                                 onClick={() => handleToggleAlert('STOCK')}
                             >
                                 <Bell size={20} /> {isStockAlertSet ? 'You will be notified' : 'Notify Me When Available'}
@@ -241,7 +275,7 @@ const ProductDetail = () => {
                             variant="outline"
                             size="lg"
                             onClick={() => toggleWishlist(product.id)}
-                            className={isWishlisted ? "border-primary text-primary" : ""}
+                            className={isWishlisted ? "border-trust text-trust" : ""}
                             title="Wishlist"
                         >
                             <Heart size={20} fill={isWishlisted ? "currentColor" : "none"} />
@@ -258,13 +292,13 @@ const ProductDetail = () => {
 
                     {/* Specs */}
                     {product.specs && Object.keys(product.specs).length > 0 && (
-                        <div className="pt-8 border-t border-gray-200">
-                            <h3 className="text-lg font-bold mb-4">Technical Specifications</h3>
+                        <div className="pt-8 border-t border-border-default">
+                            <h3 className="text-lg font-bold mb-4 text-text-primary">Technical Specifications</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 {Object.entries(product.specs).map(([key, value]) => (
-                                    <div key={key} className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                    <div key={key} className="bg-page-bg p-sm rounded-lg border border-border-default">
                                         <span className="block text-xs text-text-muted uppercase tracking-wider mb-1">{key}</span>
-                                        <span className="font-medium">{value}</span>
+                                        <span className="font-medium text-text-primary">{value}</span>
                                     </div>
                                 ))}
                             </div>

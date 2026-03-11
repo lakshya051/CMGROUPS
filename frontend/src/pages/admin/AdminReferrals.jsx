@@ -1,48 +1,94 @@
-import React, { useState, useEffect } from 'react';
-import { Gift, Users, CheckCircle, Clock, DollarSign, Package } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    CheckCircle,
+    Clock,
+    DollarSign,
+    Gift,
+    GraduationCap,
+    Package,
+    ShoppingBag,
+    Users,
+    Wrench
+} from 'lucide-react';
 import { adminAPI } from '../../lib/api';
+import { handleImageError } from '../../utils/image';
+
+const INITIAL_VISIBLE_ROWS = 50;
+const ROWS_STEP = 25;
+const SOURCE_META = {
+    shopping: {
+        label: 'Shopping',
+        icon: ShoppingBag,
+        className: 'bg-blue-50 text-blue-600 border border-blue-200'
+    },
+    course: {
+        label: 'Course',
+        icon: GraduationCap,
+        className: 'bg-trust/10 text-trust border border-trust/20'
+    },
+    service: {
+        label: 'Service',
+        icon: Wrench,
+        className: 'bg-orange-50 text-orange-600 border border-orange-200'
+    }
+};
 
 const AdminReferrals = () => {
     const [referrals, setReferrals] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [visibleRows, setVisibleRows] = useState(INITIAL_VISIBLE_ROWS);
+    const loadMoreRef = useRef(null);
 
     useEffect(() => {
         adminAPI.getReferrals()
-            .then(data => setReferrals(data))
-            .catch(err => console.error('Failed to fetch referrals:', err))
+            .then((data) => setReferrals(data))
+            .catch((err) => console.error('Failed to fetch referrals:', err))
             .finally(() => setLoading(false));
     }, []);
 
-    const getCalculatedRewards = (ref) => {
-        if (!ref?.order?.items?.length) {
-            return {
-                referrerReward: ref.rewardAmount || 0,
-                refereeReward: ref.refereeReward || 0
-            };
-        }
+    useEffect(() => {
+        setVisibleRows(INITIAL_VISIBLE_ROWS);
+    }, [referrals.length]);
 
-        return ref.order.items.reduce((totals, item) => {
-            const referrerPoints = item?.product?.referrerPoints;
-            const refereePoints = item?.product?.refereePoints;
+    const getCalculatedRewards = (ref) => ({
+        referrerReward: ref.rewardAmount || 0,
+        refereeReward: ref.refereeReward || 0
+    });
 
-            if (referrerPoints == null || referrerPoints === 0) {
-                return totals;
-            }
-
-            totals.referrerReward += referrerPoints;
-            totals.refereeReward += (refereePoints != null ? refereePoints : Math.round(referrerPoints / 2));
-            return totals;
-        }, { referrerReward: 0, refereeReward: 0 });
-    };
-
-    const totalRewarded = referrals.filter(r => r.status === 'rewarded').length;
-    const totalPending = referrals.filter(r => r.status === 'pending').length;
+    const totalRewarded = referrals.filter((referral) => referral.status === 'rewarded').length;
+    const totalPending = referrals.filter((referral) => referral.status === 'pending').length;
     const totalPayout = referrals
-        .filter(r => r.status === 'rewarded')
-        .reduce((sum, ref) => {
-            const rewards = getCalculatedRewards(ref);
+        .filter((referral) => referral.status === 'rewarded')
+        .reduce((sum, referral) => {
+            const rewards = getCalculatedRewards(referral);
             return sum + rewards.referrerReward + rewards.refereeReward;
         }, 0);
+
+    const visibleReferrals = useMemo(
+        () => referrals.slice(0, visibleRows),
+        [referrals, visibleRows]
+    );
+    const canLoadMore = visibleRows < referrals.length;
+
+    const loadMoreRows = useCallback(() => {
+        setVisibleRows((current) => Math.min(current + ROWS_STEP, referrals.length));
+    }, [referrals.length]);
+
+    useEffect(() => {
+        if (!canLoadMore || !loadMoreRef.current) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMoreRows();
+                }
+            },
+            { rootMargin: '120px' }
+        );
+
+        observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [canLoadMore, loadMoreRows]);
 
     const getStatusBadge = (status) => {
         switch (status) {
@@ -51,8 +97,25 @@ const AdminReferrals = () => {
             case 'rewarded':
                 return <span className="px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20 flex items-center gap-1 w-fit"><CheckCircle size={12} /> Rewarded</span>;
             default:
-                return <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-text-muted border border-gray-200 w-fit">{status}</span>;
+                return <span className="px-2 py-1 rounded-full text-xs font-medium bg-page-bg text-text-muted border border-border-default w-fit">{status}</span>;
         }
+    };
+
+    const renderSourceCell = (referral) => {
+        const meta = SOURCE_META[referral.source] || SOURCE_META.shopping;
+        const Icon = meta.icon;
+
+        return (
+            <div>
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold ${meta.className}`}>
+                    <Icon size={11} />
+                    {meta.label}
+                </span>
+                {referral.source === 'course' && referral.courseName && (
+                    <p className="text-[11px] text-trust font-medium mt-1">{referral.courseName}</p>
+                )}
+            </div>
+        );
     };
 
     if (loading) return <div className="p-8 text-center text-text-muted">Loading referral data...</div>;
@@ -64,44 +127,42 @@ const AdminReferrals = () => {
                 <p className="text-text-muted">Track all referral code usage and rewards across the platform.</p>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="glass-panel p-5">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-text-muted text-xs uppercase tracking-wider">Total Referrals</span>
-                        <div className="p-2 bg-gray-100 rounded-lg text-blue-400"><Users size={18} /></div>
+                        <div className="p-2 bg-page-bg rounded-lg text-blue-400"><Users size={18} /></div>
                     </div>
                     <span className="text-2xl font-bold">{referrals.length}</span>
                 </div>
                 <div className="glass-panel p-5">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-text-muted text-xs uppercase tracking-wider">Rewarded</span>
-                        <div className="p-2 bg-gray-100 rounded-lg text-success"><CheckCircle size={18} /></div>
+                        <div className="p-2 bg-page-bg rounded-lg text-success"><CheckCircle size={18} /></div>
                     </div>
                     <span className="text-2xl font-bold text-success">{totalRewarded}</span>
                 </div>
                 <div className="glass-panel p-5">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-text-muted text-xs uppercase tracking-wider">Pending</span>
-                        <div className="p-2 bg-gray-100 rounded-lg text-yellow-400"><Clock size={18} /></div>
+                        <div className="p-2 bg-page-bg rounded-lg text-yellow-400"><Clock size={18} /></div>
                     </div>
                     <span className="text-2xl font-bold text-yellow-400">{totalPending}</span>
                 </div>
                 <div className="glass-panel p-5">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-text-muted text-xs uppercase tracking-wider">Total Payout</span>
-                        <div className="p-2 bg-gray-100 rounded-lg text-primary"><DollarSign size={18} /></div>
+                        <div className="p-2 bg-page-bg rounded-lg text-primary"><DollarSign size={18} /></div>
                     </div>
-                    <span className="text-2xl font-bold text-primary">₹{totalPayout.toLocaleString()}</span>
+                    <span className="text-2xl font-bold text-primary">Rs {totalPayout.toLocaleString()}</span>
                 </div>
             </div>
 
-            {/* Referrals Table */}
             <div className="glass-panel overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50 text-text-muted text-xs uppercase tracking-wider border-b border-gray-200">
+                            <tr className="bg-page-bg text-text-muted text-xs uppercase tracking-wider border-b border-border-default">
                                 <th className="p-4">#</th>
                                 <th className="p-4">Referrer (Code Owner)</th>
                                 <th className="p-4">Code Used</th>
@@ -109,97 +170,111 @@ const AdminReferrals = () => {
                                 <th className="p-4">Order ID</th>
                                 <th className="p-4">Products Ordered</th>
                                 <th className="p-4">Date</th>
+                                <th className="p-4">Source</th>
                                 <th className="p-4">Status</th>
                                 <th className="p-4 text-right">Referrer Reward</th>
                                 <th className="p-4 text-right">Referee Reward</th>
                             </tr>
                         </thead>
-                        <tbody className="text-sm divide-y divide-gray-100">
-                            {referrals.map((ref, idx) => {
-                                const rewards = getCalculatedRewards(ref);
+                        <tbody className="text-sm divide-y divide-border-default">
+                            {visibleReferrals.map((referral, idx) => {
+                                const rewards = getCalculatedRewards(referral);
                                 return (
-                                <tr key={ref.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-4 text-text-muted">{idx + 1}</td>
-                                    <td className="p-4">
-                                        <div>
-                                            <p className="font-medium">{ref.referrer?.name}</p>
-                                            <p className="text-xs text-text-muted">{ref.referrer?.email}</p>
-                                        </div>
-                                    </td>
-                                    <td className="p-4">
-                                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-primary/20 text-primary">
-                                            {ref.referrer?.referralCode || '—'}
-                                        </span>
-                                    </td>
-                                    <td className="p-4">
-                                        <div>
-                                            <p className="font-medium">{ref.referee?.name}</p>
-                                            <p className="text-xs text-text-muted">{ref.referee?.email}</p>
-                                        </div>
-                                    </td>
-                                    <td className="p-4">
-                                        {ref.orderId ? (
-                                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-gray-200">
-                                                #{ref.orderId}
-                                            </span>
-                                        ) : (
-                                            <span className="text-text-muted">—</span>
-                                        )}
-                                    </td>
-                                    <td className="p-4">
-                                        {ref.order?.items?.length > 0 ? (
-                                            <div className="space-y-1.5 max-w-xs">
-                                                {ref.order.items.map((item, i) => (
-                                                    <div key={i} className="flex items-center gap-2">
-                                                        {item.product?.image ? (
-                                                            <img
-                                                                src={item.product.image}
-                                                                alt={item.product.title}
-                                                                className="w-8 h-8 rounded object-cover border border-gray-200 flex-shrink-0"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                                                <Package size={14} className="text-text-muted" />
-                                                            </div>
-                                                        )}
-                                                        <div className="min-w-0">
-                                                            <p className="text-xs font-medium truncate">{item.product?.title || 'Unknown'}</p>
-                                                            <p className="text-[10px] text-text-muted">Qty: {item.quantity} × ₹{item.price?.toLocaleString()}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                <p className="text-[10px] text-primary font-medium pt-1 border-t border-gray-100">Order Total: ₹{ref.order.total?.toLocaleString()}</p>
+                                    <tr key={referral.id} className="hover:bg-surface-hover transition-colors">
+                                        <td className="p-4 text-text-muted">{idx + 1}</td>
+                                        <td className="p-4">
+                                            <div>
+                                                <p className="font-medium">{referral.referrer?.name}</p>
+                                                <p className="text-xs text-text-muted">{referral.referrer?.email}</p>
                                             </div>
-                                        ) : (
-                                            <span className="text-text-muted text-xs">—</span>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-text-muted text-xs">
-                                        {new Date(ref.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                    </td>
-                                    <td className="p-4">{getStatusBadge(ref.status)}</td>
-                                    <td className="p-4 text-right">
-                                        {ref.status === 'rewarded' ? (
-                                            <span className="text-success font-medium">+₹{rewards.referrerReward}</span>
-                                        ) : (
-                                            <span className="text-text-muted">—</span>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-right">
-                                        {ref.status === 'rewarded' && rewards.refereeReward !== null ? (
-                                            <span className="text-success font-medium">+₹{rewards.refereeReward}</span>
-                                        ) : (
-                                            <span className="text-text-muted">—</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            )})}
+                                        </td>
+                                        <td className="p-4">
+                                            <span className="font-mono text-xs bg-page-bg px-2 py-1 rounded border border-primary/20 text-primary">
+                                                {referral.referrer?.referralCode || '-'}
+                                            </span>
+                                        </td>
+                                        <td className="p-4">
+                                            <div>
+                                                <p className="font-medium">{referral.referee?.name}</p>
+                                                <p className="text-xs text-text-muted">{referral.referee?.email}</p>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            {referral.orderId ? (
+                                                <span className="font-mono text-xs bg-page-bg px-2 py-1 rounded border border-border-default">
+                                                    #{referral.orderId}
+                                                </span>
+                                            ) : (
+                                                <span className="text-text-muted">-</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4">
+                                            {referral.order?.items?.length > 0 ? (
+                                                <div className="space-y-1.5 max-w-xs">
+                                                    {referral.order.items.map((item, itemIndex) => (
+                                                        <div key={itemIndex} className="flex items-center gap-2">
+                                                            {item.product?.image ? (
+                                                                <img
+                                                                    src={item.product.image}
+                                                                    alt={item.product.title}
+                                                                    loading="lazy"
+                                                                    width={32}
+                                                                    height={32}
+                                                                    onError={handleImageError}
+                                                                    className="w-8 h-8 rounded object-cover border border-border-default flex-shrink-0"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-8 h-8 rounded bg-page-bg flex items-center justify-center flex-shrink-0">
+                                                                    <Package size={14} className="text-text-muted" />
+                                                                </div>
+                                                            )}
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-medium truncate">{item.product?.title || 'Unknown'}</p>
+                                                                <p className="text-[10px] text-text-muted">Qty: {item.quantity} x Rs {item.price?.toLocaleString()}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    <p className="text-[10px] text-primary font-medium pt-1 border-t border-border-default">Order Total: Rs {referral.order.total?.toLocaleString()}</p>
+                                                </div>
+                                            ) : (
+                                                <span className="text-text-muted text-xs">-</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-text-muted text-xs">
+                                            {new Date(referral.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        </td>
+                                        <td className="p-4">{renderSourceCell(referral)}</td>
+                                        <td className="p-4">{getStatusBadge(referral.status)}</td>
+                                        <td className="p-4 text-right">
+                                            {referral.status === 'rewarded' ? (
+                                                <span className="text-success font-medium">+Rs {rewards.referrerReward}</span>
+                                            ) : (
+                                                <span className="text-text-muted">-</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            {referral.status === 'rewarded' ? (
+                                                <span className="text-success font-medium">+Rs {rewards.refereeReward}</span>
+                                            ) : (
+                                                <span className="text-text-muted">-</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {referrals.length === 0 && (
                                 <tr>
-                                    <td colSpan="10" className="p-12 text-center text-text-muted">
+                                    <td colSpan="11" className="p-12 text-center text-text-muted">
                                         <Gift size={40} className="mx-auto mb-3 opacity-50" />
                                         <p>No referral activity yet.</p>
                                         <p className="text-xs mt-1">Referrals appear when users enter a referral code at checkout.</p>
+                                    </td>
+                                </tr>
+                            )}
+                            {canLoadMore && (
+                                <tr>
+                                    <td colSpan="11" className="p-4 text-center text-xs text-text-muted">
+                                        <div ref={loadMoreRef}>Loading more referrals...</div>
                                     </td>
                                 </tr>
                             )}

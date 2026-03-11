@@ -27,7 +27,7 @@ const AdminUsers = () => {
     const [activeTab, setActiveTab] = useState('overview'); // overview, orders, referrals, wallet, services
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
@@ -41,7 +41,7 @@ const AdminUsers = () => {
             try {
                 const res = await adminAPI.getUsers({
                     page,
-                    limit: 15,
+                    limit: 20,
                     search: debouncedSearch || undefined
                 });
                 if (res.data) {
@@ -107,10 +107,10 @@ const AdminUsers = () => {
     if (loading) return <SectionLoader message="Loading users..." />;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-lg animate-in fade-in duration-500">
             <div>
-                <h1 className="text-3xl font-heading font-bold mb-1">User Management</h1>
-                <p className="text-text-muted">Complete customer data — orders, referrals, wallet, and more.</p>
+                <h1 className="text-2xl font-bold text-text-primary mb-1">User Management</h1>
+                <p className="text-sm text-text-secondary">Complete customer data — orders, referrals, wallet, and more.</p>
             </div>
 
             {/* Summary Cards */}
@@ -135,13 +135,13 @@ const AdminUsers = () => {
             </div>
 
             {/* Search */}
-            <div className="glass-panel p-4">
+            <div className="glass-panel p-sm border border-border-default shadow-sm rounded-lg mb-4">
                 <div className="relative max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
                     <input
                         type="text"
                         placeholder="Search by name, email, or referral code..."
-                        className="input-field pl-9"
+                        className="input-field pl-9 bg-surface"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -149,11 +149,11 @@ const AdminUsers = () => {
             </div>
 
             {/* Users Table */}
-            <div className="glass-panel overflow-hidden">
+            <div className="glass-panel overflow-hidden border border-border-default shadow-sm rounded-lg">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-gray-50 text-text-muted text-xs uppercase tracking-wider border-b border-gray-200">
+                            <tr className="bg-page-bg text-text-secondary text-xs uppercase font-bold tracking-wider border-b border-border-default">
                                 <th className="p-4">User</th>
                                 <th className="p-4">Role</th>
                                 <th className="p-4">Joined</th>
@@ -166,11 +166,11 @@ const AdminUsers = () => {
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="text-sm divide-y divide-gray-100">
+                        <tbody className="text-sm divide-y divide-border-default">
                             {displayUsers.map(user => (
                                 <React.Fragment key={user.id}>
                                     <tr
-                                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                        className="hover:bg-surface-hover transition-colors cursor-pointer"
                                         onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
                                     >
                                         <td className="p-4">
@@ -187,7 +187,7 @@ const AdminUsers = () => {
                                         <td className="p-4">
                                             <span className={`px-2 py-1 rounded text-xs font-bold border ${user.role === 'admin'
                                                 ? 'text-primary bg-primary/10 border-primary/20'
-                                                : 'text-text-muted bg-gray-100 border-gray-200'
+                                                : 'text-text-muted bg-page-bg border-border-default'
                                                 }`}>
                                                 {user.role}
                                             </span>
@@ -204,7 +204,7 @@ const AdminUsers = () => {
                                         <td className="p-4">
                                             {user.referralCode ? (
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-gray-200 text-primary">
+                                                    <span className="font-mono text-xs bg-page-bg px-2 py-1 rounded border border-border-default text-primary">
                                                         {user.referralCode}
                                                     </span>
                                                     <button
@@ -270,8 +270,8 @@ const AdminUsers = () => {
                                     {/* Expanded Detail Row */}
                                     {expandedUser === user.id && (
                                         <tr>
-                                            <td colSpan="10" className="px-4 pb-4">
-                                                <div className="bg-gray-50/50 rounded-xl p-5 border border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                            <td colSpan="10" className="px-sm pb-sm bg-page-bg border-b border-border-default">
+                                                <div className="bg-surface rounded-lg p-md border border-border-default grid grid-cols-2 md:grid-cols-4 gap-sm text-sm">
                                                     <div>
                                                         <p className="text-xs text-text-muted uppercase mb-1">Phone</p>
                                                         <p className="font-medium">{user.phone || 'Not provided'}</p>
@@ -322,19 +322,19 @@ const AdminUsers = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-4 bg-surface p-4 rounded-xl border border-gray-100">
+                <div className="flex justify-center items-center gap-sm bg-surface p-sm rounded-lg border border-border-default mt-4">
                     <button
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-200 hover:bg-gray-50'}`}
+                        className={`px-md py-xs rounded text-sm font-semibold transition-colors ${page === 1 ? 'bg-page-bg text-text-muted cursor-not-allowed border border-border-default' : 'bg-surface border border-border-default hover:bg-surface-hover text-text-primary'}`}
                         disabled={page === 1 || loading}
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                     >
                         Previous
                     </button>
-                    <span className="text-sm font-bold text-text-main">
+                    <span className="text-sm font-bold text-text-primary">
                         Page {page} of {totalPages}
                     </span>
                     <button
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${page === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-primary text-white hover:bg-primary/90'}`}
+                        className={`px-md py-xs rounded text-sm font-semibold transition-colors ${page === totalPages ? 'bg-page-bg text-text-muted cursor-not-allowed border border-border-default' : 'bg-buy-primary text-text-primary hover:bg-buy-primary-hover border border-border-default'}`}
                         disabled={page === totalPages || loading}
                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                     >
@@ -346,40 +346,38 @@ const AdminUsers = () => {
             {/* Slide-over Full Profile View */}
             {selectedUserForModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end">
-                    <div className="w-full max-w-2xl bg-white h-full shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="w-full max-w-2xl bg-surface h-full shadow-2xl border-l border-border-default overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
                         {/* Header */}
-                        <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10 shrink-0">
+                        <div className="p-md border-b border-border-default flex items-center justify-between sticky top-0 bg-surface z-10 shrink-0">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xl">
                                     {selectedUserForModal.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold">{selectedUserForModal.name}</h2>
-                                    <p className="text-sm text-text-muted">{selectedUserForModal.email}</p>
+                                    <h2 className="text-xl font-bold text-text-primary">{selectedUserForModal.name}</h2>
+                                    <p className="text-sm text-text-secondary">{selectedUserForModal.email}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedUserForModal(null)} className="p-2 hover:bg-gray-100 rounded-lg text-text-muted transition-colors">
+                            <button onClick={() => setSelectedUserForModal(null)} className="p-xs text-text-muted hover:text-text-primary hover:bg-surface-hover rounded transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
 
                         {/* Body */}
-                        <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6">
+                        <div className="flex-1 overflow-y-auto bg-page-bg p-md">
                             {loadingDetails ? (
-                                <div className="flex items-center justify-center h-40">
-                                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                                </div>
+                                <SectionLoader message="Loading details..." />
                             ) : userDetails ? (
-                                <div className="space-y-6">
+                                <div className="space-y-lg">
                                     {/* Tabs */}
-                                    <div className="flex flex-wrap gap-2 border-b border-gray-200 sticky top-0 bg-gray-50/50 z-10 py-2">
+                                    <div className="flex flex-wrap gap-xs border-b border-border-default sticky top-0 bg-page-bg z-10 py-xs">
                                         {['overview', 'orders', 'wallet', 'referrals', 'services'].map(tab => (
                                             <button
                                                 key={tab}
                                                 onClick={() => setActiveTab(tab)}
-                                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors border-b-2 ${activeTab === tab
-                                                    ? 'border-primary text-primary bg-primary/5'
-                                                    : 'border-transparent text-text-muted hover:text-text-main hover:bg-gray-100'
+                                                className={`px-sm py-xs text-sm font-semibold rounded-t transition-colors border-b-2 ${activeTab === tab
+                                                    ? 'border-trust text-trust bg-trust/5'
+                                                    : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-surface-hover'
                                                     }`}
                                             >
                                                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -389,48 +387,48 @@ const AdminUsers = () => {
 
                                     {/* Tab Content */}
                                     {activeTab === 'overview' && (
-                                        <div className="font-mono text-sm space-y-4">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                                    <p className="text-xs text-text-muted uppercase mb-1">User ID</p>
-                                                    <p className="font-bold">#{userDetails.id}</p>
+                                        <div className="font-mono text-sm space-y-md">
+                                            <div className="grid grid-cols-2 gap-sm">
+                                                <div className="bg-surface p-sm rounded-lg border border-border-default shadow-sm">
+                                                    <p className="text-xs text-text-secondary uppercase mb-1 font-sans font-semibold">User ID</p>
+                                                    <p className="font-bold text-text-primary">#{userDetails.id}</p>
                                                 </div>
-                                                <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                                    <p className="text-xs text-text-muted uppercase mb-1">Role</p>
-                                                    <p className="font-bold">{userDetails.role}</p>
+                                                <div className="bg-surface p-sm rounded-lg border border-border-default shadow-sm">
+                                                    <p className="text-xs text-text-secondary uppercase mb-1 font-sans font-semibold">Role</p>
+                                                    <p className="font-bold text-text-primary">{userDetails.role}</p>
                                                 </div>
-                                                <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                                    <p className="text-xs text-text-muted uppercase mb-1">Phone</p>
-                                                    <p className="font-bold">{userDetails.phone || 'N/A'}</p>
+                                                <div className="bg-surface p-sm rounded-lg border border-border-default shadow-sm">
+                                                    <p className="text-xs text-text-secondary uppercase mb-1 font-sans font-semibold">Phone</p>
+                                                    <p className="font-bold text-text-primary">{userDetails.phone || 'N/A'}</p>
                                                 </div>
-                                                <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                                    <p className="text-xs text-text-muted uppercase mb-1">Joined Date</p>
-                                                    <p className="font-bold">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
+                                                <div className="bg-surface p-sm rounded-lg border border-border-default shadow-sm">
+                                                    <p className="text-xs text-text-secondary uppercase mb-1 font-sans font-semibold">Joined Date</p>
+                                                    <p className="font-bold text-text-primary">{new Date(userDetails.createdAt).toLocaleDateString()}</p>
                                                 </div>
-                                                <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                                    <p className="text-xs text-text-muted uppercase mb-1">Wallet Balance</p>
+                                                <div className="bg-surface p-sm rounded-lg border border-border-default shadow-sm">
+                                                    <p className="text-xs text-text-secondary uppercase mb-1 font-sans font-semibold">Wallet Balance</p>
                                                     <p className="font-bold text-success">₹{(userDetails.walletBalance || 0).toLocaleString()}</p>
                                                 </div>
-                                                <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
-                                                    <p className="text-xs text-text-muted uppercase mb-1">Referral Code</p>
-                                                    <p className="font-bold text-primary">{userDetails.referralCode || 'N/A'}</p>
+                                                <div className="bg-surface p-sm rounded-lg border border-border-default shadow-sm">
+                                                    <p className="text-xs text-text-secondary uppercase mb-1 font-sans font-semibold">Referral Code</p>
+                                                    <p className="font-bold text-trust">{userDetails.referralCode || 'N/A'}</p>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
                                     {activeTab === 'orders' && (
-                                        <div className="space-y-3">
-                                            <h3 className="font-bold text-lg mb-2 text-text-main">Order History ({userDetails.orders?.length || 0})</h3>
+                                        <div className="space-y-sm">
+                                            <h3 className="font-bold text-lg mb-2 text-text-primary">Order History ({userDetails.orders?.length || 0})</h3>
                                             {userDetails.orders?.length > 0 ? userDetails.orders.map(order => (
-                                                <div key={order.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm flex justify-between items-center text-sm font-mono">
+                                                <div key={order.id} className="bg-surface p-sm rounded-lg border border-border-default shadow-sm flex justify-between items-center text-sm font-mono">
                                                     <div>
-                                                        <p className="font-bold text-primary mb-1">Order #{order.id}</p>
-                                                        <p className="text-text-muted">{new Date(order.createdAt).toLocaleDateString()}</p>
+                                                        <p className="font-bold text-trust mb-1">Order #{order.id}</p>
+                                                        <p className="text-text-secondary">{new Date(order.createdAt).toLocaleDateString()}</p>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="font-bold">₹{order.total.toLocaleString()}</p>
-                                                        <p className={`text-xs px-2 py-0.5 mt-1 inline-block rounded ${order.isPaid ? 'bg-success/10 text-success' : 'bg-gray-100 text-gray-500'}`}>
+                                                        <p className={`text-xs px-2 py-0.5 mt-1 inline-block rounded ${order.isPaid ? 'bg-success/10 text-success' : 'bg-page-bg text-text-secondary border border-border-default'}`}>
                                                             {order.status}
                                                         </p>
                                                     </div>
@@ -440,57 +438,57 @@ const AdminUsers = () => {
                                     )}
 
                                     {activeTab === 'wallet' && (
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between items-end mb-4">
-                                                <h3 className="font-bold text-lg text-text-main">Wallet Transactions</h3>
-                                                <p className="font-bold text-success bg-success/10 px-3 py-1 rounded-full text-sm">Valid Balance: ₹{(userDetails.walletBalance || 0).toLocaleString()}</p>
+                                        <div className="space-y-sm">
+                                            <div className="flex justify-between items-end mb-sm">
+                                                <h3 className="font-bold text-lg text-text-primary">Wallet Transactions</h3>
+                                                <p className="font-bold text-success bg-success/10 px-3 py-1 rounded text-sm">Valid Balance: ₹{(userDetails.walletBalance || 0).toLocaleString()}</p>
                                             </div>
                                             {userDetails.walletTransactions?.length > 0 ? userDetails.walletTransactions.map(txn => (
-                                                <div key={txn.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm flex justify-between items-center text-sm">
+                                                <div key={txn.id} className="bg-surface p-sm rounded-lg border border-border-default shadow-sm flex justify-between items-center text-sm">
                                                     <div>
-                                                        <p className="font-bold uppercase text-xs text-text-muted mb-1">{txn.description}</p>
-                                                        <p className="text-text-muted text-xs">{new Date(txn.createdAt).toLocaleString()}</p>
+                                                        <p className="font-bold uppercase tracking-wider text-xs text-text-secondary mb-1">{txn.description}</p>
+                                                        <p className="text-text-secondary text-xs">{new Date(txn.createdAt).toLocaleString()}</p>
                                                     </div>
                                                     <p className={`font-bold ${txn.type === 'CREDIT' ? 'text-success' : 'text-error'}`}>
                                                         {txn.type === 'CREDIT' ? '+' : '-'}₹{txn.amount.toLocaleString()}
                                                     </p>
                                                 </div>
-                                            )) : <p className="text-text-muted">No wallet history.</p>}
+                                            )) : <p className="text-text-secondary">No wallet history.</p>}
                                         </div>
                                     )}
 
                                     {activeTab === 'referrals' && (
-                                        <div className="space-y-3">
-                                            <h3 className="font-bold text-lg mb-2 text-text-main">Referrals Made ({userDetails.referralsMade?.length || 0})</h3>
+                                        <div className="space-y-sm">
+                                            <h3 className="font-bold text-lg mb-2 text-text-primary">Referrals Made ({userDetails.referralsMade?.length || 0})</h3>
                                             {userDetails.referralsMade?.length > 0 ? userDetails.referralsMade.map(ref => (
-                                                <div key={ref.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm flex justify-between items-center text-sm">
+                                                <div key={ref.id} className="bg-surface p-sm rounded-lg border border-border-default shadow-sm flex justify-between items-center text-sm">
                                                     <div>
-                                                        <p className="font-bold">{ref.referee?.name || 'Unknown User'}</p>
-                                                        <p className="text-text-muted text-xs">{ref.referee?.email}</p>
+                                                        <p className="font-bold text-text-primary">{ref.referee?.name || 'Unknown User'}</p>
+                                                        <p className="text-text-secondary text-xs">{ref.referee?.email}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-primary mb-1">Earned: ₹{ref.refereeReward || 0}</p>
-                                                        <p className="text-xs text-text-muted uppercase tracking-wider">{ref.status}</p>
+                                                        <p className="font-bold text-trust mb-1">Earned: ₹{ref.refereeReward || 0}</p>
+                                                        <p className="text-xs text-text-secondary uppercase tracking-wider">{ref.status}</p>
                                                     </div>
                                                 </div>
-                                            )) : <p className="text-text-muted">This user has not referred anyone yet.</p>}
+                                            )) : <p className="text-text-secondary">This user has not referred anyone yet.</p>}
                                         </div>
                                     )}
 
                                     {activeTab === 'services' && (
-                                        <div className="space-y-3">
-                                            <h3 className="font-bold text-lg mb-2 text-text-main">Service Bookings ({userDetails.bookings?.length || 0})</h3>
+                                        <div className="space-y-sm">
+                                            <h3 className="font-bold text-lg mb-2 text-text-primary">Service Bookings ({userDetails.bookings?.length || 0})</h3>
                                             {userDetails.bookings?.length > 0 ? userDetails.bookings.map(book => (
-                                                <div key={book.id} className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm flex justify-between items-center text-sm">
+                                                <div key={book.id} className="bg-surface p-sm rounded-lg border border-border-default shadow-sm flex justify-between items-center text-sm">
                                                     <div>
-                                                        <p className="font-bold text-primary mb-1">{book.serviceType}</p>
-                                                        <p className="text-text-muted text-xs">{new Date(book.createdAt).toLocaleDateString()}</p>
+                                                        <p className="font-bold text-trust mb-1">{book.serviceType}</p>
+                                                        <p className="text-text-secondary text-xs">{new Date(book.createdAt).toLocaleDateString()}</p>
                                                     </div>
-                                                    <p className="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-xs font-bold text-text-muted">
+                                                    <p className="px-2 py-1 bg-page-bg border border-border-default rounded text-xs font-bold text-text-secondary">
                                                         {book.status}
                                                     </p>
                                                 </div>
-                                            )) : <p className="text-text-muted">No services booked.</p>}
+                                            )) : <p className="text-text-secondary">No services booked.</p>}
                                         </div>
                                     )}
 

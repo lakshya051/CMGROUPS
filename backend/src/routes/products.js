@@ -1,7 +1,7 @@
-const express = require('express');
-const prisma = require('../lib/prisma');
-const cache = require('../lib/cache');
-const { protect, adminOnly } = require('../middleware/auth');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import cache from '../lib/cache.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -10,7 +10,6 @@ const router = express.Router();
 //   ?category=GPU  ?search=rtx  ?sort=price_asc  ?minPrice=  ?maxPrice=
 //   ?isSecondHand=true
 router.get('/', async (req, res) => {
-    cache.flush(); // FORCE FLUSH for schema consistency
     try {
         const { category, search, sort, minPrice, maxPrice, isSecondHand, page, limit } = req.query;
 
@@ -29,16 +28,34 @@ router.get('/', async (req, res) => {
         }
 
         // Build orderBy
-        let orderBy = {};
-        if (sort === 'price_asc') orderBy = { price: 'asc' };
-        else if (sort === 'price_desc') orderBy = { price: 'desc' };
-        else if (sort === 'rating') orderBy = { rating: 'desc' };
-        else orderBy = { id: 'desc' };
+        let orderBy;
+        switch (sort) {
+            case 'price-low':
+            case 'price_asc':
+                orderBy = { price: 'asc' };
+                break;
+            case 'price-high':
+            case 'price_desc':
+                orderBy = { price: 'desc' };
+                break;
+            case 'rating':
+                orderBy = { rating: 'desc' };
+                break;
+            case 'name':
+                orderBy = { title: 'asc' };
+                break;
+            case 'newest':
+            default:
+                orderBy = { id: 'desc' };
+                break;
+        }
 
         // ── Cache key ──────────────────────────────────────────────────────────
         // Ensure pagination values are in cache key even if not provided by client
-        const cachePage = parseInt(page) || 1;
-        const cacheLimit = parseInt(limit) || 20;
+        const parsedPage = Number.parseInt(page, 10);
+        const parsedLimit = Number.parseInt(limit, 10);
+        const cachePage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const cacheLimit = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
         const cacheKeyData = { ...req.query, page: cachePage, limit: cacheLimit };
         const cacheKey = `products:${JSON.stringify(cacheKeyData)}`;
 
@@ -330,4 +347,4 @@ router.delete('/:id/variants/:variantId', protect, adminOnly, async (req, res) =
     }
 });
 
-module.exports = router;
+export default router;

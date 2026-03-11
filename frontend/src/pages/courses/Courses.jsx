@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, Clock, Users, ChevronRight, GraduationCap, Award } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { coursesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
+import { handleImageError } from '../../utils/image';
+import { useSEO } from '../../hooks/useSEO';
 
 const Courses = () => {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [category, setCategory] = useState('All');
+    const [searchParams] = useSearchParams();
+    useSEO({ title: 'Computer Courses in Etah — CMGROUPS Academy', description: 'Learn Tally, computer basics, web development and more with expert instructors in Etah.' });
 
     useEffect(() => {
         coursesAPI.getAll()
@@ -17,8 +21,16 @@ const Courses = () => {
             .finally(() => setLoading(false));
     }, []);
 
+    const searchQuery = (searchParams.get('q') || '').trim().toLowerCase();
     const categories = ['All', ...new Set(courses.map(c => c.category))];
-    const filtered = category === 'All' ? courses : courses.filter(c => c.category === category);
+    const filtered = useMemo(() => {
+        return courses.filter((course) => {
+            const matchesCategory = category === 'All' || course.category === category;
+            const courseName = (course.title || course.name || '').toLowerCase();
+            const matchesSearch = !searchQuery || courseName.includes(searchQuery);
+            return matchesCategory && matchesSearch;
+        });
+    }, [category, courses, searchQuery]);
 
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center">
@@ -30,33 +42,33 @@ const Courses = () => {
     );
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen bg-page-bg">
             {/* Hero */}
-            <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent py-20 px-4 text-center border-b border-gray-100">
+            <div className="bg-surface py-2xl px-lg text-center border-b border-border-default">
                 <div className="max-w-3xl mx-auto">
-                    <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-bold mb-6">
+                    <div className="inline-flex items-center gap-xs bg-trust/10 text-trust px-sm py-xs rounded text-xs font-bold mb-md uppercase tracking-wider">
                         <GraduationCap size={16} /> Offline Computer Institute
                     </div>
-                    <h1 className="text-5xl font-heading font-black mb-4 leading-tight">
-                        Build Your Career <br />in <span className="text-primary">Computer Skills</span>
+                    <h1 className="text-3xl md:text-4xl font-bold mb-sm leading-tight text-text-primary">
+                        Build Your Career <br />in <span className="text-trust">Computer Skills</span>
                     </h1>
-                    <p className="text-text-muted text-lg max-w-xl mx-auto">
+                    <p className="text-text-secondary text-sm max-w-xl mx-auto leading-relaxed">
                         Join our offline training centre. Choose your course, pick your batch,
                         and learn from expert instructors — in person.
                     </p>
                 </div>
             </div>
 
-            <div className="container mx-auto px-4 py-12">
+            <div className="container mx-auto px-lg py-xl">
                 {/* Category Filter */}
-                <div className="flex flex-wrap gap-3 mb-10">
+                <div className="flex flex-wrap gap-sm mb-lg">
                     {categories.map(cat => (
                         <button
                             key={cat}
                             onClick={() => setCategory(cat)}
-                            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${category === cat
-                                ? 'bg-primary text-white shadow-lg shadow-primary/30 scale-105'
-                                : 'bg-surface border border-gray-200 text-text-muted hover:border-primary hover:text-primary'
+                            className={`px-sm py-xs rounded text-sm font-semibold transition-colors duration-base ${category === cat
+                                ? 'bg-buy-primary text-text-primary shadow-sm'
+                                : 'bg-surface border border-border-default text-text-secondary hover:bg-surface-hover hover:text-text-primary'
                                 }`}
                         >
                             {cat}
@@ -65,13 +77,17 @@ const Courses = () => {
                 </div>
 
                 {filtered.length === 0 ? (
-                    <div className="text-center py-20">
-                        <BookOpen size={64} className="mx-auto text-gray-200 mb-4" />
-                        <h3 className="text-xl font-bold text-text-muted">No courses available yet</h3>
-                        <p className="text-sm text-text-muted mt-2">Check back soon!</p>
+                    <div className="text-center py-xl bg-surface border border-dashed border-border-default rounded-lg">
+                        <BookOpen size={48} className="mx-auto text-text-muted mb-sm" />
+                        <h3 className="text-base font-bold text-text-primary">
+                            {searchQuery ? 'No matching courses found' : 'No courses available yet'}
+                        </h3>
+                        <p className="text-sm text-text-secondary mt-1">
+                            {searchQuery ? 'Try a different search term or category.' : 'Check back soon!'}
+                        </p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
                         {filtered.map(course => {
                             const minFee = course.durations?.length > 0
                                 ? Math.min(...course.durations.map(d => d.totalFee))
@@ -79,40 +95,49 @@ const Courses = () => {
                             const totalBatches = course.durations?.flatMap(d => d.batches || []).length || 0;
 
                             return (
-                                <div key={course.id} className="bg-surface rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col group">
+                                <div key={course.id} className="bg-surface rounded-lg border border-border-default shadow-sm hover:shadow-md transition-shadow duration-base flex flex-col group">
                                     {/* Thumbnail */}
-                                    <div className="relative h-44 bg-gradient-to-br from-primary/20 to-primary/5 overflow-hidden">
+                                    <div className="relative h-44 bg-page-bg overflow-hidden rounded-t-lg">
                                         {course.thumbnail ? (
-                                            <img src={course.thumbnail} alt={course.title} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            <img
+                                                src={course.thumbnail}
+                                                alt={course.title}
+                                                loading="lazy"
+                                                decoding="async"
+                                                width={640}
+                                                height={352}
+                                                onError={handleImageError}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
-                                                <GraduationCap size={64} className="text-primary/30" />
+                                                <GraduationCap size={48} className="text-text-muted" />
                                             </div>
                                         )}
-                                        <div className="absolute top-3 left-3">
-                                            <span className="bg-white/90 backdrop-blur text-primary text-xs font-black px-3 py-1 rounded-full shadow">
+                                        <div className="absolute top-sm left-sm">
+                                            <span className="bg-surface/90 backdrop-blur text-trust text-xs font-bold px-xs py-1 rounded shadow-sm">
                                                 {course.category}
                                             </span>
                                         </div>
                                         {course.hasCertificate && (
-                                            <div className="absolute top-3 right-3">
-                                                <span className="bg-amber-400/90 text-amber-900 text-xs font-black px-3 py-1 rounded-full shadow flex items-center gap-1">
+                                            <div className="absolute top-sm right-sm">
+                                                <span className="bg-success text-white text-xs font-bold px-xs py-1 rounded shadow-sm flex items-center gap-1">
                                                     <Award size={12} /> Certificate
                                                 </span>
                                             </div>
                                         )}
                                     </div>
 
-                                    <div className="p-6 flex flex-col flex-grow">
-                                        <h3 className="font-black text-lg mb-2 group-hover:text-primary transition-colors leading-tight">{course.title}</h3>
-                                        <p className="text-sm text-text-muted mb-4 line-clamp-2 flex-grow">{course.description}</p>
+                                    <div className="p-md flex flex-col flex-grow">
+                                        <h3 className="font-semibold text-base mb-xs text-text-primary line-clamp-2 leading-tight">{course.title}</h3>
+                                        <p className="text-xs text-text-secondary mb-md line-clamp-2 flex-grow">{course.description}</p>
 
-                                        <div className="flex items-center gap-4 text-xs text-text-muted mb-5 border-t border-gray-100 pt-4">
+                                        <div className="flex items-center gap-sm text-xs text-text-secondary mb-md border-t border-border-default pt-sm">
                                             <span className="flex items-center gap-1 font-medium">
-                                                <Clock size={13} /> {course.durations?.length || 0} Duration Options
+                                                <Clock size={12} /> {course.durations?.length || 0} Durations
                                             </span>
                                             <span className="flex items-center gap-1 font-medium">
-                                                <Users size={13} /> {totalBatches} Batch{totalBatches !== 1 ? 'es' : ''}
+                                                <Users size={12} /> {totalBatches} Batch{totalBatches !== 1 ? 'es' : ''}
                                             </span>
                                         </div>
 
@@ -120,16 +145,16 @@ const Courses = () => {
                                             <div>
                                                 {minFee !== null ? (
                                                     <div>
-                                                        <span className="text-xs text-text-muted">Starting from</span>
-                                                        <div className="text-xl font-black text-primary">₹{minFee.toLocaleString()}</div>
+                                                        <span className="text-xs text-text-secondary">Starting from</span>
+                                                        <div className="text-base font-bold text-text-primary">₹{minFee.toLocaleString()}</div>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-sm text-text-muted italic">Fees TBD</span>
+                                                    <span className="text-xs text-text-secondary italic">Fees TBD</span>
                                                 )}
                                             </div>
                                             <Link to={`/courses/${course.id}`}>
-                                                <Button className="flex items-center gap-1">
-                                                    View & Apply <ChevronRight size={16} />
+                                                <Button variant="outline" className="text-xs px-sm py-xs flex items-center gap-1 border-border-default">
+                                                    View Details <ChevronRight size={14} />
                                                 </Button>
                                             </Link>
                                         </div>

@@ -1,10 +1,12 @@
-const express = require('express');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import cache from '../lib/cache.js';
+import { protect, adminOnly } from '../middleware/auth.js';
+import { generateCertificate } from '../utils/certificateGenerator.js';
+import { calculateReferralReward } from '../utils/referralHelper.js';
+import { createUserNotification } from '../utils/notifications.js';
+
 const router = express.Router();
-const prisma = require('../lib/prisma');
-const cache = require('../lib/cache');
-const { protect, adminOnly } = require('../middleware/auth');
-const { generateCertificate } = require('../utils/certificateGenerator');
-const { calculateReferralReward } = require('../utils/referralHelper');
 
 // ─────────────────────────────────────────────
 // STUDENT — Get my applications (with fee ledger)
@@ -131,7 +133,12 @@ router.post('/apply', protect, async (req, res) => {
     try {
         const { courseId, durationId, batchId, name, email, phone, message, paymentMode, referralCode } = req.body;
 
-        if (!courseId || !durationId || !batchId || !name || !email || !phone || !paymentMode) {
+        const normalizedName = String(name || '').trim() || String(req.user?.name || '').trim();
+        const normalizedEmail = String(email || '').trim() || String(req.user?.email || '').trim();
+        const normalizedPhone = String(phone || '').trim() || String(req.user?.phone || '').trim();
+        const normalizedPaymentMode = String(paymentMode || '').trim();
+
+        if (!courseId || !durationId || !batchId || !normalizedName || !normalizedEmail || !normalizedPhone || !normalizedPaymentMode) {
             return res.status(400).json({ error: 'courseId, durationId, batchId, name, email, phone, and paymentMode are required' });
         }
 
@@ -157,10 +164,12 @@ router.post('/apply', protect, async (req, res) => {
                 courseId: parseInt(courseId),
                 durationId: parseInt(durationId),
                 batchId: parseInt(batchId),
-                name, email, phone,
-                message: message || null,
-                paymentMode,
-                referralCode: referralCode || null,
+                name: normalizedName,
+                email: normalizedEmail,
+                phone: normalizedPhone,
+                message: typeof message === 'string' && message.trim() ? message.trim() : null,
+                paymentMode: normalizedPaymentMode,
+                referralCode: typeof referralCode === 'string' && referralCode.trim() ? referralCode.trim() : null,
                 status: 'Pending'
             },
             include: { course: true, duration: true, batch: true }
@@ -180,6 +189,39 @@ router.post('/apply', protect, async (req, res) => {
         res.status(201).json(application);
     } catch (error) {
         console.error('Apply course error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────
+// STUDENT — Get Course Player Data
+// ─────────────────────────────────────────────
+router.get('/:id/player', protect, async (req, res) => {
+    try {
+        const courseId = parseInt(req.params.id);
+        const application = await prisma.courseApplication.findFirst({
+            where: { courseId, userId: req.user.id, status: { in: ['Approved', 'Enrolled', 'Completed'] } }
+        });
+        if (!application) {
+            // Also check legacy enrollment just in case
+            const legacyEnc = await prisma.enrollment.findFirst({
+                where: { courseId, userId: req.user.id }
+            });
+            if (!legacyEnc) return res.status(403).json({ error: 'You do not have access to this course. Please enroll first.' });
+        }
+
+        const course = await prisma.course.findUnique({
+            where: { id: courseId },
+            include: { materials: { orderBy: { createdAt: 'asc' } } }
+        });
+
+        let progress = 0;
+        if (application?.status === 'Completed') progress = 100;
+        else if (application?.status === 'Enrolled') progress = 15;
+
+        res.json({ course, enrollment: { progress } });
+    } catch (error) {
+        console.error('Course player error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -249,14 +291,16 @@ router.patch('/applications/:id/status', protect, adminOnly, async (req, res) =>
         });
 
         // Notify student
-        await prisma.notification.create({
-            data: {
-                userId: app.userId,
-                title: `Course Application ${status}`,
-                message: `Your application for ${app.course.title} is now ${status}.`,
-                type: 'course',
-                link: '/dashboard/courses'
-            }
+        await createUserNotification({
+            userId: app.userId,
+            title: `Course Application ${status}`,
+            message: `Your application for ${app.course.title} is now ${status}.`,
+            type: 'course',
+            link: '/dashboard/courses',
+            push: {
+                enabled: true,
+                body: `Your application for ${app.course.title} is now ${status}.`,
+            },
         }).catch(() => { });
 
         res.json(app);
@@ -353,14 +397,16 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
         });
 
         // Notify student
-        await prisma.notification.create({
-            data: {
-                userId: application.userId,
-                title: 'Fee Payment Recorded',
+        await createUserNotification({
+            userId: application.userId,
+            title: 'Fee Payment Recorded',
                 message: `₹${amount} payment received for ${application.course.title}.`,
-                type: 'course',
-                link: '/dashboard/courses'
-            }
+            type: 'course',
+            link: '/dashboard/courses',
+            push: {
+                enabled: true,
+                body: `Payment recorded for ${application.course.title}.`,
+            },
         }).catch(() => { });
 
         res.status(201).json(payment);
@@ -517,4 +563,4 @@ router.delete('/batches/:id', protect, adminOnly, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

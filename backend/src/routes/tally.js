@@ -1,7 +1,7 @@
-const express = require('express');
-const prisma = require('../lib/prisma');
-const { protect, adminOnly } = require('../middleware/auth');
-const nodemailer = require('nodemailer');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import { protect, adminOnly } from '../middleware/auth.js';
+import nodemailer from 'nodemailer';
 
 const router = express.Router();
 
@@ -137,4 +137,4 @@ router.put('/admin/enquiries/:id', protect, adminOnly, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

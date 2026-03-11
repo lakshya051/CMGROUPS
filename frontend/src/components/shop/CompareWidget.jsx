@@ -4,6 +4,7 @@ import { useShop } from '../../context/ShopContext';
 import { X, ArrowRight } from 'lucide-react';
 import Button from '../ui/Button';
 import { productsAPI } from '../../lib/api';
+import { handleImageError } from '../../utils/image';
 
 const CompareWidget = () => {
     const { compareList, removeFromCompare, clearCompare } = useShop();
@@ -22,9 +23,9 @@ const CompareWidget = () => {
     if (compareList.length === 0) return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">
-            <div className="glass-panel p-4 shadow-2xl border border-gray-200 w-80 max-w-[calc(100vw-2rem)] bg-surface/95 backdrop-blur-xl">
-                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 safe-bottom">
+            <div className="glass-panel p-4 shadow-sm border border-border-default w-80 max-w-[calc(100vw-2rem)] bg-surface/95 backdrop-blur-xl">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-border-default">
                     <h3 className="font-bold text-sm">Compare Products ({compareList.length}/4)</h3>
                     <button onClick={clearCompare} className="text-xs text-text-muted hover:text-error underline">
                         Clear all
@@ -32,8 +33,16 @@ const CompareWidget = () => {
                 </div>
                 <div className="space-y-2 mb-4">
                     {products.map(p => (
-                        <div key={p.id} className="flex items-center gap-2 bg-gray-50/80 p-2 rounded border border-gray-100">
-                            <img src={p.image} alt={p.title} className="w-8 h-8 object-contain bg-white rounded flex-shrink-0" />
+                        <div key={p.id} className="flex items-center gap-2 bg-page-bg/80 p-2 rounded border border-border-default">
+                            <img
+                                src={p.image}
+                                alt={p.title}
+                                loading="lazy"
+                                width={32}
+                                height={32}
+                                onError={handleImageError}
+                                className="w-8 h-8 object-contain bg-surface rounded flex-shrink-0"
+                            />
                             <span className="text-xs font-medium truncate flex-1">{p.title}</span>
                             <button onClick={() => removeFromCompare(p.id)} className="text-text-muted hover:text-error p-1">
                                 <X size={14} />
@@ -41,7 +50,7 @@ const CompareWidget = () => {
                         </div>
                     ))}
                     {products.length < 2 && (
-                        <p className="text-xs text-text-muted text-center py-2 border border-dashed border-gray-200 rounded bg-gray-50/50">
+                        <p className="text-xs text-text-muted text-center py-2 border border-dashed border-border-default rounded bg-page-bg/50">
                             Add at least {2 - products.length} more to compare
                         </p>
                     )}

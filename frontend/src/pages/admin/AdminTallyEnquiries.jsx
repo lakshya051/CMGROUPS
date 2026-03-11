@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, RefreshCw, Filter } from 'lucide-react';
+import { getAuthHeaders } from '../../lib/api';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const STATUS_STYLES = {
-    new: 'bg-blue-100 text-blue-700 border border-blue-200',
+    new: 'bg-primary/10 text-primary border border-primary/20',
     contacted: 'bg-warning/10 text-warning border border-warning/20',
     converted: 'bg-success/10 text-success border border-success/20'
 };
@@ -25,8 +26,8 @@ const AdminTallyEnquiries = () => {
             const url = status && status !== 'All'
                 ? `${API_BASE}/tally/admin/enquiries?status=${status}`
                 : `${API_BASE}/tally/admin/enquiries`;
-            const token = localStorage.getItem('token');
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            const headers = await getAuthHeaders();
+            const res = await fetch(url, { headers });
             const data = await res.json();
             if (data.success) {
                 setEnquiries(data.enquiries);
@@ -44,10 +45,10 @@ const AdminTallyEnquiries = () => {
     const updateStatus = async (id, status) => {
         setUpdating(id);
         try {
-            const token = localStorage.getItem('token');
+            const headers = await getAuthHeaders();
             const res = await fetch(`${API_BASE}/tally/admin/enquiries/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers,
                 body: JSON.stringify({ status })
             });
             if (res.ok) {
@@ -74,27 +75,25 @@ const AdminTallyEnquiries = () => {
                     <h1 className="text-3xl font-heading font-black">Tally ERP Enquiries</h1>
                     <p className="text-text-muted">Manage leads from the Tally ERP landing page.</p>
                 </div>
-                <button onClick={() => load(filter)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                <button onClick={() => load(filter)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold border border-border-default rounded-lg hover:bg-surface-hover transition-colors">
                     <RefreshCw size={15} /> Refresh
                 </button>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { label: 'Total', value: total, color: 'bg-blue-50 text-blue-700' },
-                    { label: 'New', value: stats.new, color: 'bg-blue-100 text-blue-700' },
+                    { label: 'Total', value: total, color: 'bg-primary/5 text-primary' },
+                    { label: 'New', value: stats.new, color: 'bg-primary/10 text-primary' },
                     { label: 'Contacted', value: stats.contacted, color: 'bg-warning/10 text-warning' },
                     { label: 'Converted', value: stats.converted, color: 'bg-success/10 text-success' },
                 ].map(s => (
-                    <div key={s.label} className={`rounded-2xl p-5 ${s.color}`}>
+                    <div key={s.label} className={`rounded-lg p-5 ${s.color}`}>
                         <div className="text-3xl font-black">{s.value}</div>
                         <div className="text-sm font-bold mt-1">{s.label}</div>
                     </div>
                 ))}
             </div>
 
-            {/* Filter Tabs */}
             <div className="flex items-center gap-2 flex-wrap">
                 <Filter size={16} className="text-text-muted" />
                 {FILTER_OPTIONS.map(opt => (
@@ -102,8 +101,8 @@ const AdminTallyEnquiries = () => {
                         key={opt}
                         onClick={() => setFilter(opt)}
                         className={`px-4 py-1.5 rounded-full text-xs font-black transition-all capitalize ${filter === opt
-                            ? 'bg-primary text-white shadow-lg shadow-primary/30'
-                            : 'bg-surface border border-gray-200 text-text-muted hover:border-primary hover:text-primary'
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'bg-surface border border-border-default text-text-muted hover:border-primary hover:text-primary'
                             }`}
                     >
                         {opt}
@@ -111,19 +110,18 @@ const AdminTallyEnquiries = () => {
                 ))}
             </div>
 
-            {/* Table */}
             {loading ? (
                 <div className="p-12 text-center text-text-muted">Loading enquiries...</div>
             ) : enquiries.length === 0 ? (
-                <div className="p-12 text-center bg-surface rounded-2xl border border-dashed border-gray-200 text-text-muted">
+                <div className="p-12 text-center bg-surface rounded-lg border border-dashed border-border-default text-text-muted">
                     No enquiries found for this filter.
                 </div>
             ) : (
-                <div className="bg-surface rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="bg-surface rounded-lg border border-border-default shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="border-b border-gray-100 bg-gray-50/50 text-xs text-text-muted font-black uppercase tracking-wider">
+                                <tr className="border-b border-border-default bg-surface text-xs text-text-muted font-black uppercase tracking-wider">
                                     <th className="px-5 py-4">Name / Business</th>
                                     <th className="px-5 py-4">Phone</th>
                                     <th className="px-5 py-4">City</th>
@@ -133,9 +131,9 @@ const AdminTallyEnquiries = () => {
                                     <th className="px-5 py-4">Message</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
+                            <tbody className="divide-y divide-border-default">
                                 {enquiries.map(enq => (
-                                    <tr key={enq.id} className="hover:bg-gray-50/50 transition-colors">
+                                    <tr key={enq.id} className="hover:bg-surface-hover transition-colors">
                                         <td className="px-5 py-4">
                                             <div className="font-bold text-sm">{enq.name}</div>
                                             <div className="text-xs text-text-muted">{enq.businessName}</div>
@@ -158,7 +156,7 @@ const AdminTallyEnquiries = () => {
                                                 className={`text-xs font-black px-3 py-1.5 rounded-full border cursor-pointer ${STATUS_STYLES[enq.status]} bg-transparent focus:outline-none`}
                                             >
                                                 {STATUS_OPTIONS.map(s => (
-                                                    <option key={s} value={s} className="bg-white text-gray-900 capitalize">{s}</option>
+                                                    <option key={s} value={s} className="bg-surface text-text-primary capitalize">{s}</option>
                                                 ))}
                                             </select>
                                         </td>

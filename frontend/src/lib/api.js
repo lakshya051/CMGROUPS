@@ -1,19 +1,26 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Helper to get auth headers
-const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
+let _tokenGetter = null;
+
+export const setTokenGetter = (fn) => {
+    _tokenGetter = fn;
+};
+
+const getAuthHeaders = async () => {
+    const token = _tokenGetter ? await _tokenGetter() : null;
     return {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` })
     };
 };
 
-// Generic fetch wrapper
+export { getAuthHeaders };
+
 const apiFetch = async (endpoint, options = {}) => {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
-        headers: { ...getAuthHeaders(), ...options.headers }
+        headers: { ...headers, ...options.headers }
     });
 
     const data = await response.json();
@@ -27,44 +34,25 @@ const apiFetch = async (endpoint, options = {}) => {
 
 // ============ AUTH ============
 export const authAPI = {
-    login: (identifier, password) =>
-        apiFetch('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ identifier, password })
-        }),
+    getMe: () => apiFetch('/auth/me'),
 
-    register: (name, email, password, phone, referralCode) =>
+    register: (name) =>
         apiFetch('/auth/register', {
             method: 'POST',
-            body: JSON.stringify({ name, email, password, phone, referralCode })
+            body: JSON.stringify({ name })
         }),
 
-    verifyEmail: (email, otp) =>
-        apiFetch('/auth/verify-email', {
+    onboarding: (data) =>
+        apiFetch('/auth/onboarding', {
             method: 'POST',
-            body: JSON.stringify({ email, otp })
+            body: JSON.stringify(data)
         }),
-
-    // Backward-compatible alias for older callers.
-    resendOTP: (email) =>
-        apiFetch('/auth/resend-verification', {
-            method: 'POST',
-            body: JSON.stringify({ email })
-        }),
-
-    getMe: () => apiFetch('/auth/me'),
 
     updateProfile: (data) =>
         apiFetch('/auth/profile', {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
-
-    resendVerification: (email) =>
-        apiFetch('/auth/resend-verification', {
-            method: 'POST',
-            body: JSON.stringify({ email })
-        })
 };
 
 // ============ PRODUCTS ============
@@ -103,17 +91,22 @@ export const productsAPI = {
 
 // ============ ORDERS ============
 export const ordersAPI = {
-    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0) =>
+    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0, latitude = null, longitude = null, googleMapLink = null) =>
         apiFetch('/orders', {
             method: 'POST',
-            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed })
+            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink })
         }),
 
     getMyOrders: () => apiFetch('/orders/my-orders'),
 
     getMyStats: () => apiFetch('/orders/my-stats'),
 
-    getAll: () => apiFetch('/orders'),
+    getAll: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined))
+        ).toString();
+        return apiFetch(`/orders${query ? `?${query}` : ''}`);
+    },
 
     updateStatus: (id, status) =>
         apiFetch(`/orders/${id}/status`, {
@@ -146,11 +139,9 @@ export const ordersAPI = {
         }),
 
     downloadInvoice: async (id) => {
-        const token = localStorage.getItem('token');
+        const headers = await getAuthHeaders();
         const response = await fetch(`${API_BASE}/orders/${id}/invoice`, {
-            headers: {
-                ...(token && { Authorization: `Bearer ${token}` })
-            }
+            headers
         });
 
         if (!response.ok) {
@@ -169,6 +160,44 @@ export const ordersAPI = {
         setTimeout(() => window.URL.revokeObjectURL(url), 100);
     }
 };
+
+// ============ ADDRESSES ============
+export const addressesAPI = {
+    getAll: () => apiFetch('/addresses'),
+    create: (data) => apiFetch('/addresses', { method: 'POST', body: JSON.stringify(data) }),
+    delete: (id) => apiFetch(`/addresses/${id}`, { method: 'DELETE' }),
+};
+
+// ============ CART ============
+export const cartAPI = {
+    get: () => apiFetch('/cart'),
+
+    addItem: (productId, variantId = null, quantity = 1) =>
+        apiFetch('/cart/items', {
+            method: 'POST',
+            body: JSON.stringify({ productId, variantId, quantity }),
+        }),
+
+    updateItem: (productId, variantId = null, quantity) =>
+        apiFetch('/cart/items', {
+            method: 'PATCH',
+            body: JSON.stringify({ productId, variantId, quantity }),
+        }),
+
+    removeItem: (productId, variantId = null) =>
+        apiFetch('/cart/items/remove', {
+            method: 'POST',
+            body: JSON.stringify({ productId, variantId }),
+        }),
+
+    sync: (items) => apiFetch('/cart/sync', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+    }),
+
+    clear: () => apiFetch('/cart', { method: 'DELETE' }),
+};
+
 
 // ============ WISHLIST ============
 export const wishlistAPI = {
@@ -190,7 +219,8 @@ export const alertsAPI = {
 export const notificationsAPI = {
     getAll: () => apiFetch('/notifications'),
     markRead: (id) => apiFetch(`/notifications/${id}/read`, { method: 'PATCH' }),
-    markAllRead: () => apiFetch('/notifications/read-all', { method: 'POST' })
+    markAllRead: () => apiFetch('/notifications/read-all', { method: 'POST' }),
+    delete: (id) => apiFetch(`/notifications/${id}`, { method: 'DELETE' }),
 };
 
 // ============ REVIEWS ============
@@ -219,50 +249,89 @@ export const servicesAPI = {
 
     getMyBookings: () => apiFetch('/services/my-bookings'),
 
-    getAll: () => apiFetch('/services'),
+    getAll: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+        ).toString();
+        return apiFetch(`/services${query ? `?${query}` : ''}`);
+    },
 
     updateStatus: (id, data) =>
         apiFetch(`/services/${id}/status`, {
             method: 'PATCH',
             body: JSON.stringify(data)
+        }),
+
+    assignTechnician: (id, technicianId) =>
+        apiFetch(`/services/${id}/assign`, {
+            method: 'PATCH',
+            body: JSON.stringify({ technicianId })
+        }),
+
+    verifyOtp: (id, otp) =>
+        apiFetch(`/services/${id}/verify-otp`, {
+            method: 'POST',
+            body: JSON.stringify({ otp })
+        }),
+
+    regenerateOtp: (id) =>
+        apiFetch(`/services/${id}/regenerate-otp`, { method: 'POST' }),
+
+    cancelBooking: (id, cancellationReason) =>
+        apiFetch(`/services/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'Cancelled', cancellationReason })
         })
 };
+
+// ============ TECHNICIANS ============
+export const techniciansAPI = {
+    getAll: (all = false) => apiFetch(`/admin/technicians${all ? '?all=true' : ''}`),
+
+    create: (data) =>
+        apiFetch('/admin/technicians', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
+
+    update: (id, data) =>
+        apiFetch(`/admin/technicians/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        })
+};
+
 
 // ============ COURSES ============
 export const coursesAPI = {
     getAll: () => apiFetch('/courses'),
     getById: (id) => apiFetch(`/courses/${id}`),
+    getCoursePlayer: (id) => apiFetch(`/courses/${id}/player`),
 
-    // Student
     apply: (data) => apiFetch('/courses/apply', { method: 'POST', body: JSON.stringify(data) }),
     getMyApplications: () => apiFetch('/courses/my-applications'),
-    getMyEnrollments: () => apiFetch('/courses/my-enrollments'), // backward compat
+    getMyEnrollments: () => apiFetch('/courses/my-enrollments'),
 
-    // Admin - Courses
     create: (data) => apiFetch('/courses', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiFetch(`/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => apiFetch(`/courses/${id}`, { method: 'DELETE' }),
 
-    // Admin - Durations
     addDuration: (courseId, data) => apiFetch(`/courses/${courseId}/durations`, { method: 'POST', body: JSON.stringify(data) }),
     updateDuration: (id, data) => apiFetch(`/courses/durations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDuration: (id) => apiFetch(`/courses/durations/${id}`, { method: 'DELETE' }),
 
-    // Admin - Batches
     addBatch: (durationId, data) => apiFetch(`/courses/durations/${durationId}/batches`, { method: 'POST', body: JSON.stringify(data) }),
     updateBatch: (id, data) => apiFetch(`/courses/batches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteBatch: (id) => apiFetch(`/courses/batches/${id}`, { method: 'DELETE' }),
 
-    // Admin - Applications
     getAllApplications: () => apiFetch('/courses/applications/all'),
     updateStatus: (id, status) => apiFetch(`/courses/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
     recordFeePayment: (id, data) => apiFetch(`/courses/applications/${id}/fee`, { method: 'POST', body: JSON.stringify(data) }),
 
-    // Certificate
     downloadCertificate: async (courseId) => {
-        const token = localStorage.getItem('token');
+        const headers = await getAuthHeaders();
         const response = await fetch(`${API_BASE}/courses/${courseId}/certificate`, {
-            headers: { ...(token && { Authorization: `Bearer ${token}` }) }
+            headers
         });
         if (!response.ok) {
             const data = await response.json();
@@ -345,7 +414,12 @@ export const couponsAPI = {
 export const adminAPI = {
     getStats: () => apiFetch('/admin/stats'),
 
-    getUsers: () => apiFetch('/admin/users'),
+    getUsers: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+        ).toString();
+        return apiFetch(`/admin/users${query ? `?${query}` : ''}`);
+    },
 
     getUserDetails: (id) => apiFetch(`/admin/users/${id}`),
 
@@ -366,11 +440,44 @@ export const adminAPI = {
         })
 };
 
+// ============ BANNERS ============
+export const bannersAPI = {
+    getPublic: () => apiFetch('/banners'),
+
+    getAll: () => apiFetch('/admin/banners'),
+
+    create: (data) =>
+        apiFetch('/admin/banners', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    update: (id, data) =>
+        apiFetch(`/admin/banners/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        }),
+
+    toggle: (id) =>
+        apiFetch(`/admin/banners/${id}/toggle`, { method: 'PATCH' }),
+
+    reorder: (orderedIds) =>
+        apiFetch('/admin/banners/reorder', {
+            method: 'PATCH',
+            body: JSON.stringify({ orderedIds }),
+        }),
+
+    delete: (id) =>
+        apiFetch(`/admin/banners/${id}`, { method: 'DELETE' }),
+};
+
 // ============ REFERRALS ============
 export const referralsAPI = {
     getMyStats: () => apiFetch('/referrals/my-stats'),
 
     getMyReferrals: (source) => apiFetch(`/referrals/my-referrals${source ? `?source=${source}` : ''}`),
+
+    getMyReceivedReferrals: () => apiFetch('/referrals/my-received'),
 
     applyWallet: (amount) =>
         apiFetch('/referrals/apply-wallet', {

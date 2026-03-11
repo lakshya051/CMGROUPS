@@ -1,67 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { authAPI } from '../lib/api';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signInWithPopup,
+    GoogleAuthProvider,
+    signOut,
+    sendPasswordResetEmail,
+} from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { AuthContext } from './AuthContext';
+import { setTokenGetter } from '../lib/api';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [firebaseUser, setFirebaseUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const tokenRef = useRef(null);
 
     useEffect(() => {
-        // validate backend token and hydrate user
-        const token = localStorage.getItem('token');
-        const initBackendSession = async () => {
-            if (!token) {
-                setLoading(false);
-                return;
-            }
-            try {
-                const data = await authAPI.getMe();
-                setUser(data.user);
-            } catch {
-                localStorage.removeItem('token');
-            } finally {
-                setLoading(false);
-            }
-        };
+        const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+            if (fbUser) {
+                const idToken = await fbUser.getIdToken();
+                tokenRef.current = idToken;
+                setFirebaseUser(fbUser);
 
-        initBackendSession();
+                setTokenGetter(() => Promise.resolve(tokenRef.current));
+
+                try {
+                    const res = await fetch(`${API_BASE}/auth/me`, {
+                        headers: { Authorization: `Bearer ${idToken}` },
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setUser(data.user);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch DB user:', err);
+                }
+            } else {
+                setFirebaseUser(null);
+                setUser(null);
+                tokenRef.current = null;
+                setTokenGetter(null);
+            }
+            setLoading(false);
+        });
+
+        return unsubscribe;
     }, []);
 
-    const login = async (identifier, password) => {
-        try {
-            const data = await authAPI.login(identifier, password);
-            localStorage.setItem('token', data.token);
-            setUser(data.user);
-            return { success: true, role: data.user.role };
-        } catch (error) {
-            return { success: false, message: error.message };
-        }
-    };
+    // Auto-refresh token every 50 minutes
+    useEffect(() => {
+        if (!firebaseUser) return;
+        const interval = setInterval(async () => {
+            const idToken = await firebaseUser.getIdToken(true);
+            tokenRef.current = idToken;
+        }, 50 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, [firebaseUser]);
 
-    const register = async (userData) => {
-        try {
-            const data = await authAPI.register(userData.name, userData.email, userData.password, userData.phone, userData.referralCode);
-            localStorage.setItem('token', data.token);
-            setUser(data.user);
-            return { success: true };
-        } catch (error) {
-            return { success: false, message: error.message };
-        }
-    };
+    const registerWithEmail = useCallback(async (email, password, name) => {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const idToken = await cred.user.getIdToken();
+        tokenRef.current = idToken;
+        setTokenGetter(() => Promise.resolve(tokenRef.current));
 
-    const logout = () => {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ name }),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setUser(data.user);
+        }
+        return cred;
+    }, []);
+
+    const loginWithGoogle = useCallback(async () => {
+        const provider = new GoogleAuthProvider();
+        const cred = await signInWithPopup(auth, provider);
+        const idToken = await cred.user.getIdToken();
+        tokenRef.current = idToken;
+        setTokenGetter(() => Promise.resolve(tokenRef.current));
+
+        const res = await fetch(`${API_BASE}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ name: cred.user.displayName }),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setUser(data.user);
+        }
+        return cred;
+    }, []);
+
+    const logout = useCallback(async () => {
         setUser(null);
-        localStorage.removeItem('token');
-    };
+        tokenRef.current = null;
+        setTokenGetter(null);
+        await signOut(auth);
+    }, []);
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         try {
-            const data = await authAPI.getMe();
-            setUser(data.user);
+            const token = tokenRef.current;
+            if (!token) return false;
+            const res = await fetch(`${API_BASE}/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setUser(data.user);
+                return true;
+            }
+            return false;
         } catch {
-            // silently fail; user session intact
+            return false;
         }
-    };
+    }, []);
 
     return (
         <AuthContext.Provider
@@ -69,13 +130,18 @@ export const AuthProvider = ({ children }) => {
                 user,
                 setUser,
                 loading,
-                login,
-                register,
+                isSignedIn: !!firebaseUser,
+                isAdmin: user?.role === 'admin',
+                firebaseUser,
                 logout,
                 refreshUser,
+                loginWithEmail: (email, password) => signInWithEmailAndPassword(auth, email, password),
+                registerWithEmail,
+                loginWithGoogle,
+                resetPassword: (email) => sendPasswordResetEmail(auth, email),
             }}
         >
-            {!loading && children}
+            {loading ? null : children}
         </AuthContext.Provider>
     );
 };

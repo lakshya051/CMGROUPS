@@ -1,0 +1,19 @@
+# Referral System Implementation
+
+## Backend Bug Fixes
+- [x] Fix [services.js](file:///d:/final/CMGROUPS/backend/src/routes/services.js) - Bug 1: trigger on `'Delivered'`, not `isPaid === true`
+- [x] Fix [services.js](file:///d:/final/CMGROUPS/backend/src/routes/services.js) - Bug 2+3: wrong `source: 'shopping'` -> `'service'` + add WalletTransactions
+- [x] Fix [referralHelper.js](file:///d:/final/CMGROUPS/backend/src/utils/referralHelper.js) + [orders.js](file:///d:/final/CMGROUPS/backend/src/routes/orders.js) - Bug 4: fallback to global ReferralSettings
+- [x] Fix [cron/referrals.js](file:///d:/final/CMGROUPS/backend/src/cron/referrals.js) - Bug 7: sum all items' points, not just first
+
+## Backend New Endpoints
+- [x] Add `GET /api/referrals/my-received` in [referrals.js](file:///d:/final/CMGROUPS/backend/src/routes/referrals.js)
+- [x] Add `myReceivedEarnings` to `/my-stats` in [referrals.js](file:///d:/final/CMGROUPS/backend/src/routes/referrals.js)
+- [x] Add `myReceivedEarnings` to frontend api.js
+
+## Frontend Changes
+- [x] [UserReferrals.jsx](file:///d:/final/CMGROUPS/frontend/src/pages/dashboard/UserReferrals.jsx) - 4th stat card (earned as referee)
+- [x] [UserReferrals.jsx](file:///d:/final/CMGROUPS/frontend/src/pages/dashboard/UserReferrals.jsx) - Sent/Received tabs + received referrals table
+- [x] [UserReferrals.jsx](file:///d:/final/CMGROUPS/frontend/src/pages/dashboard/UserReferrals.jsx) - Source badge + Referee Got column in sent table
+- [x] [UserReferrals.jsx](file:///d:/final/CMGROUPS/frontend/src/pages/dashboard/UserReferrals.jsx) - Service referrals in "How It Works"
+- [x] [AdminReferrals.jsx](file:///d:/final/CMGROUPS/frontend/src/pages/admin/AdminReferrals.jsx) - Source column with badges + course name sub-line

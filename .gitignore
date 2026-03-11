@@ -47,7 +47,15 @@ frontend/node_modules/
 backend/prisma/migrations/
 backend/.env
 frontend/.env
+backend/firebase-service-account*.json
+backend/*firebase*.json
+
+# Signing keystores (TWA / Android)
+*.jks
+*.keystore
 
 # Temporary files
 tmp/
 temp/
+
+backend/serviceAccountKey.json

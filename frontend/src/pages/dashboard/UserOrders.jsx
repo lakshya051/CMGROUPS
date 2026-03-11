@@ -1,374 +1,696 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Clock, CheckCircle, Package, Truck, Eye, Copy, Shield, X, Download, Repeat } from 'lucide-react';
-import { ordersAPI } from '../../lib/api';
-import { useShop } from '../../context/ShopContext';
-import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect, useMemo } from 'react'
+import {
+    Clock, CheckCircle, Package, Truck, MapPin, Eye, Copy, Shield, X,
+    Download, Search, ChevronDown, ShoppingCart, Calendar, CircleDot,
+    XCircle, ClipboardCopy,
+} from 'lucide-react'
+import { ordersAPI } from '../../lib/api'
+import { useShop } from '../../context/ShopContext'
+import { useNavigate } from 'react-router-dom'
+import { EmptyState, SkeletonCard } from '../../components/ui/index'
+import toast from 'react-hot-toast'
+import { handleImageError } from '../../utils/image'
+
+// ─── Order Timeline Steps ───────────────────────────────────────
+const TIMELINE_STEPS = [
+    { key: 'Processing', label: 'Processing', icon: Clock },
+    { key: 'Confirmed', label: 'Confirmed', icon: CheckCircle },
+    { key: 'Shipped', label: 'Shipped', icon: Truck },
+    { key: 'OutForDelivery', label: 'Out for Delivery', icon: MapPin },
+    { key: 'Delivered', label: 'Delivered', icon: Package },
+]
+
+const STATUS_INDEX = {
+    Processing: 0, Confirmed: 1, Shipped: 2, OutForDelivery: 3, Delivered: 4,
+}
+
+const TIME_FILTERS = [
+    { label: 'All Orders', value: 'all' },
+    { label: 'Past 3 Months', value: '3months' },
+    { label: '2025', value: '2025' },
+    { label: '2024', value: '2024' },
+]
 
 const UserOrders = () => {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedOtp, setSelectedOtp] = useState(null);
-    const [otpCopied, setOtpCopied] = useState(false);
+    const [orders, setOrders] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
-    const [cancelOrderId, setCancelOrderId] = useState(null);
-    const [returnOrderId, setReturnOrderId] = useState(null);
-    const [reason, setReason] = useState('');
+    const [selectedOtp, setSelectedOtp] = useState(null)
+    const [otpCopied, setOtpCopied] = useState(false)
 
-    const { addToCart } = useShop();
-    const navigate = useNavigate();
+    const [cancelOrderId, setCancelOrderId] = useState(null)
+    const [returnOrderId, setReturnOrderId] = useState(null)
+    const [reason, setReason] = useState('')
+    const [actionLoading, setActionLoading] = useState(false)
+    const [actionError, setActionError] = useState('')
 
-    const handleReorder = (order) => {
-        order.items.forEach(item => {
-            if (item.product) {
-                addToCart(item.product, item.quantity);
-            }
-        });
-        toast.success('Items added to cart!');
-        navigate('/checkout');
-    };
+    const [searchQuery, setSearchQuery] = useState('')
+    const [timeFilter, setTimeFilter] = useState('all')
+    const [trackingOrderId, setTrackingOrderId] = useState(null)
 
+    const { addToCart } = useShop()
+    const navigate = useNavigate()
+
+    // ─── Fetch Orders ───────────────────────────────────────────
     useEffect(() => {
+        setError(null)
         ordersAPI.getMyOrders()
             .then(data => setOrders(data.orders || data))
-            .catch(err => console.error('Failed to fetch orders:', err))
-            .finally(() => setLoading(false));
-    }, []);
+            .catch(() => setError('We couldn\'t load your orders. Please try again.'))
+            .finally(() => setLoading(false))
+    }, [])
+
+    // ─── Filtered Orders ────────────────────────────────────────
+    const filteredOrders = useMemo(() => {
+        let result = [...orders]
+
+        // Time filter
+        if (timeFilter !== 'all') {
+            const now = new Date()
+            result = result.filter(o => {
+                const d = new Date(o.createdAt)
+                if (timeFilter === '3months') {
+                    const three = new Date()
+                    three.setMonth(three.getMonth() - 3)
+                    return d >= three
+                }
+                return String(d.getFullYear()) === timeFilter
+            })
+        }
+
+        // Search filter
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase()
+            result = result.filter(o => {
+                if (String(o.id).includes(q)) return true
+                return o.items?.some(i => i.product?.title?.toLowerCase().includes(q))
+            })
+        }
+
+        return result
+    }, [orders, timeFilter, searchQuery])
+
+    // ─── Handlers ───────────────────────────────────────────────
+    const handleBuyAgain = (order) => {
+        order.items.forEach(item => {
+            if (item.product) addToCart(item.product, item.quantity)
+        })
+        toast.success('Items added to cart!')
+        navigate('/checkout')
+    }
 
     const handleCancelOrder = async () => {
-        if (!reason.trim()) return alert('Please provide a reason');
+        if (!reason.trim()) { setActionError('Please provide a reason'); return }
+        setActionLoading(true)
+        setActionError('')
         try {
-            await ordersAPI.cancel(cancelOrderId, reason);
-            setOrders(prev => prev.map(o => o.id === cancelOrderId ? { ...o, status: 'Cancelled', cancelReason: reason } : o));
-            setCancelOrderId(null);
-            setReason('');
+            await ordersAPI.cancel(cancelOrderId, reason)
+            setOrders(prev => prev.map(o =>
+                o.id === cancelOrderId ? { ...o, status: 'Cancelled', cancelReason: reason } : o
+            ))
+            setCancelOrderId(null)
+            setReason('')
+            toast.success('Order cancelled successfully')
         } catch (err) {
-            alert(err.message || 'Failed to cancel order');
+            setActionError(err.message || 'Failed to cancel order. Please try again.')
+        } finally {
+            setActionLoading(false)
         }
-    };
+    }
 
     const handleReturnOrder = async () => {
-        if (!reason.trim()) return alert('Please provide a reason');
+        if (!reason.trim()) { setActionError('Please provide a reason'); return }
+        setActionLoading(true)
+        setActionError('')
         try {
-            await ordersAPI.returnOrder(returnOrderId, reason);
-            setOrders(prev => prev.map(o => o.id === returnOrderId ? { ...o, returnStatus: 'Requested', returnReason: reason } : o));
-            setReturnOrderId(null);
-            setReason('');
+            await ordersAPI.returnOrder(returnOrderId, reason)
+            setOrders(prev => prev.map(o =>
+                o.id === returnOrderId ? { ...o, returnStatus: 'Requested', returnReason: reason } : o
+            ))
+            setReturnOrderId(null)
+            setReason('')
+            toast.success('Return requested successfully')
         } catch (err) {
-            alert(err.message || 'Failed to request return');
+            setActionError(err.message || 'Failed to request return. Please try again.')
+        } finally {
+            setActionLoading(false)
         }
-    };
+    }
 
     const handleDownloadInvoice = async (orderId) => {
         try {
-            await ordersAPI.downloadInvoice(orderId);
-        } catch (err) {
-            alert(err.message || 'Failed to download invoice');
+            await ordersAPI.downloadInvoice(orderId)
+        } catch {
+            toast.error('Failed to download invoice. Please try again.')
         }
-    };
+    }
 
     const isOrderReturnable = (order) => {
-        if (order.status !== 'Delivered' || order.returnStatus !== 'None') return false;
-
-        // Find if any item is returnable and max window
-        let hasReturnable = false;
-        let maxWindowDays = 0;
-
+        if (order.status !== 'Delivered' || order.returnStatus !== 'None') return false
+        let hasReturnable = false, maxWindowDays = 0
         if (order.items) {
             for (const item of order.items) {
-                if (item.product && item.product.isReturnable) {
-                    hasReturnable = true;
-                    if (item.product.returnWindowDays > maxWindowDays) {
-                        maxWindowDays = item.product.returnWindowDays;
-                    }
+                if (item.product?.isReturnable) {
+                    hasReturnable = true
+                    if (item.product.returnWindowDays > maxWindowDays) maxWindowDays = item.product.returnWindowDays
                 }
             }
         }
-
-        if (!hasReturnable) return false;
-
-        // Check if window has expired
-        if (order.deliveredAt) {
-            const expiryDate = new Date(order.deliveredAt);
-            expiryDate.setDate(expiryDate.getDate() + maxWindowDays);
-            if (new Date() > expiryDate) {
-                return false;
-            }
-        }
-
-        // Check legacy orders without deliveredAt (fallback to 3 days from creation)
-        if (!order.deliveredAt) {
-            const fallbackExpiry = new Date(order.createdAt);
-            fallbackExpiry.setDate(fallbackExpiry.getDate() + 10); // Assume max 7 days delivery + 3 days return
-            if (new Date() > fallbackExpiry) return false;
-        }
-
-        return true;
-    };
-
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'Processing': return <Clock size={16} className="text-blue-400" />;
-            case 'Confirmed': return <CheckCircle size={16} className="text-success" />;
-            case 'Shipped': return <Truck size={16} className="text-orange-400" />;
-            case 'Delivered': return <Package size={16} className="text-success" />;
-            default: return <ShoppingBag size={16} />;
-        }
-    };
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Processing': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
-            case 'Confirmed': return 'text-success bg-success/10 border-success/20';
-            case 'Shipped': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
-            case 'Delivered': return 'text-success bg-success/10 border-success/20';
-            default: return 'text-text-muted bg-gray-100 border-gray-200';
-        }
-    };
+        if (!hasReturnable) return false
+        const refDate = order.deliveredAt || order.createdAt
+        const expiryDate = new Date(refDate)
+        expiryDate.setDate(expiryDate.getDate() + (order.deliveredAt ? maxWindowDays : maxWindowDays + 10))
+        return new Date() <= expiryDate
+    }
 
     const copyOtp = (otp) => {
-        navigator.clipboard.writeText(otp);
-        setOtpCopied(true);
-        setTimeout(() => setOtpCopied(false), 2000);
-    };
+        navigator.clipboard.writeText(otp)
+        setOtpCopied(true)
+        setTimeout(() => setOtpCopied(false), 2000)
+    }
 
-    if (loading) return <div className="text-center py-12 text-text-muted">Loading your orders...</div>;
+    const trackingOrder = useMemo(() =>
+        orders.find(o => o.id === trackingOrderId), [orders, trackingOrderId]
+    )
+
+    // ─── Loading State ──────────────────────────────────────────
+    if (loading) {
+        return (
+            <div className="space-y-lg">
+                <div className="bg-page-bg border border-border-default h-8 w-48 rounded animate-pulse" />
+                <div className="bg-page-bg border border-border-default h-4 w-64 rounded animate-pulse" />
+                <div className="space-y-md">
+                    {[1, 2, 3].map(i => (
+                        <SkeletonCard key={i} />
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
+    // ─── Error State ────────────────────────────────────────────
+    if (error) {
+        return (
+            <div className="space-y-lg">
+                <h1 className="text-3xl font-heading font-bold text-text-primary">My Orders</h1>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-lg text-center">
+                    <p className="text-sm text-red-700 mb-sm">{error}</p>
+                    <button onClick={() => window.location.reload()} className="text-sm text-trust hover:underline font-medium">
+                        Try again
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-lg">
+            {/* Header */}
             <div>
-                <h1 className="text-3xl font-heading font-bold mb-1">My Orders</h1>
-                <p className="text-text-muted">Track your orders and payment status.</p>
+                <h1 className="text-2xl md:text-3xl font-heading font-bold text-text-primary mb-xs">My Orders</h1>
+                <p className="text-sm text-text-secondary">Track your orders and payment status.</p>
             </div>
 
-            {orders.length === 0 ? (
-                <div className="glass-panel p-12 text-center">
-                    <ShoppingBag size={48} className="text-text-muted mx-auto mb-4" />
-                    <h3 className="text-xl font-bold mb-2">No Orders Yet</h3>
-                    <p className="text-text-muted">Your orders will appear here once you make a purchase.</p>
+            {/* Search + Time Filter Bar */}
+            <div className="flex flex-col sm:flex-row gap-md">
+                <div className="relative flex-1">
+                    <Search size={16} className="absolute left-md top-1/2 -translate-y-1/2 text-text-muted" />
+                    <input
+                        type="text"
+                        placeholder="Search by product name or order ID..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-2xl pr-md py-sm border border-border-default rounded-lg text-sm focus:outline-none focus:border-trust transition-colors duration-fast"
+                    />
                 </div>
+                <div className="relative">
+                    <Calendar size={14} className="absolute left-md top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                    <select
+                        value={timeFilter}
+                        onChange={e => setTimeFilter(e.target.value)}
+                        className="appearance-none pl-2xl pr-xl py-sm border border-border-default rounded-lg text-sm bg-surface focus:outline-none focus:border-trust cursor-pointer transition-colors duration-fast"
+                    >
+                        {TIME_FILTERS.map(f => (
+                            <option key={f.value} value={f.value}>{f.label}</option>
+                        ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-md top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                </div>
+            </div>
+
+            {/* Orders List */}
+            {filteredOrders.length === 0 ? (
+                <EmptyState
+                    icon={Package}
+                    title={orders.length === 0 ? 'No orders yet' : 'No matching orders'}
+                    subtitle={orders.length === 0 ? 'Your orders will appear here once you make a purchase.' : 'Try changing your search or time filter.'}
+                    ctaLabel="Start Shopping →"
+                    onCta={() => navigate('/products')}
+                />
             ) : (
-                <div className="space-y-4">
-                    {orders.map(order => (
-                        <div key={order.id} className="glass-panel p-6">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                                <div className="flex items-center gap-3">
-                                    {getStatusIcon(order.status)}
-                                    <div>
-                                        <h3 className="font-bold">Order #{order.id}</h3>
-                                        <p className="text-xs text-text-muted">
-                                            {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    {/* Payment Status Badge */}
-                                    <span className={`px-2 py-1 rounded text-xs font-bold border ${order.isPaid
-                                        ? 'text-success bg-success/10 border-success/20'
-                                        : 'text-warning bg-warning/10 border-warning/20'
-                                        }`}>
-                                        {order.isPaid ? '✓ Paid' : '⏳ Unpaid'}
-                                    </span>
-                                    {/* Order Status Badge */}
-                                    <span className={`px-2 py-1 rounded text-xs font-bold border ${getStatusColor(order.status)}`}>
-                                        {order.status}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Items */}
-                            <div className="space-y-2 mb-4">
-                                {order.items?.map(item => (
-                                    <div key={item.id} className="flex items-center gap-3 text-sm bg-gray-50/50 rounded-lg p-2">
-                                        <div className="w-10 h-10 bg-white rounded p-1 flex-shrink-0">
-                                            <img src={item.product?.image} alt="" className="w-full h-full object-contain" />
-                                        </div>
-                                        <span className="flex-grow">{item.product?.title}</span>
-                                        <span className="text-text-muted">x{item.quantity}</span>
-                                        <span className="font-bold">₹{item.price.toLocaleString()}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-200">
-                                <div className="flex items-center gap-4">
-                                    <span className="text-text-muted text-sm">
-                                        {order.paymentMethod === 'pay_at_store'
-                                            ? 'Pay at Store'
-                                            : order.paymentMethod === 'cod'
-                                                ? 'Cash on Delivery'
-                                                : order.paymentMethod === 'wallet'
-                                                    ? 'Wallet'
-                                                    : order.paymentMethod}
-                                    </span>
-                                    <span className="font-bold text-lg">₹{order.total.toLocaleString()}</span>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                                <div className="text-sm font-bold">
-                                    Total: <span className="text-primary text-lg">₹{order.total?.toLocaleString()}</span>
-                                </div>
-                                <div className="flex gap-2">
-                                    {order.status === 'Processing' && (
-                                        <button
-                                            onClick={() => setCancelOrderId(order.id)}
-                                            className="px-3 py-1.5 text-sm text-error bg-error/10 hover:bg-error/20 rounded-lg transition-colors"
-                                        >
-                                            Cancel Order
-                                        </button>
-                                    )}
-                                    {isOrderReturnable(order) && (
-                                        <button
-                                            onClick={() => setReturnOrderId(order.id)}
-                                            className="px-3 py-1.5 text-sm text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
-                                        >
-                                            Return Item
-                                        </button>
-                                    )}
-                                    {order.status === 'Delivered' && !isOrderReturnable(order) && order.returnStatus === 'None' && (
-                                        <span className="px-3 py-1.5 text-sm text-text-muted bg-gray-100 rounded-lg" title="Return window expired or items are non-returnable">
-                                            Not Returnable
-                                        </span>
-                                    )}
-                                    {order.returnStatus !== 'None' && (
-                                        <span className="px-3 py-1.5 text-sm text-purple-600 bg-purple-100 rounded-lg">
-                                            Return: {order.returnStatus}
-                                        </span>
-                                    )}
-
-                                    {/* Invoice Button */}
-                                    {order.isPaid && order.status !== 'Cancelled' && (
-                                        <button
-                                            onClick={() => handleDownloadInvoice(order.id)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg transition-colors"
-                                            title="Download GST Invoice"
-                                        >
-                                            <Download size={14} />
-                                            Invoice
-                                        </button>
-                                    )}
-
-                                    {/* Reorder Button */}
-                                    <button
-                                        onClick={() => handleReorder(order)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
-                                        title="Reorder Items"
-                                    >
-                                        <Repeat size={14} />
-                                        Reorder
-                                    </button>
-
-                                    {/* Existing OTP Button */}
-                                    {!order.isPaid && (order.paymentMethod === 'pay_at_store' || order.paymentMethod === 'cod') && order.status !== 'Cancelled' && order.paymentOtp && (
-                                        <button
-                                            onClick={() => setSelectedOtp(order.paymentOtp)}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors text-sm"
-                                        >
-                                            <Shield size={14} />
-                                            View Payment OTP
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                <div className="space-y-md">
+                    {filteredOrders.map(order => (
+                        <OrderCard
+                            key={order.id}
+                            order={order}
+                            onCancel={() => setCancelOrderId(order.id)}
+                            onReturn={() => setReturnOrderId(order.id)}
+                            onBuyAgain={() => handleBuyAgain(order)}
+                            onDownloadInvoice={() => handleDownloadInvoice(order.id)}
+                            onViewOtp={() => setSelectedOtp(order.paymentOtp)}
+                            onTrack={() => setTrackingOrderId(order.id)}
+                            isReturnable={isOrderReturnable(order)}
+                        />
                     ))}
                 </div>
             )}
 
-            {/* Cancel Order Modal */}
+            {/* Cancel Modal */}
             {cancelOrderId && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
-                    <div className="glass-panel p-6 max-w-sm w-full mx-4 relative">
-                        <h3 className="text-xl font-bold mb-4">Cancel Order #{cancelOrderId}</h3>
-                        <p className="text-sm text-text-muted mb-4">Are you sure? Any paid amount will be refunded to your wallet.</p>
-                        <textarea
-                            className="input-field w-full mb-4"
-                            placeholder="Reason for cancellation..."
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                        />
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setCancelOrderId(null)} className="px-4 py-2 text-sm">Close</button>
-                            <button
-                                onClick={handleCancelOrder}
-                                className="px-4 py-2 bg-error text-white rounded-lg text-sm hover:bg-red-600"
-                            >
-                                Confirm Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ActionModal
+                    title={`Cancel Order #${cancelOrderId}`}
+                    description="Are you sure? Any paid amount will be refunded to your wallet."
+                    placeholder="Reason for cancellation..."
+                    confirmLabel="Confirm Cancel"
+                    confirmClass="bg-error hover:bg-red-600 text-white"
+                    reason={reason}
+                    onReasonChange={setReason}
+                    onConfirm={handleCancelOrder}
+                    onClose={() => { setCancelOrderId(null); setReason(''); setActionError('') }}
+                    loading={actionLoading}
+                    error={actionError}
+                />
             )}
 
-            {/* Return Order Modal */}
+            {/* Return Modal */}
             {returnOrderId && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
-                    <div className="glass-panel p-6 max-w-sm w-full mx-4 relative">
-                        <h3 className="text-xl font-bold mb-4">Return Order #{returnOrderId}</h3>
-                        <p className="text-sm text-text-muted mb-4">Why are you returning this item?</p>
-                        <textarea
-                            className="input-field w-full mb-4"
-                            placeholder="Reason for return..."
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                        />
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setReturnOrderId(null)} className="px-4 py-2 text-sm">Close</button>
-                            <button
-                                onClick={handleReturnOrder}
-                                className="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600"
-                            >
-                                Request Return
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ActionModal
+                    title={`Return Order #${returnOrderId}`}
+                    description="Why are you returning this item?"
+                    placeholder="Reason for return..."
+                    confirmLabel="Request Return"
+                    confirmClass="bg-trust hover:opacity-90 text-white"
+                    reason={reason}
+                    onReasonChange={setReason}
+                    onConfirm={handleReturnOrder}
+                    onClose={() => { setReturnOrderId(null); setReason(''); setActionError('') }}
+                    loading={actionLoading}
+                    error={actionError}
+                />
             )}
 
             {/* OTP Modal */}
             {selectedOtp && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="glass-panel p-8 max-w-sm w-full mx-4 relative animate-in zoom-in duration-300">
-                        <button
-                            onClick={() => setSelectedOtp(null)}
-                            className="absolute top-4 right-4 text-text-muted hover:text-text-main"
-                        >
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-surface rounded-xl p-xl max-w-sm w-full mx-lg relative shadow-glass">
+                        <button onClick={() => setSelectedOtp(null)} className="absolute top-lg right-lg text-text-muted hover:text-text-primary transition-colors duration-fast">
                             <X size={20} />
                         </button>
-
-                        <div className="text-center space-y-6">
-                            <div className="w-16 h-16 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto">
+                        <div className="text-center space-y-lg">
+                            <div className="w-16 h-16 bg-trust/10 text-trust rounded-full flex items-center justify-center mx-auto">
                                 <Shield size={32} />
                             </div>
-
                             <div>
-                                <h3 className="text-xl font-heading font-bold mb-1">Payment OTP</h3>
-                                <p className="text-text-muted text-sm">Share this code with store staff or delivery agent</p>
+                                <h3 className="text-xl font-heading font-bold text-text-primary mb-xs">Payment OTP</h3>
+                                <p className="text-text-secondary text-sm">Share this code with store staff or delivery agent</p>
                             </div>
-
                             <div
                                 onClick={() => copyOtp(selectedOtp)}
-                                className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors group relative"
+                                className="bg-surface-hover border-2 border-dashed border-border-default rounded-xl p-lg cursor-pointer hover:border-trust/50 transition-colors duration-fast group relative"
                             >
-                                <div className="text-3xl font-mono font-bold tracking-[0.2em] text-text-main">
-                                    {selectedOtp}
-                                </div>
-                                <div className="absolute inset-0 flex items-center justify-center bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl font-medium text-primary gap-2">
-                                    <Copy size={16} />
-                                    {otpCopied ? 'Copied!' : 'Click to Copy'}
+                                <div className="text-3xl font-mono font-bold tracking-[0.2em] text-text-primary">{selectedOtp}</div>
+                                <div className="absolute inset-0 flex items-center justify-center bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity duration-smooth rounded-xl font-medium text-trust gap-sm">
+                                    <Copy size={16} /> {otpCopied ? 'Copied!' : 'Click to Copy'}
                                 </div>
                             </div>
-
-                            <p className="text-xs text-text-muted">
-                                Valid for payment confirmation upon delivery
-                            </p>
+                            <p className="text-xs text-text-muted">Valid for payment confirmation upon delivery</p>
                         </div>
                     </div>
                 </div>
             )}
+
+            {/* Tracking Modal */}
+            {trackingOrder && (
+                <TrackingModal
+                    order={trackingOrder}
+                    onClose={() => setTrackingOrderId(null)}
+                />
+            )}
         </div>
-    );
-};
+    )
+}
 
-export default UserOrders;
+// ─── OrderCard ──────────────────────────────────────────────────
+function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, onViewOtp, onTrack, isReturnable }) {
+    const isCancelled = order.status === 'Cancelled'
+    const thumbnails = (order.items || []).filter(i => i.product?.image).slice(0, 3)
 
+    return (
+        <div className="bg-surface border border-border-default rounded-lg overflow-hidden">
+            {/* Order header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-md p-md border-b border-border-default bg-surface-hover">
+                <div className="flex items-center gap-md">
+                    {/* Product thumbnails (stacked) */}
+                    <div className="flex -space-x-3">
+                        {thumbnails.map((item, i) => (
+                            <div
+                                key={item.id}
+                                className="w-10 h-10 bg-white border border-border-default rounded-lg p-xs flex-shrink-0"
+                                style={{ zIndex: thumbnails.length - i }}
+                            >
+                                <img
+                                    src={item.product.image}
+                                    alt=""
+                                    loading="lazy"
+                                    width={40}
+                                    height={40}
+                                    onError={handleImageError}
+                                    className="w-full h-full object-contain"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold text-text-primary">Order #{order.id}</h3>
+                        <p className="text-xs text-text-muted">
+                            {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-sm flex-wrap">
+                    <StatusBadge
+                        label={order.isPaid ? '✓ Paid' : '⏳ Unpaid'}
+                        color={order.isPaid ? 'success' : 'warning'}
+                    />
+                    <StatusBadge
+                        label={order.status}
+                        color={isCancelled ? 'error' : order.status === 'Delivered' ? 'success' : 'trust'}
+                    />
+                </div>
+            </div>
+
+            {/* Timeline */}
+            {!isCancelled && (
+                <div className="px-md py-md">
+                    <OrderTimeline status={order.status} />
+                </div>
+            )}
+
+            {isCancelled && order.cancelReason && (
+                <div className="px-md py-sm">
+                    <p className="text-xs text-error">Cancelled: {order.cancelReason}</p>
+                </div>
+            )}
+
+            {/* Items */}
+            <div className="px-md pb-sm space-y-xs">
+                {order.items?.map(item => (
+                    <div key={item.id} className="flex items-center gap-sm text-sm bg-page-bg border border-border-default rounded-lg p-sm">
+                        <div className="w-10 h-10 bg-surface border border-border-default rounded p-xs flex-shrink-0">
+                            <img
+                                src={item.product?.image}
+                                alt=""
+                                loading="lazy"
+                                width={40}
+                                height={40}
+                                onError={handleImageError}
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                        <span className="flex-1 text-text-primary text-sm line-clamp-1">{item.product?.title}</span>
+                        <span className="text-text-muted text-xs">×{item.quantity}</span>
+                        <span className="font-bold text-sm text-text-primary">₹{item.price.toLocaleString('en-IN')}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-md p-md border-t border-border-default">
+                <div className="flex items-center gap-md">
+                    <span className="text-xs text-text-muted">
+                        {order.paymentMethod === 'pay_at_store' ? 'Pay at Store'
+                            : order.paymentMethod === 'cod' ? 'Cash on Delivery'
+                                : order.paymentMethod === 'wallet' ? 'Wallet'
+                                    : order.paymentMethod}
+                    </span>
+                    <span className="text-lg font-bold text-text-primary">₹{order.total?.toLocaleString('en-IN')}</span>
+                </div>
+
+                <div className="flex flex-wrap gap-sm">
+                    {/* Buy Again — only for Delivered */}
+                    {order.status === 'Delivered' && (
+                        <button
+                            onClick={onBuyAgain}
+                            className="flex items-center gap-xs px-md py-xs text-sm font-bold bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded-lg transition-colors duration-fast"
+                        >
+                            <ShoppingCart size={14} /> Buy Again
+                        </button>
+                    )}
+
+                    {/* Track */}
+                    {!isCancelled && order.status !== 'Delivered' && (
+                        <button
+                            onClick={onTrack}
+                            className="flex items-center gap-xs px-md py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast"
+                        >
+                            <Eye size={14} /> Track
+                        </button>
+                    )}
+
+                    {/* Cancel */}
+                    {order.status === 'Processing' && (
+                        <button onClick={onCancel} className="px-md py-xs text-sm text-error bg-error/10 hover:bg-error/20 rounded-lg transition-colors duration-fast">
+                            Cancel
+                        </button>
+                    )}
+
+                    {/* Return */}
+                    {isReturnable && (
+                        <button onClick={onReturn} className="px-md py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast">
+                            Return
+                        </button>
+                    )}
+
+                    {order.status === 'Delivered' && !isReturnable && order.returnStatus === 'None' && (
+                        <span className="px-md py-xs text-sm text-text-muted bg-page-bg border border-border-default rounded-lg" title="Return window expired">
+                            Not Returnable
+                        </span>
+                    )}
+
+                    {order.returnStatus !== 'None' && (
+                        <span className="px-md py-xs text-sm text-purple-600 bg-purple-50 rounded-lg">
+                            Return: {order.returnStatus}
+                        </span>
+                    )}
+
+                    {/* Invoice */}
+                    {order.isPaid && !isCancelled && (
+                        <button onClick={onDownloadInvoice} className="flex items-center gap-xs px-md py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast">
+                            <Download size={14} /> Invoice
+                        </button>
+                    )}
+
+                    {/* OTP */}
+                    {!order.isPaid && (order.paymentMethod === 'pay_at_store' || order.paymentMethod === 'cod') && !isCancelled && order.paymentOtp && (
+                        <button onClick={onViewOtp} className="flex items-center gap-xs px-md py-xs text-sm text-surface bg-text-primary rounded-lg hover:bg-black transition-colors duration-fast">
+                            <Shield size={14} /> View OTP
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── OrderTimeline ──────────────────────────────────────────────
+function OrderTimeline({ status }) {
+    const currentIdx = STATUS_INDEX[status] ?? -1
+
+    return (
+        <div className="flex items-center w-full overflow-x-auto">
+            {TIMELINE_STEPS.map((step, i) => {
+                const isCompleted = i <= currentIdx
+                const isCurrent = i === currentIdx
+                const Icon = step.icon
+                const isLast = i === TIMELINE_STEPS.length - 1
+
+                return (
+                    <React.Fragment key={step.key}>
+                        <div className="flex flex-col items-center flex-shrink-0 min-w-[64px]">
+                            <div
+                                className={`
+                  w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-smooth border
+                  ${isCompleted ? 'bg-success text-white border-success' : 'bg-page-bg border-border-default text-text-muted'}
+                  ${isCurrent ? 'ring-2 ring-success/40 animate-pulse' : ''}
+                `}
+                            >
+                                <Icon size={14} />
+                            </div>
+                            <span className={`text-[10px] mt-xs text-center leading-tight ${isCompleted ? 'text-success font-medium' : 'text-text-muted'}`}>
+                                {step.label}
+                            </span>
+                        </div>
+                        {!isLast && (
+                            <div className={`flex-1 h-0.5 min-w-[20px] mx-xs ${i < currentIdx ? 'bg-success' : 'bg-border-default'}`} />
+                        )}
+                    </React.Fragment>
+                )
+            })}
+        </div>
+    )
+}
+
+// ─── StatusBadge ────────────────────────────────────────────────
+function StatusBadge({ label, color }) {
+    const colors = {
+        success: 'text-success bg-success/10 border-success/20',
+        warning: 'text-warning bg-warning/10 border-warning/20',
+        error: 'text-error bg-error/10 border-error/20',
+        trust: 'text-trust bg-trust/10 border-trust/20',
+    }
+    return (
+        <span className={`px-sm py-xs rounded text-xs font-bold border ${colors[color] || colors.trust}`}>
+            {label}
+        </span>
+    )
+}
+
+// ─── ActionModal ────────────────────────────────────────────────
+function ActionModal({ title, description, placeholder, confirmLabel, confirmClass, reason, onReasonChange, onConfirm, onClose, loading, error }) {
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-surface rounded-xl p-lg max-w-sm w-full mx-lg relative shadow-glass">
+                <h3 className="text-lg font-bold text-text-primary mb-sm">{title}</h3>
+                <p className="text-sm text-text-secondary mb-md">{description}</p>
+                <textarea
+                    className="w-full border border-border-default rounded-lg px-md py-sm text-sm mb-sm focus:outline-none focus:border-trust transition-colors duration-fast resize-none"
+                    rows={3}
+                    placeholder={placeholder}
+                    value={reason}
+                    onChange={e => onReasonChange(e.target.value)}
+                />
+                {error && <p className="text-xs text-error mb-sm">{error}</p>}
+                <div className="flex justify-end gap-sm">
+                    <button onClick={onClose} className="px-md py-sm text-sm text-text-secondary hover:text-text-primary transition-colors duration-fast">
+                        Close
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={loading}
+                        className={`px-md py-sm rounded-lg text-sm font-medium disabled:opacity-50 transition-colors duration-fast ${confirmClass}`}
+                    >
+                        {loading ? 'Processing...' : confirmLabel}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── TrackingModal ──────────────────────────────────────────────
+function TrackingModal({ order, onClose }) {
+    const trackingNumber = order.trackingNumber || `TN${order.id}${Date.now().toString(36).toUpperCase().slice(-6)}`
+    const [copied, setCopied] = useState(false)
+
+    const copyTracking = () => {
+        navigator.clipboard.writeText(trackingNumber)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+    }
+
+    // Simulated scan events based on status
+    const scanEvents = useMemo(() => {
+        const events = []
+        const base = new Date(order.createdAt)
+
+        events.push({ time: base.toLocaleString('en-IN'), event: 'Order Placed', location: 'Online' })
+
+        if (STATUS_INDEX[order.status] >= 1) {
+            const d = new Date(base); d.setHours(d.getHours() + 2)
+            events.push({ time: d.toLocaleString('en-IN'), event: 'Order Confirmed', location: 'Warehouse' })
+        }
+        if (STATUS_INDEX[order.status] >= 2) {
+            const d = new Date(base); d.setDate(d.getDate() + 1)
+            events.push({ time: d.toLocaleString('en-IN'), event: 'Shipped from Warehouse', location: 'Distribution Center' })
+        }
+        if (STATUS_INDEX[order.status] >= 3) {
+            const d = new Date(base); d.setDate(d.getDate() + 2)
+            events.push({ time: d.toLocaleString('en-IN'), event: 'Out for Delivery', location: 'Local Facility' })
+        }
+        if (STATUS_INDEX[order.status] >= 4) {
+            const d = order.deliveredAt ? new Date(order.deliveredAt) : new Date(base)
+            if (!order.deliveredAt) d.setDate(d.getDate() + 3)
+            events.push({ time: d.toLocaleString('en-IN'), event: 'Delivered', location: 'Destination' })
+        }
+
+        return events.reverse()
+    }, [order])
+
+    return (
+        <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+
+            {/* Panel — slides from right on desktop, bottom sheet on mobile */}
+            <div className="fixed z-50 inset-y-0 right-0 w-full sm:w-[420px] bg-surface shadow-glass flex flex-col
+        sm:animate-none
+        max-sm:inset-y-auto max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl max-sm:max-h-[85vh]
+      ">
+                {/* Header */}
+                <div className="flex items-center justify-between p-lg border-b border-border-default">
+                    <h3 className="text-lg font-bold text-text-primary">Track Order #{order.id}</h3>
+                    <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors duration-fast">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-lg space-y-xl">
+                    {/* Tracking number */}
+                    <div className="flex items-center justify-between bg-page-bg border border-border-default rounded-lg p-md">
+                        <div>
+                            <p className="text-xs text-text-muted">Tracking Number</p>
+                            <p className="text-sm font-mono font-bold text-text-primary">{trackingNumber}</p>
+                        </div>
+                        <button
+                            onClick={copyTracking}
+                            className="text-trust hover:text-text-primary transition-colors duration-fast"
+                            title="Copy tracking number"
+                        >
+                            {copied ? <CheckCircle size={18} className="text-success" /> : <ClipboardCopy size={18} />}
+                        </button>
+                    </div>
+
+                    {/* Timeline */}
+                    <div>
+                        <h4 className="text-sm font-bold text-text-primary mb-md">Delivery Status</h4>
+                        <OrderTimeline status={order.status} />
+                    </div>
+
+                    {/* Scan Events */}
+                    <div>
+                        <h4 className="text-sm font-bold text-text-primary mb-md">Scan History</h4>
+                        <div className="space-y-md">
+                            {scanEvents.map((ev, i) => (
+                                <div key={i} className="flex gap-md">
+                                    <div className="flex flex-col items-center">
+                                        <CircleDot size={14} className={i === 0 ? 'text-success' : 'text-text-muted'} />
+                                        {i < scanEvents.length - 1 && <div className="w-px flex-1 bg-border-default mt-xs" />}
+                                    </div>
+                                    <div className="pb-md">
+                                        <p className="text-sm font-medium text-text-primary">{ev.event}</p>
+                                        <p className="text-xs text-text-muted">{ev.time}</p>
+                                        <p className="text-xs text-text-secondary">{ev.location}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </>
+    )
+}
+
+export default UserOrders

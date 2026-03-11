@@ -1,8 +1,31 @@
-const express = require('express');
-const prisma = require('../lib/prisma');
-const { protect, adminOnly } = require('../middleware/auth');
+import express from 'express';
+import prisma from '../lib/prisma.js';
+import { protect, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
+
+const formatDayKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getChartDayBuckets = (days = 7) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: days }, (_, index) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() - (days - 1 - index));
+
+        return {
+            date,
+            key: formatDayKey(date),
+            name: date.toLocaleDateString('en-US', { weekday: 'short' })
+        };
+    });
+};
 
 const DEFAULT_SERVICE_SETTINGS = {
     timeSlots: ["10:00 AM - 12:00 PM", "12:00 PM - 02:00 PM", "02:00 PM - 04:00 PM", "04:00 PM - 06:00 PM"],
@@ -30,8 +53,11 @@ const buildServiceSettingsPayload = (timeSlots, maxBookingsPerSlot, currentSetti
 router.get('/users', protect, adminOnly, async (req, res) => {
     try {
         const { page = 1, limit = 20, search } = req.query;
-        const take = parseInt(limit);
-        const skip = (parseInt(page) - 1) * take;
+        const parsedPage = Number.parseInt(page, 10);
+        const parsedLimit = Number.parseInt(limit, 10);
+        const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const take = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
+        const skip = (currentPage - 1) * take;
 
         const where = {};
         if (search) {
@@ -78,7 +104,7 @@ router.get('/users', protect, adminOnly, async (req, res) => {
             data: users,
             pagination: {
                 total,
-                page: parseInt(page),
+                page: currentPage,
                 limit: take,
                 totalPages: Math.ceil(total / take)
             },
@@ -109,7 +135,6 @@ router.get('/users/:id', protect, adminOnly, async (req, res) => {
                 role: true,
                 referralCode: true,
                 walletBalance: true,
-                isVerified: true,
                 createdAt: true,
                 orders: {
                     select: { id: true, total: true, status: true, isPaid: true, createdAt: true },
@@ -190,28 +215,27 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
         const paidOrders = paidOrdersCount;
 
         // Revenue Chart Data (Last 7 Days)
-        const revenueChart = [];
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
+        const chartDays = getChartDayBuckets();
+        const chartStartDate = new Date(chartDays[0].date);
 
         const recentOrdersForChart = await prisma.order.findMany({
-            where: { isPaid: true, createdAt: { gte: sevenDaysAgo } },
+            where: { isPaid: true, createdAt: { gte: chartStartDate } },
             select: { total: true, createdAt: true }
         });
 
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-            const dayDate = d.toISOString().split('T')[0];
+        const revenueByDay = recentOrdersForChart.reduce((acc, order) => {
+            const dayKey = formatDayKey(new Date(order.createdAt));
+            const orderTotal = Number(order.total) || 0;
 
-            const dayRevenue = recentOrdersForChart
-                .filter(o => o.createdAt.toISOString().startsWith(dayDate))
-                .reduce((sum, o) => sum + o.total, 0);
+            acc.set(dayKey, (acc.get(dayKey) || 0) + orderTotal);
+            return acc;
+        }, new Map());
 
-            revenueChart.push({ name: dayName, revenue: dayRevenue });
-        }
+        const revenueChart = chartDays.map(({ key, name }) => ({
+            name,
+            date: key,
+            revenue: Number((revenueByDay.get(key) || 0).toFixed(2))
+        }));
 
         // Recent Activity Feed (Combine Orders, Users, Service Bookings)
         const [recentOrders, recentUsers, recentServices] = await Promise.all([
@@ -412,4 +436,236 @@ router.put('/service-settings', protect, adminOnly, async (req, res) => {
     }
 });
 
-module.exports = router;
+// ==================== BANNER MANAGEMENT ====================
+
+// GET /api/admin/banners — all banners (including inactive), sorted by displayOrder
+router.get('/banners', protect, adminOnly, async (req, res) => {
+    try {
+        const banners = await prisma.banner.findMany({
+            orderBy: { displayOrder: 'asc' },
+        });
+        res.json(banners);
+    } catch (error) {
+        console.error('Get admin banners error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/banners — create a new banner
+router.post('/banners', protect, adminOnly, async (req, res) => {
+    try {
+        const { title, subtitle, ctaLabel, ctaLink, image, gradient, displayOrder, active } = req.body;
+
+        if (!title) {
+            return res.status(400).json({ error: 'Title is required' });
+        }
+
+        const maxOrder = await prisma.banner.aggregate({ _max: { displayOrder: true } });
+        const nextOrder = displayOrder != null ? parseInt(displayOrder) : (maxOrder._max.displayOrder ?? -1) + 1;
+
+        const banner = await prisma.banner.create({
+            data: {
+                title,
+                subtitle: subtitle || null,
+                ctaLabel: ctaLabel || 'Shop Now',
+                ctaLink: ctaLink || '/products',
+                image: image || null,
+                gradient: gradient || null,
+                displayOrder: nextOrder,
+                active: active !== false,
+            },
+        });
+
+        res.status(201).json(banner);
+    } catch (error) {
+        console.error('Create banner error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/banners/reorder — reorder banners
+// Must be defined before :id routes to avoid matching "reorder" as an id
+router.patch('/banners/reorder', protect, adminOnly, async (req, res) => {
+    try {
+        const { orderedIds } = req.body;
+
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+            return res.status(400).json({ error: 'orderedIds array is required' });
+        }
+
+        const updates = orderedIds.map((id, index) =>
+            prisma.banner.update({
+                where: { id: parseInt(id) },
+                data: { displayOrder: index },
+            })
+        );
+
+        await prisma.$transaction(updates);
+
+        const banners = await prisma.banner.findMany({ orderBy: { displayOrder: 'asc' } });
+        res.json(banners);
+    } catch (error) {
+        console.error('Reorder banners error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/banners/:id — update any field on a banner
+router.patch('/banners/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const bannerId = parseInt(req.params.id);
+        const { title, subtitle, ctaLabel, ctaLink, image, gradient, displayOrder, active } = req.body;
+
+        const data = {};
+        if (title !== undefined) data.title = title;
+        if (subtitle !== undefined) data.subtitle = subtitle || null;
+        if (ctaLabel !== undefined) data.ctaLabel = ctaLabel;
+        if (ctaLink !== undefined) data.ctaLink = ctaLink;
+        if (image !== undefined) data.image = image || null;
+        if (gradient !== undefined) data.gradient = gradient || null;
+        if (displayOrder !== undefined) data.displayOrder = parseInt(displayOrder);
+        if (active !== undefined) data.active = active;
+
+        const banner = await prisma.banner.update({
+            where: { id: bannerId },
+            data,
+        });
+
+        res.json(banner);
+    } catch (error) {
+        console.error('Update banner error:', error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Banner not found' });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/banners/:id/toggle — toggle active/inactive
+router.patch('/banners/:id/toggle', protect, adminOnly, async (req, res) => {
+    try {
+        const bannerId = parseInt(req.params.id);
+
+        const existing = await prisma.banner.findUnique({ where: { id: bannerId } });
+        if (!existing) {
+            return res.status(404).json({ error: 'Banner not found' });
+        }
+
+        const banner = await prisma.banner.update({
+            where: { id: bannerId },
+            data: { active: !existing.active },
+        });
+
+        res.json(banner);
+    } catch (error) {
+        console.error('Toggle banner error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/admin/banners/:id — delete a banner
+router.delete('/banners/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const bannerId = parseInt(req.params.id);
+
+        await prisma.banner.delete({ where: { id: bannerId } });
+        res.json({ success: true, message: 'Banner deleted' });
+    } catch (error) {
+        console.error('Delete banner error:', error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Banner not found' });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ==================== TECHNICIAN MANAGEMENT ====================
+
+// GET /api/admin/technicians — list all technicians (active by default)
+router.get('/technicians', protect, adminOnly, async (req, res) => {
+    try {
+        const { all } = req.query; // ?all=true to include inactive
+        const where = all === 'true' ? {} : { isActive: true };
+
+        const technicians = await prisma.technician.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                _count: { select: { bookings: true } }
+            }
+        });
+
+        res.json(technicians);
+    } catch (error) {
+        console.error('Get technicians error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/technicians — create a technician profile
+router.post('/technicians', protect, adminOnly, async (req, res) => {
+    try {
+        const { name, phone, email, skills, isActive } = req.body;
+
+        if (!name || !phone) {
+            return res.status(400).json({ error: 'name and phone are required' });
+        }
+
+        const technician = await prisma.technician.create({
+            data: {
+                name,
+                phone,
+                email: email || null,
+                skills: Array.isArray(skills) ? skills : [],
+                isActive: isActive !== false
+            }
+        });
+
+        res.status(201).json(technician);
+    } catch (error) {
+        console.error('Create technician error:', error);
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.includes('phone') ? 'phone' : 'email';
+            return res.status(409).json({ error: `A technician with this ${field} already exists` });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/admin/technicians/:id — update skills, active status, contact info
+router.patch('/technicians/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const techId = parseInt(req.params.id);
+        const { name, phone, email, skills, isActive } = req.body;
+
+        const data = {};
+        if (name !== undefined) data.name = name;
+        if (phone !== undefined) data.phone = phone;
+        if (email !== undefined) data.email = email || null;
+        if (skills !== undefined) data.skills = Array.isArray(skills) ? skills : [];
+        if (isActive !== undefined) data.isActive = Boolean(isActive);
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ error: 'No fields provided to update' });
+        }
+
+        const technician = await prisma.technician.update({
+            where: { id: techId },
+            data,
+            include: { _count: { select: { bookings: true } } }
+        });
+
+        res.json(technician);
+    } catch (error) {
+        console.error('Update technician error:', error);
+        if (error.code === 'P2025') return res.status(404).json({ error: 'Technician not found' });
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.includes('phone') ? 'phone' : 'email';
+            return res.status(409).json({ error: `A technician with this ${field} already exists` });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+export default router;
+

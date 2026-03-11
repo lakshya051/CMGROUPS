@@ -57,19 +57,19 @@ const CoursePlayer = () => {
                     {activeMaterial ? (
                         <>
                             {activeMaterial.fileType === 'Video' ? (
-                                <div className="aspect-video bg-black rounded-xl justify-center flex items-center relative overflow-hidden group">
+                                <div className="aspect-video bg-black rounded-lg justify-center flex items-center relative overflow-hidden group shadow-sm">
                                     {/* Usually an iframe or video tag goes here */}
                                     <video src={activeMaterial.fileUrl} controls className="w-full h-full object-cover">
                                         Your browser does not support the video tag.
                                     </video>
                                 </div>
                             ) : (
-                                <div className="aspect-video bg-surface rounded-xl border border-gray-200 flex flex-col items-center justify-center p-8 text-center">
-                                    <FileText size={48} className="text-primary mb-4" />
-                                    <h3 className="text-xl font-bold mb-2">{activeMaterial.title}</h3>
-                                    <p className="text-text-muted mb-6">{activeMaterial.description || 'View document contents attached to this material.'}</p>
+                                <div className="aspect-video bg-surface rounded-lg border border-border-default flex flex-col items-center justify-center p-lg text-center shadow-sm">
+                                    <FileText size={48} className="text-trust mb-sm" />
+                                    <h3 className="text-xl font-bold mb-xs text-text-primary">{activeMaterial.title}</h3>
+                                    <p className="text-sm text-text-secondary mb-md">{activeMaterial.description || 'View document contents attached to this material.'}</p>
                                     <a href={activeMaterial.fileUrl} target="_blank" rel="noopener noreferrer">
-                                        <Button><Download size={18} className="mr-2" /> Download / View Document</Button>
+                                        <Button variant="outline"><Download size={18} className="mr-xs" /> Download / View Document</Button>
                                     </a>
                                 </div>
                             )}
@@ -82,44 +82,44 @@ const CoursePlayer = () => {
                             </div>
                         </>
                     ) : (
-                        <div className="aspect-video bg-surface rounded-xl border border-gray-200 flex flex-col items-center justify-center">
-                            <h3 className="text-xl font-bold mb-2">No Materials Available</h3>
-                            <p className="text-text-muted">The instructor hasn't uploaded any materials yet.</p>
+                        <div className="aspect-video bg-surface rounded-lg border border-border-default flex flex-col items-center justify-center shadow-sm">
+                            <h3 className="text-xl font-bold mb-xs text-text-primary">No Materials Available</h3>
+                            <p className="text-sm text-text-secondary">The instructor hasn't uploaded any materials yet.</p>
                         </div>
                     )}
                 </div>
 
                 {/* Playlist Sidebar */}
-                <div className="glass-panel overflow-y-auto max-h-[600px] flex flex-col">
-                    <div className="p-4 border-b border-gray-200 sticky top-0 bg-white/90 backdrop-blur z-10">
-                        <h2 className="font-bold text-lg mb-1">{course.title}</h2>
-                        <div className="flex justify-between items-center text-xs text-text-muted">
+                <div className="glass-panel overflow-y-auto max-h-[600px] flex flex-col bg-surface border border-border-default rounded-lg shadow-sm">
+                    <div className="p-sm border-b border-border-default sticky top-0 bg-surface/90 backdrop-blur z-10">
+                        <h2 className="font-bold text-base mb-1 text-text-primary">{course.title}</h2>
+                        <div className="flex justify-between items-center text-xs text-text-secondary">
                             <span>{materials.length} Materials</span>
                             <span>Progress: {enrollment.progress}%</span>
                         </div>
-                        <div className="w-full h-1.5 bg-gray-100 mt-2 rounded-full overflow-hidden">
+                        <div className="w-full h-1.5 bg-border-default mt-xs rounded-full overflow-hidden">
                             <div className="h-full bg-success transition-all duration-500" style={{ width: `${enrollment.progress}%` }}></div>
                         </div>
                     </div>
 
-                    <ul className="divide-y divide-gray-100 flex-grow">
+                    <ul className="divide-y divide-border-default flex-grow">
                         {materials.length === 0 ? (
-                            <li className="p-4 text-center text-sm text-text-muted">Empty content</li>
+                            <li className="p-sm text-center text-sm text-text-secondary">Empty content</li>
                         ) : (
                             materials.map((material, index) => (
                                 <li
                                     key={material.id}
                                     onClick={() => setActiveMaterialId(material.id)}
-                                    className={`p-4 flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition-colors ${activeMaterialId === material.id ? 'bg-primary/5 border-l-2 border-primary' : ''}`}
+                                    className={`p-sm flex items-center gap-sm cursor-pointer hover:bg-surface-hover transition-colors ${activeMaterialId === material.id ? 'bg-surface-hover border-l-2 border-trust' : ''}`}
                                 >
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activeMaterialId === material.id ? 'bg-primary/20 text-primary' : 'bg-gray-100 text-text-muted'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activeMaterialId === material.id ? 'bg-trust/10 text-trust' : 'bg-page-bg text-text-secondary'}`}>
                                         {material.fileType === 'Video' ? <PlayCircle size={16} /> : <FileText size={16} />}
                                     </div>
                                     <div className="flex-grow">
-                                        <p className={`text-sm font-medium ${activeMaterialId === material.id ? 'text-primary' : 'text-text-main'}`}>
+                                        <p className={`text-sm font-medium ${activeMaterialId === material.id ? 'text-trust' : 'text-text-primary'}`}>
                                             {index + 1}. {material.title}
                                         </p>
-                                        <p className="text-xs text-text-muted">{material.fileType}</p>
+                                        <p className="text-xs text-text-secondary mt-0.5">{material.fileType}</p>
                                     </div>
                                 </li>
                             ))
