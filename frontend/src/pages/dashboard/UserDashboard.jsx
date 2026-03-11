@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Package, ArrowRight, ArrowUpRight, ShoppingBag, TrendingUp, Store, Wrench } from 'lucide-react';
 import { ordersAPI } from '../../lib/api';
 import { Link } from 'react-router-dom';
+import { useSEO } from '../../hooks/useSEO';
 
 const StatCard = ({ title, value, icon, trend }) => (
     <div className="bg-surface border border-border-default rounded-lg shadow-sm p-md hover:shadow-md transition-shadow">
@@ -45,6 +46,7 @@ const UserDashboard = () => {
     const { user } = useAuth();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    useSEO({ title: 'My Dashboard — CMGROUPS', description: 'Manage your orders, services and account.', noIndex: true });
 
     useEffect(() => {
         ordersAPI.getMyStats()

@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
@@ -45,6 +46,7 @@ const authLimiter = rateLimit({
     message: { error: 'Too many login attempts from this IP, please try again after an hour' }
 });
 
+app.use(compression());
 app.use(limiter);
 app.use(cors({
     origin: [

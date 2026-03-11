@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 import Button from '../components/ui/Button';
 import {
     Wrench, Monitor, Cpu, CheckCircle, Calendar, X, MapPin, Phone, User,
@@ -54,6 +55,7 @@ const TRUST_POINTS = [
 ];
 
 const Services = () => {
+    useSEO({ title: 'Doorstep Repair & Services — CMGROUPS Etah', description: 'Book computer repair, AMC, printer service and more at your doorstep in Etah.' });
     const { user } = useAuth();
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);

@@ -20,7 +20,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = resolve(__dirname, '../public');
 const iconsDir = resolve(publicDir, 'icons');
 
-const SIZES = [72, 96, 128, 144, 152, 180, 192, 384, 512];
+const SIZES = [48, 72, 96, 128, 144, 152, 180, 192, 384, 512];
+const MASKABLE_SIZES = [192, 512];
+const APPLE_SIZES = [120, 152, 167, 180];
+const SHORTCUT_NAMES = ['shortcut-orders', 'shortcut-services', 'shortcut-courses', 'shortcut-shop'];
 
 async function generate() {
     let sharp;
@@ -35,6 +38,9 @@ async function generate() {
 
     const { mkdirSync } = await import('fs');
     mkdirSync(iconsDir, { recursive: true });
+
+    const screenshotsDir = resolve(publicDir, 'screenshots');
+    mkdirSync(screenshotsDir, { recursive: true });
 
     const pngSource = resolve(publicDir, 'icon-source.png');
     const svgSource = resolve(publicDir, 'icon.svg');
@@ -51,32 +57,60 @@ async function generate() {
         console.log(`  ✓ ${filename}`);
     }
 
-    // Maskable icon (512x512 with 20% safe-zone padding)
-    const maskableSize = 512;
-    const innerSize = Math.round(maskableSize * 0.8);
-    const offset = Math.round((maskableSize - innerSize) / 2);
+    const brandBg = { r: 233, g: 30, b: 99, alpha: 1 };
 
-    const inner = await sharp(source)
-        .resize(innerSize, innerSize, { fit: 'contain', background: { r: 233, g: 30, b: 99, alpha: 1 } })
-        .png()
-        .toBuffer();
+    for (const size of MASKABLE_SIZES) {
+        const innerSize = Math.round(size * 0.8);
+        const offset = Math.round((size - innerSize) / 2);
 
-    await sharp({
-        create: { width: maskableSize, height: maskableSize, channels: 4, background: { r: 233, g: 30, b: 99, alpha: 1 } }
-    })
-        .composite([{ input: inner, left: offset, top: offset }])
-        .png()
-        .toFile(resolve(iconsDir, 'icon-512x512-maskable.png'));
-    console.log('  ✓ icon-512x512-maskable.png (maskable)');
+        const inner = await sharp(source)
+            .resize(innerSize, innerSize, { fit: 'contain', background: brandBg })
+            .png()
+            .toBuffer();
 
-    // Apple touch icon (180x180)
-    const { copyFileSync } = await import('fs');
-    copyFileSync(
-        resolve(iconsDir, 'icon-180x180.png'),
-        resolve(iconsDir, 'apple-touch-icon-180x180.png')
-    );
-    console.log('  ✓ apple-touch-icon-180x180.png');
+        await sharp({
+            create: { width: size, height: size, channels: 4, background: brandBg }
+        })
+            .composite([{ input: inner, left: offset, top: offset }])
+            .png()
+            .toFile(resolve(iconsDir, `icon-${size}x${size}-maskable.png`));
+        console.log(`  ✓ icon-${size}x${size}-maskable.png (maskable)`);
+    }
 
+    for (const size of APPLE_SIZES) {
+        const filename = `apple-touch-icon-${size}x${size}.png`;
+        await sharp(source)
+            .resize(size, size, { fit: 'contain', background: brandBg })
+            .png()
+            .toFile(resolve(iconsDir, filename));
+        console.log(`  ✓ ${filename}`);
+    }
+
+    for (const name of SHORTCUT_NAMES) {
+        const filename = `${name}.png`;
+        await sharp(source)
+            .resize(96, 96, { fit: 'contain', background: brandBg })
+            .png()
+            .toFile(resolve(iconsDir, filename));
+        console.log(`  ✓ ${filename} (shortcut)`);
+    }
+
+    // Placeholder screenshots (solid pink with text overlay via SVG)
+    for (const name of ['home', 'products']) {
+        const svgOverlay = Buffer.from(`
+            <svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg">
+                <rect width="1080" height="1920" fill="#e91e63"/>
+                <text x="540" y="900" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="120" fill="#fff">CMGROUPS</text>
+                <text x="540" y="1050" text-anchor="middle" font-family="sans-serif" font-weight="400" font-size="48" fill="rgba(255,255,255,0.8)">Replace with real screenshot</text>
+                <text x="540" y="1130" text-anchor="middle" font-family="sans-serif" font-weight="400" font-size="40" fill="rgba(255,255,255,0.6)">${name}.png</text>
+            </svg>
+        `);
+        await sharp(svgOverlay).png().toFile(resolve(screenshotsDir, `${name}.png`));
+        console.log(`  ✓ screenshots/${name}.png (placeholder)`);
+    }
+
+    console.log('\n⚠️  ICON FILES NEEDED: Replace placeholder icons in public/icons/ with real CMGROUPS logo icons before Play Store submission');
+    console.log('⚠️  SCREENSHOT FILES NEEDED: Replace placeholder screenshots in public/screenshots/ with real app screenshots (1080x1920px)');
     console.log('\nDone! Icons generated in public/icons/');
 }
 

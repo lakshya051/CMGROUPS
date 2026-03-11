@@ -6,10 +6,12 @@ import { ShoppingCart, Tag, Bookmark, Trash2, ArrowRight, ChevronRight, Package 
 import { couponsAPI, productsAPI } from '../../lib/api'
 import { FREE_DELIVERY_THRESHOLD, EMI_MINIMUM_ORDER, SAVED_LATER_STORAGE_KEY } from '../../constants'
 import { handleImageError } from '../../utils/image'
+import { useSEO } from '../../hooks/useSEO'
 
 const Cart = () => {
     const { cart, cartLoading, addToCart, removeFromCart, updateCartQuantity } = useShop()
     const navigate = useNavigate()
+    useSEO({ title: 'Your Cart — CMGROUPS', description: 'Review your shopping cart before checkout.', noIndex: true })
 
     const [couponCode, setCouponCode] = useState('')
     const [discount, setDiscount] = useState(0)
