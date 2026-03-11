@@ -17,7 +17,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
         res.json({ url });
     } catch (error) {
         console.error('Upload error:', error);
-        res.status(500).json({ error: 'Upload failed' });
+        const message = error.message?.includes('Cloudinary') ? error.message : 'Upload failed';
+        res.status(500).json({ error: message });
     }
 });
 
@@ -41,7 +42,8 @@ router.post('/multiple', protect, adminOnly, async (req, res) => {
         res.json({ urls });
     } catch (error) {
         console.error('Multiple upload error:', error);
-        res.status(500).json({ error: 'Upload failed' });
+        const message = error.message?.includes('Cloudinary') ? error.message : 'Upload failed';
+        res.status(500).json({ error: message });
     }
 });
 

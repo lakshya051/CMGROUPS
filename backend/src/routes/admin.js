@@ -307,7 +307,7 @@ router.get('/referrals', protect, adminOnly, async (req, res) => {
                         total: true,
                         items: {
                             include: {
-                                product: { select: { id: true, title: true, image: true, price: true, referrerPoints: true, refereePoints: true } }
+                                product: { select: { id: true, title: true, images: true, price: true, referrerPoints: true, refereePoints: true } }
                             }
                         }
                     }

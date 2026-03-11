@@ -6,7 +6,14 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+function ensureConfig() {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+        throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in backend/.env (from Cloudinary Dashboard → API Keys).');
+    }
+}
+
 export const uploadImage = async (base64Data, folder = 'products') => {
+    ensureConfig();
     const result = await cloudinary.uploader.upload(base64Data, {
         folder: `cmgroups/${folder}`,
         transformation: [{ quality: 'auto', fetch_format: 'auto' }],
@@ -15,6 +22,7 @@ export const uploadImage = async (base64Data, folder = 'products') => {
 };
 
 export const deleteImage = async (publicId) => {
+    ensureConfig();
     await cloudinary.uploader.destroy(publicId);
 };
 
