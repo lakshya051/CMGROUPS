@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Filter, Phone, RefreshCw } from 'lucide-react';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
 import Button from '../../components/ui/Button';
+import { getAuthHeaders } from '../../lib/api';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const STATUS_STYLES = {
@@ -20,14 +20,13 @@ const AdminCCTVEnquiries = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('All');
     const [updating, setUpdating] = useState(null);
-    const { getToken } = useClerkAuth();
 
     const load = async (status) => {
         setLoading(true);
         try {
             const url = status && status !== 'All' ? `${API_BASE}/cctv/admin/enquiries?status=${status}` : `${API_BASE}/cctv/admin/enquiries`;
-            const token = await getToken();
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            const headers = await getAuthHeaders();
+            const res = await fetch(url, { headers });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to load enquiries');
             if (data.success) {
@@ -48,10 +47,10 @@ const AdminCCTVEnquiries = () => {
     const updateEnquiry = async (id, payload, successMessage) => {
         setUpdating(id);
         try {
-            const token = await getToken();
+            const headers = await getAuthHeaders();
             const res = await fetch(`${API_BASE}/cctv/admin/enquiries/${id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers,
                 body: JSON.stringify(payload)
             });
             const data = await res.json();

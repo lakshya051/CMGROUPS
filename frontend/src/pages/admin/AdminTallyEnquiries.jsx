@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, RefreshCw, Filter } from 'lucide-react';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { getAuthHeaders } from '../../lib/api';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -19,7 +19,6 @@ const AdminTallyEnquiries = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('All');
     const [updating, setUpdating] = useState(null);
-    const { getToken } = useClerkAuth();
 
     const load = async (status) => {
         setLoading(true);
@@ -27,8 +26,8 @@ const AdminTallyEnquiries = () => {
             const url = status && status !== 'All'
                 ? `${API_BASE}/tally/admin/enquiries?status=${status}`
                 : `${API_BASE}/tally/admin/enquiries`;
-            const token = await getToken();
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            const headers = await getAuthHeaders();
+            const res = await fetch(url, { headers });
             const data = await res.json();
             if (data.success) {
                 setEnquiries(data.enquiries);
@@ -46,10 +45,10 @@ const AdminTallyEnquiries = () => {
     const updateStatus = async (id, status) => {
         setUpdating(id);
         try {
-            const token = await getToken();
+            const headers = await getAuthHeaders();
             const res = await fetch(`${API_BASE}/tally/admin/enquiries/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers,
                 body: JSON.stringify({ status })
             });
             if (res.ok) {
@@ -81,7 +80,6 @@ const AdminTallyEnquiries = () => {
                 </button>
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                     { label: 'Total', value: total, color: 'bg-primary/5 text-primary' },
@@ -96,7 +94,6 @@ const AdminTallyEnquiries = () => {
                 ))}
             </div>
 
-            {/* Filter Tabs */}
             <div className="flex items-center gap-2 flex-wrap">
                 <Filter size={16} className="text-text-muted" />
                 {FILTER_OPTIONS.map(opt => (
@@ -113,7 +110,6 @@ const AdminTallyEnquiries = () => {
                 ))}
             </div>
 
-            {/* Table */}
             {loading ? (
                 <div className="p-12 text-center text-text-muted">Loading enquiries...</div>
             ) : enquiries.length === 0 ? (

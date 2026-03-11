@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
-import { clerkMiddleware } from '@clerk/express';
 
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
@@ -20,7 +19,6 @@ import applicationRoutes from './routes/applications.js';
 import wishlistRoutes from './routes/wishlist.js';
 import tallyRoutes from './routes/tally.js';
 import cctvRoutes from './routes/cctv.js';
-import webhookRoutes from './routes/webhooks.js';
 import cartRoutes from './routes/cart.js';
 import bannerRoutes from './routes/banners.js';
 import addressRoutes from './routes/addresses.js';
@@ -29,7 +27,7 @@ import pushRoutes from './routes/push.js';
 dotenv.config();
 
 const app = express();
-app.set('trust proxy', 1); // Trust first proxy (Render)
+app.set('trust proxy', 1);
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -58,11 +56,7 @@ app.use(cors({
     credentials: true
 }));
 
-// Webhook route must come before express.json() — svix needs the raw body
-app.use('/api/webhooks', webhookRoutes);
-
 app.use(express.json({ limit: '10mb' }));
-app.use(clerkMiddleware());
 app.use('/uploads', express.static('uploads', {
     maxAge: '30d',
     etag: true,
@@ -89,9 +83,8 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/push', pushRoutes);
 
-
 app.get('/', (req, res) => {
-    res.json({ status: 'TechNova API is running', version: '1.0.0' });
+    res.json({ status: 'CMGROUPS API is running', version: '2.0.0' });
 });
 
 app.use((err, req, res, next) => {

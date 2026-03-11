@@ -1,82 +1,124 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth as useClerkAuth, useClerk } from '@clerk/clerk-react';
-import { authAPI, setTokenGetter } from '../lib/api';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signInWithPopup,
+    GoogleAuthProvider,
+    signOut,
+    sendPasswordResetEmail,
+} from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { AuthContext } from './AuthContext';
+import { setTokenGetter } from '../lib/api';
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000;
-
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [firebaseUser, setFirebaseUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const { isSignedIn, isLoaded, getToken } = useClerkAuth();
-    const { signOut } = useClerk();
+    const tokenRef = useRef(null);
 
     useEffect(() => {
-        if (isLoaded) {
-            setTokenGetter(isSignedIn ? getToken : null);
-        }
-    }, [isLoaded, isSignedIn, getToken]);
+        const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+            if (fbUser) {
+                const idToken = await fbUser.getIdToken();
+                tokenRef.current = idToken;
+                setFirebaseUser(fbUser);
 
-    useEffect(() => {
-        if (!isLoaded) return;
-
-        if (!isSignedIn) {
-            setUser(null);
-            setLoading(false);
-            return;
-        }
-
-        let cancelled = false;
-
-        const hydrateUser = async () => {
-            // Wait briefly for Clerk to mint the session token after sign-in
-            const token = await getToken();
-            if (!token) {
-                await wait(500);
-            }
-
-            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-                if (cancelled) return;
+                setTokenGetter(() => Promise.resolve(tokenRef.current));
 
                 try {
-                    const data = await authAPI.getMe();
-                    if (!cancelled) {
+                    const res = await fetch(`${API_BASE}/auth/me`, {
+                        headers: { Authorization: `Bearer ${idToken}` },
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
                         setUser(data.user);
-                        setLoading(false);
                     }
-                    return;
-                } catch {
-                    if (attempt < MAX_RETRIES) {
-                        await wait(RETRY_DELAY);
-                    }
+                } catch (err) {
+                    console.error('Failed to fetch DB user:', err);
                 }
-            }
-
-            // All retries exhausted
-            if (!cancelled) {
+            } else {
+                setFirebaseUser(null);
                 setUser(null);
-                setLoading(false);
+                tokenRef.current = null;
+                setTokenGetter(null);
             }
-        };
+            setLoading(false);
+        });
 
-        hydrateUser();
+        return unsubscribe;
+    }, []);
 
-        return () => { cancelled = true; };
-    }, [isLoaded, isSignedIn, getToken]);
+    // Auto-refresh token every 50 minutes
+    useEffect(() => {
+        if (!firebaseUser) return;
+        const interval = setInterval(async () => {
+            const idToken = await firebaseUser.getIdToken(true);
+            tokenRef.current = idToken;
+        }, 50 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, [firebaseUser]);
+
+    const registerWithEmail = useCallback(async (email, password, name) => {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const idToken = await cred.user.getIdToken();
+        tokenRef.current = idToken;
+        setTokenGetter(() => Promise.resolve(tokenRef.current));
+
+        const res = await fetch(`${API_BASE}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ name }),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setUser(data.user);
+        }
+        return cred;
+    }, []);
+
+    const loginWithGoogle = useCallback(async () => {
+        const provider = new GoogleAuthProvider();
+        const cred = await signInWithPopup(auth, provider);
+        const idToken = await cred.user.getIdToken();
+        tokenRef.current = idToken;
+        setTokenGetter(() => Promise.resolve(tokenRef.current));
+
+        const res = await fetch(`${API_BASE}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ name: cred.user.displayName }),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            setUser(data.user);
+        }
+        return cred;
+    }, []);
 
     const logout = useCallback(async () => {
         setUser(null);
-        await signOut();
-    }, [signOut]);
+        tokenRef.current = null;
+        setTokenGetter(null);
+        await signOut(auth);
+    }, []);
 
     const refreshUser = useCallback(async () => {
         try {
-            const data = await authAPI.getMe();
-            setUser(data.user);
-            return true;
+            const token = tokenRef.current;
+            if (!token) return false;
+            const res = await fetch(`${API_BASE}/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setUser(data.user);
+                return true;
+            }
+            return false;
         } catch {
             return false;
         }
@@ -88,12 +130,18 @@ export const AuthProvider = ({ children }) => {
                 user,
                 setUser,
                 loading,
-                isSignedIn: isSignedIn ?? false,
+                isSignedIn: !!firebaseUser,
+                isAdmin: user?.role === 'admin',
+                firebaseUser,
                 logout,
                 refreshUser,
+                loginWithEmail: (email, password) => signInWithEmailAndPassword(auth, email, password),
+                registerWithEmail,
+                loginWithGoogle,
+                resetPassword: (email) => sendPasswordResetEmail(auth, email),
             }}
         >
-            {(!isLoaded || loading) ? null : children}
+            {loading ? null : children}
         </AuthContext.Provider>
     );
 };

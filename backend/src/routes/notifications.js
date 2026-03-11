@@ -116,4 +116,18 @@ router.post('/read-all', protect, async (req, res) => {
     }
 });
 
+// DELETE /api/notifications/:id - Delete notification
+router.delete('/:id', protect, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        await prisma.notification.deleteMany({
+            where: { id, userId: req.user.id },
+        });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete notification error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 export default router;

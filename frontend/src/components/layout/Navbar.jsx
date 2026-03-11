@@ -5,56 +5,26 @@ import Button from '../ui/Button';
 import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useShop } from '../../context/ShopContext';
-import { categoriesAPI, notificationsAPI } from '../../lib/api';
+import { useNotifications } from '../../context/NotificationContext';
+import { categoriesAPI } from '../../lib/api';
+import NotificationDropdown from '../notifications/NotificationDropdown';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [categories, setCategories] = useState([]);
-    const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
     const [showCatMenu, setShowCatMenu] = useState(false);
-    const [showNotifMenu, setShowNotifMenu] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-    const { user, logout, isSignedIn: clerkSignedIn, refreshUser } = useAuth();
-    const [syncing, setSyncing] = useState(false);
+    const { user, logout, isSignedIn } = useAuth();
     const { cart } = useShop();
-
-    const loadNotifications = useCallback(() => {
-        if (!user) {
-            setNotifications([]);
-            setUnreadCount(0);
-            return;
-        }
-
-        notificationsAPI.getAll().then(res => {
-            setNotifications(res.notifications);
-            setUnreadCount(res.unreadCount);
-        }).catch(console.error);
-    }, [user]);
+    const { unreadCount, toggleOpen, isOpen: notifOpen } = useNotifications();
 
     React.useEffect(() => {
         categoriesAPI.getAll().then(setCategories).catch(console.error);
     }, []);
-
-    React.useEffect(() => {
-        loadNotifications();
-    }, [loadNotifications]);
-
-    React.useEffect(() => {
-        const eventName = 'technova:notifications:refresh';
-        const handleRefresh = () => {
-            loadNotifications();
-        };
-
-        window.addEventListener(eventName, handleRefresh);
-        return () => {
-            window.removeEventListener(eventName, handleRefresh);
-        };
-    }, [loadNotifications]);
 
     useEffect(() => {
         const queryFromUrl = searchParams.get('q') || '';
@@ -103,16 +73,6 @@ const Navbar = () => {
         setIsOpen(false);
         navigate(nextPath);
     }, [currentSearchContext.path, navigate, searchQuery]);
-
-    const handleMarkAllRead = useCallback(async () => {
-        try {
-            await notificationsAPI.markAllRead();
-            setUnreadCount(0);
-            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        } catch (err) {
-            console.error(err);
-        }
-    }, []);
 
     const cartCount = useMemo(
         () => cart.reduce((sum, item) => sum + item.quantity, 0),
@@ -205,6 +165,26 @@ const Navbar = () => {
 
                     <div className="flex items-center gap-1">
                         {user && <PointsBadge points={user.walletBalance} compact className="mr-1" />}
+
+                        {/* Mobile Bell */}
+                        {user && (
+                            <div className="relative">
+                                <button
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust"
+                                    onClick={toggleOpen}
+                                    aria-label="Notifications"
+                                >
+                                    <Bell size={20} />
+                                    {unreadCount > 0 && (
+                                        <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-trust text-[10px] text-white flex items-center justify-center rounded-full">
+                                            {unreadCount > 9 ? '9+' : unreadCount}
+                                        </span>
+                                    )}
+                                </button>
+                                <NotificationDropdown />
+                            </div>
+                        )}
+
                         <Link
                             to={mobileProfilePath}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust"
@@ -268,7 +248,6 @@ const Navbar = () => {
                             Products
                         </Link>
 
-                        {/* Mega Menu */}
                         {showCatMenu && (
                             <div className="absolute top-full left-0 w-48 bg-surface border border-border-default shadow-sm rounded-lg p-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
                                 <Link to="/products" className="px-3 py-2 text-sm font-bold text-text-primary hover:bg-surface-hover rounded-lg">All Products</Link>
@@ -320,46 +299,17 @@ const Navbar = () => {
                         <div className="relative">
                             <button
                                 className="text-text-secondary hover:text-trust transition-colors relative"
-                                onClick={() => setShowNotifMenu(!showNotifMenu)}
+                                onClick={toggleOpen}
+                                aria-label="Notifications"
                             >
                                 <Bell size={20} />
                                 {unreadCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-error text-[10px] text-white flex items-center justify-center rounded-full">
+                                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-trust text-[10px] text-white flex items-center justify-center rounded-full">
                                         {unreadCount > 9 ? '9+' : unreadCount}
                                     </span>
                                 )}
                             </button>
-                            {/* Dropdown */}
-                            {showNotifMenu && (
-                                <div className="absolute top-full right-0 w-80 bg-surface border border-border-default shadow-sm rounded-lg p-0 flex flex-col gap-0 animate-in fade-in slide-in-from-top-2 z-50 max-h-96 overflow-y-auto mt-2">
-                                    <div className="p-3 border-b border-border-default flex justify-between items-center bg-surface-hover rounded-t-lg">
-                                        <span className="font-bold text-sm text-text-primary">Notifications</span>
-                                        <button onClick={handleMarkAllRead} className="text-xs text-trust hover:underline">Mark all read</button>
-                                    </div>
-                                    {notifications.length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-text-secondary">No notifications</div>
-                                    ) : (
-                                        notifications.map(n => (
-                                            <div key={n.id} className={`p-3 border-b border-border-default hover:bg-surface-hover ${!n.isRead ? 'bg-trust/10' : ''}`}>
-                                                <div className="font-medium text-sm text-text-primary">{n.title}</div>
-                                                <div className="text-xs text-text-secondary mt-1">{n.message}</div>
-                                                {n.link && (
-                                                    <Link
-                                                        to={n.link}
-                                                        className="text-xs text-trust mt-2 block hover:underline font-medium"
-                                                        onClick={() => {
-                                                            setShowNotifMenu(false);
-                                                            // Optional: mark as read logic here
-                                                        }}
-                                                    >
-                                                        View Product
-                                                    </Link>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )}
+                            <NotificationDropdown />
                         </div>
                     )}
 
@@ -375,24 +325,12 @@ const Navbar = () => {
                                 <span className="hidden lg:inline text-text-primary font-medium">{user.name}</span>
                             </Link>
                         </div>
-                    ) : clerkSignedIn ? (
+                    ) : isSignedIn ? (
                         <div className="flex items-center gap-2">
-                            <button
-                                onClick={async () => {
-                                    setSyncing(true);
-                                    const ok = await refreshUser();
-                                    setSyncing(false);
-                                    if (!ok) void logout();
-                                }}
-                                disabled={syncing}
-                                className="text-xs text-trust hover:underline disabled:opacity-50"
-                            >
-                                {syncing ? 'Syncing...' : 'Retry Login'}
-                            </button>
                             <button
                                 onClick={() => { void logout(); }}
                                 className="text-xs text-text-muted hover:text-error transition-colors"
-                                title="Sign out and try again"
+                                title="Sign out"
                             >
                                 <LogOut size={16} />
                             </button>
@@ -444,27 +382,6 @@ const Navbar = () => {
                                 <LogOut size={16} /> Logout
                             </button>
                         </>
-                    ) : clerkSignedIn ? (
-                        <div className="px-4 py-3 space-y-2">
-                            <button
-                                onClick={async () => {
-                                    setSyncing(true);
-                                    const ok = await refreshUser();
-                                    setSyncing(false);
-                                    if (ok) setIsOpen(false);
-                                }}
-                                disabled={syncing}
-                                className="w-full text-sm text-trust hover:underline disabled:opacity-50"
-                            >
-                                {syncing ? 'Syncing...' : 'Retry Login'}
-                            </button>
-                            <button
-                                onClick={() => { void logout(); setIsOpen(false); }}
-                                className="w-full text-sm text-text-muted hover:text-error transition-colors flex items-center justify-center gap-1"
-                            >
-                                <LogOut size={14} /> Sign Out & Try Again
-                            </button>
-                        </div>
                     ) : (
                         <Link to="/sign-in" onClick={() => setIsOpen(false)}>
                             <Button className="w-full">Login</Button>

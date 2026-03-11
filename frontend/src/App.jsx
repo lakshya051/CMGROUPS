@@ -1,10 +1,10 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { SignIn, SignUp } from '@clerk/clerk-react';
 import SharedLayout from './components/layout/SharedLayout';
 import DashboardLayout from './components/layout/DashboardLayout';
 import { AuthProvider } from './context/AuthProvider';
 import { ShopProvider } from './context/ShopProvider';
+import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { useDataSeeder } from './hooks/useDataSeeder';
 import { Toaster } from 'react-hot-toast';
@@ -13,8 +13,6 @@ import PushNotificationsBridge from './components/system/PushNotificationsBridge
 import InstallPromptBanner from './components/pwa/InstallPromptBanner';
 import IOSInstallPrompt from './components/pwa/IOSInstallPrompt';
 
-// After a new deployment, old cached JS may reference chunk filenames that
-// no longer exist. This wrapper retries by reloading the page once.
 const lazyRetry = (importFn) =>
     lazy(() =>
         importFn().catch(() => {
@@ -46,6 +44,9 @@ const CCTVSecurity = lazyRetry(() => import('./pages/CCTVSecurity'));
 const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazyRetry(() => import('./pages/TermsOfService'));
+const SignIn = lazyRetry(() => import('./pages/SignIn'));
+const SignUp = lazyRetry(() => import('./pages/SignUp'));
+const Notifications = lazyRetry(() => import('./pages/Notifications'));
 
 // Shop
 const Products = lazyRetry(() => import('./pages/shop/Products'));
@@ -90,87 +91,84 @@ function App() {
 
     return (
         <AuthProvider>
-            <ShopProvider>
-                <PushNotificationsBridge />
-                <Toaster position="top-center" />
-                <CompareWidget />
-                <InstallPromptBanner />
-                <IOSInstallPrompt />
-                <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                        {/* Public Routes */}
-                        <Route path="/" element={<SharedLayout />}>
-                            <Route index element={<Home />} />
-                            <Route path="products" element={<Products />} />
-                            <Route path="products/:id" element={<ProductDetail />} />
-                            <Route path="cart" element={<Cart />} />
-                            <Route path="wishlist" element={<Wishlist />} />
-                            <Route path="compare" element={<Compare />} />
-                            <Route path="checkout" element={
-                                <ProtectedRoute><Checkout /></ProtectedRoute>
-                            } />
-                            <Route path="services" element={
-                                <ProtectedRoute><Services /></ProtectedRoute>
-                            } />
-                            <Route path="courses" element={<Courses />} />
-                            <Route path="courses/:id" element={<CourseDetail />} />
-                            <Route path="courses/:id/player" element={
-                                <ProtectedRoute><CoursePlayer /></ProtectedRoute>
-                            } />
-                            <Route path="tally-erp" element={<TallyERP />} />
-                            <Route path="cctv" element={<CCTVSecurity />} />
-                            <Route path="privacy-policy" element={<PrivacyPolicy />} />
-                            <Route path="terms-of-service" element={<TermsOfService />} />
-                        </Route>
+            <NotificationProvider>
+                <ShopProvider>
+                    <PushNotificationsBridge />
+                    <Toaster position="top-center" />
+                    <CompareWidget />
+                    <InstallPromptBanner />
+                    <IOSInstallPrompt />
+                    <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            {/* Public Routes */}
+                            <Route path="/" element={<SharedLayout />}>
+                                <Route index element={<Home />} />
+                                <Route path="products" element={<Products />} />
+                                <Route path="products/:id" element={<ProductDetail />} />
+                                <Route path="cart" element={<Cart />} />
+                                <Route path="wishlist" element={<Wishlist />} />
+                                <Route path="compare" element={<Compare />} />
+                                <Route path="checkout" element={
+                                    <ProtectedRoute><Checkout /></ProtectedRoute>
+                                } />
+                                <Route path="services" element={
+                                    <ProtectedRoute><Services /></ProtectedRoute>
+                                } />
+                                <Route path="courses" element={<Courses />} />
+                                <Route path="courses/:id" element={<CourseDetail />} />
+                                <Route path="courses/:id/player" element={
+                                    <ProtectedRoute><CoursePlayer /></ProtectedRoute>
+                                } />
+                                <Route path="tally-erp" element={<TallyERP />} />
+                                <Route path="cctv" element={<CCTVSecurity />} />
+                                <Route path="privacy-policy" element={<PrivacyPolicy />} />
+                                <Route path="terms-of-service" element={<TermsOfService />} />
+                                <Route path="notifications" element={
+                                    <ProtectedRoute><Notifications /></ProtectedRoute>
+                                } />
+                            </Route>
 
-                        {/* User Dashboard */}
-                        <Route path="/dashboard" element={
-                            <ProtectedRoute><DashboardLayout role="customer" /></ProtectedRoute>
-                        }>
-                            <Route index element={<UserDashboard />} />
-                            <Route path="orders" element={<UserOrders />} />
-                            <Route path="services" element={<UserServices />} />
-                            <Route path="courses" element={<UserCourses />} />
-                            <Route path="settings" element={<UserSettings />} />
-                            <Route path="referrals" element={<UserReferrals />} />
-                        </Route>
+                            {/* User Dashboard */}
+                            <Route path="/dashboard" element={
+                                <ProtectedRoute><DashboardLayout role="customer" /></ProtectedRoute>
+                            }>
+                                <Route index element={<UserDashboard />} />
+                                <Route path="orders" element={<UserOrders />} />
+                                <Route path="services" element={<UserServices />} />
+                                <Route path="courses" element={<UserCourses />} />
+                                <Route path="settings" element={<UserSettings />} />
+                                <Route path="referrals" element={<UserReferrals />} />
+                            </Route>
 
-                        {/* Admin Dashboard */}
-                        <Route path="/admin" element={
-                            <ProtectedRoute adminOnly={true}><DashboardLayout role="admin" /></ProtectedRoute>
-                        }>
-                            <Route index element={<AdminDashboard />} />
-                            <Route path="products" element={<AdminProducts />} />
-                            <Route path="orders" element={<AdminOrders />} />
-                            <Route path="services" element={<AdminServices />} />
-                            <Route path="coupons" element={<AdminCoupons />} />
-                            <Route path="users" element={<AdminUsers />} />
-                            <Route path="categories" element={<AdminCategories />} />
-                            <Route path="service-types" element={<AdminServiceTypes />} />
-                            <Route path="referrals" element={<AdminReferrals />} />
-                            <Route path="referral-settings" element={<AdminReferralSettings />} />
-                            <Route path="courses" element={<AdminCourses />} />
-                            <Route path="enrollments" element={<AdminEnrollments />} />
-                            <Route path="tally-enquiries" element={<AdminTallyEnquiries />} />
-                            <Route path="cctv-enquiries" element={<AdminCCTVEnquiries />} />
-                            <Route path="banners" element={<AdminBanners />} />
-                        </Route>
+                            {/* Admin Dashboard */}
+                            <Route path="/admin" element={
+                                <ProtectedRoute adminOnly={true}><DashboardLayout role="admin" /></ProtectedRoute>
+                            }>
+                                <Route index element={<AdminDashboard />} />
+                                <Route path="products" element={<AdminProducts />} />
+                                <Route path="orders" element={<AdminOrders />} />
+                                <Route path="services" element={<AdminServices />} />
+                                <Route path="coupons" element={<AdminCoupons />} />
+                                <Route path="users" element={<AdminUsers />} />
+                                <Route path="categories" element={<AdminCategories />} />
+                                <Route path="service-types" element={<AdminServiceTypes />} />
+                                <Route path="referrals" element={<AdminReferrals />} />
+                                <Route path="referral-settings" element={<AdminReferralSettings />} />
+                                <Route path="courses" element={<AdminCourses />} />
+                                <Route path="enrollments" element={<AdminEnrollments />} />
+                                <Route path="tally-enquiries" element={<AdminTallyEnquiries />} />
+                                <Route path="cctv-enquiries" element={<AdminCCTVEnquiries />} />
+                                <Route path="banners" element={<AdminBanners />} />
+                            </Route>
 
-                        {/* Auth — Clerk managed */}
-                        <Route path="/sign-in/*" element={
-                            <div className="min-h-screen bg-page-bg flex items-center justify-center p-lg">
-                                <SignIn routing="path" path="/sign-in" fallbackRedirectUrl="/" />
-                            </div>
-                        } />
-                        <Route path="/sign-up/*" element={
-                            <div className="min-h-screen bg-page-bg flex items-center justify-center p-lg">
-                                <SignUp routing="path" path="/sign-up" fallbackRedirectUrl="/onboarding" />
-                            </div>
-                        } />
-                        <Route path="/onboarding" element={<OnboardingPage />} />
-                    </Routes>
-                </Suspense>
-            </ShopProvider>
+                            {/* Auth */}
+                            <Route path="/sign-in" element={<SignIn />} />
+                            <Route path="/sign-up" element={<SignUp />} />
+                            <Route path="/onboarding" element={<OnboardingPage />} />
+                        </Routes>
+                    </Suspense>
+                </ShopProvider>
+            </NotificationProvider>
         </AuthProvider>
     );
 }

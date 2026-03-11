@@ -210,14 +210,14 @@ export default defineConfig(({ mode }) => ({
         rollupOptions: {
             output: {
                 // Requested baseline vendor splits
-                manualChunks: {
-                    'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-                    clerk: ['@clerk/clerk-react'],
-                    ui: ['lucide-react'],
-                    // Additional targeted splits
-                    recharts: ['recharts'],
-                    forms: ['formik', 'yup'],
-                    utils: ['clsx', 'tailwind-merge', 'react-hot-toast'],
+                manualChunks(id) {
+                    if (id.includes('react-dom') || id.includes('react-router-dom')) return 'react-vendor';
+                    if (id.includes('node_modules/react/')) return 'react-vendor';
+                    if (id.includes('firebase')) return 'vendor-firebase';
+                    if (id.includes('lucide-react')) return 'ui';
+                    if (id.includes('recharts')) return 'recharts';
+                    if (id.includes('formik') || id.includes('yup')) return 'forms';
+                    if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('react-hot-toast')) return 'utils';
                 },
             },
         },
