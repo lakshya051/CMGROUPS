@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { useSEO } from '../hooks/useSEO';
 
 export default function TermsOfService() {
+    useSEO({ title: 'Terms of Service — CMGROUPS', description: 'Terms and conditions for using the CMGROUPS platform and services.' });
     useEffect(() => { window.scrollTo(0, 0); }, []);
 
     return (

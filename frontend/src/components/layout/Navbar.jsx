@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search } from 'lucide-react';
+import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search, Download } from 'lucide-react';
 import Button from '../ui/Button';
 import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
@@ -8,6 +8,7 @@ import { useShop } from '../../context/ShopContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { categoriesAPI } from '../../lib/api';
 import NotificationDropdown from '../notifications/NotificationDropdown';
+import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -21,6 +22,7 @@ const Navbar = () => {
     const { user, logout, isSignedIn } = useAuth();
     const { cart } = useShop();
     const { unreadCount, toggleOpen, isOpen: notifOpen } = useNotifications();
+    const { canInstall, install, isInstalled } = useInstallPrompt();
 
     React.useEffect(() => {
         categoriesAPI.getAll().then(setCategories).catch(console.error);
@@ -352,6 +354,14 @@ const Navbar = () => {
                     <Link to="/courses" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Academy</Link>
                     <Link to="/tally-erp" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Tally ERP</Link>
                     <Link to="/cctv" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>CCTV Security</Link>
+                    {canInstall && !isInstalled && (
+                        <button
+                            onClick={() => { install(); setIsOpen(false); }}
+                            className="px-4 py-3 rounded-lg hover:bg-surface-hover text-trust font-medium flex items-center gap-2 transition-colors"
+                        >
+                            <Download size={18} /> Install App
+                        </button>
+                    )}
                     <div className="h-px bg-border-default my-2"></div>
                     <div className="flex items-center justify-between px-4">
                         <Link to="/wishlist" className="flex items-center gap-2 text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>

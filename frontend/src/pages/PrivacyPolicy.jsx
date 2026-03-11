@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { useSEO } from '../hooks/useSEO';
 
 export default function PrivacyPolicy() {
+    useSEO({ title: 'Privacy Policy — CMGROUPS', description: 'How CMGROUPS collects, uses and protects your personal information.' });
     useEffect(() => { window.scrollTo(0, 0); }, []);
 
     return (

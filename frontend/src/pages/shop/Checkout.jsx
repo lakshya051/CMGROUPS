@@ -12,6 +12,7 @@ import { checkoutSchema } from '../../utils/validationSchemas';
 import { addressesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { handleImageError } from '../../utils/image';
+import { useSEO } from '../../hooks/useSEO';
 
 // ── Smart Delivery defaults ─────────────────────────────────────────────────
 const DEFAULT_CITY = 'Hathras';
@@ -62,6 +63,7 @@ const Checkout = () => {
     const { cart, placeOrder } = useShop();
     const { user } = useAuth();
     const navigate = useNavigate();
+    useSEO({ title: 'Checkout — CMGROUPS', description: 'Complete your order.', noIndex: true });
 
     // ── Core flow state ─────────────────────────────────────────────────────
     const [step, setStep] = useState(1);

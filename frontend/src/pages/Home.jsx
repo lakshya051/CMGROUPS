@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSEO } from '../hooks/useSEO';
 import { productsAPI } from '../lib/api';
 import { RECENTLY_VIEWED_KEY } from '../constants';
 
@@ -10,7 +11,7 @@ import ProductRow from '../components/home/ProductRow';
 import BrandStrip from '../components/home/BrandStrip';
 
 const Home = () => {
-    // ── Best Sellers ──
+    useSEO({ title: 'CMGROUPS — Shop, Services & Courses in Etah', description: 'Your one-stop destination for computers, tech services, CCTV, Tally ERP and professional courses in Etah.' });
     const [bestSellers, setBestSellers] = useState([]);
     const [bestSellersLoading, setBestSellersLoading] = useState(true);
 

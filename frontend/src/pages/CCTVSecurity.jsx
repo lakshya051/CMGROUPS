@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useSEO } from '../hooks/useSEO';
 import {
     BellRing, Camera, CheckCircle, ChevronDown, ChevronUp, Factory, Home, MapPin,
     MessageCircle, MonitorSmartphone, MoonStar, Phone, School, ShieldCheck, Store, Video, Wifi, Wrench
@@ -75,6 +76,7 @@ const FAQItem = ({ q, a }) => {
 };
 
 const CCTVSecurity = () => {
+    useSEO({ title: 'CCTV Installation in Etah — CMGROUPS Security', description: 'Professional CCTV installation and security solutions for homes and businesses in Etah.' });
     const formRef = useRef(null);
     const [preset, setPreset] = useState({ propertyType: '', camerasNeeded: '' });
     const [form, setForm] = useState({ name: '', phone: '', city: '', propertyType: '', camerasNeeded: '', message: '' });

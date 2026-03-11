@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 import {
     CheckCircle, ChevronDown, ChevronUp, FileText, Package, Users,
     Building2, Receipt, BarChart3, CreditCard, Wrench, GraduationCap,
@@ -128,6 +129,7 @@ const FAQItem = ({ q, a }) => {
 // Main Page
 // ─────────────────────────────────────────────
 const TallyERP = () => {
+    useSEO({ title: 'Tally ERP Solutions in Etah — CMGROUPS', description: 'Tally Prime, Tally ERP 9 licensing, training and support in Etah.' });
     const formRef = useRef(null);
     const [licensePreset, setLicensePreset] = useState('');
     const [form, setForm] = useState({ name: '', businessName: '', phone: '', city: '', licenseType: '', message: '' });

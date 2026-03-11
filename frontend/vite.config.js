@@ -6,10 +6,13 @@ import { visualizer } from 'rollup-plugin-visualizer'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-    base: './',
+    base: '/',
     plugins: [
         react(),
         VitePWA({
+            strategies: 'injectManifest',
+            srcDir: 'src',
+            filename: 'sw.js',
             registerType: 'autoUpdate',
             includeAssets: [
                 'icons/*.png',
@@ -18,163 +21,86 @@ export default defineConfig(({ mode }) => ({
                 'placeholder-product.svg',
             ],
             manifest: {
-                name: 'CMGROUPS - Technology, Services & Education',
+                name: 'CMGROUPS',
                 short_name: 'CMGROUPS',
-                description: 'Shop computers, book tech services, and learn with expert courses — all in one app.',
+                description: 'Shop, Book Services, Learn Courses & More — Your Local Super App',
                 start_url: '/',
                 scope: '/',
                 display: 'standalone',
                 theme_color: '#e91e63',
-                background_color: '#EAEDED',
+                background_color: '#ffffff',
                 orientation: 'portrait',
                 lang: 'en',
                 dir: 'ltr',
-                categories: ['shopping', 'education', 'business'],
+                id: '/',
+                categories: ['shopping', 'education', 'lifestyle'],
                 icons: [
+                    { src: '/icons/icon-48x48.png', sizes: '48x48', type: 'image/png' },
                     { src: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
                     { src: '/icons/icon-96x96.png', sizes: '96x96', type: 'image/png' },
                     { src: '/icons/icon-128x128.png', sizes: '128x128', type: 'image/png' },
                     { src: '/icons/icon-144x144.png', sizes: '144x144', type: 'image/png' },
                     { src: '/icons/icon-152x152.png', sizes: '152x152', type: 'image/png' },
-                    { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+                    { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
                     { src: '/icons/icon-384x384.png', sizes: '384x384', type: 'image/png' },
-                    { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+                    { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+                    { src: '/icons/icon-192x192-maskable.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
                     { src: '/icons/icon-512x512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
                 ],
                 shortcuts: [
                     {
-                        name: 'Browse Products',
-                        short_name: 'Products',
-                        url: '/products',
-                        icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }],
-                    },
-                    {
-                        name: 'My Cart',
-                        short_name: 'Cart',
-                        url: '/cart',
-                        icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }],
-                    },
-                    {
                         name: 'My Orders',
                         short_name: 'Orders',
                         url: '/dashboard/orders',
-                        icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }],
+                        icons: [{ src: '/icons/shortcut-orders.png', sizes: '96x96' }],
                     },
                     {
-                        name: 'Courses',
+                        name: 'Book Service',
+                        short_name: 'Services',
+                        url: '/services',
+                        icons: [{ src: '/icons/shortcut-services.png', sizes: '96x96' }],
+                    },
+                    {
+                        name: 'My Courses',
                         short_name: 'Courses',
                         url: '/courses',
-                        icons: [{ src: '/icons/icon-96x96.png', sizes: '96x96' }],
+                        icons: [{ src: '/icons/shortcut-courses.png', sizes: '96x96' }],
+                    },
+                    {
+                        name: 'Shop Now',
+                        short_name: 'Shop',
+                        url: '/products',
+                        icons: [{ src: '/icons/shortcut-shop.png', sizes: '96x96' }],
                     },
                 ],
+                screenshots: [
+                    {
+                        src: '/screenshots/home.png',
+                        sizes: '1080x1920',
+                        type: 'image/png',
+                        form_factor: 'narrow',
+                        label: 'CMGROUPS Home',
+                    },
+                    {
+                        src: '/screenshots/products.png',
+                        sizes: '1080x1920',
+                        type: 'image/png',
+                        form_factor: 'narrow',
+                        label: 'Shop Products',
+                    },
+                ],
+                share_target: {
+                    action: '/products',
+                    method: 'GET',
+                    params: {
+                        title: 'title',
+                        text: 'text',
+                        url: 'url',
+                    },
+                },
             },
-        workbox: {
-            importScripts: ['/push-sw.js'],
-            globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-                navigateFallback: '/index.html',
-                navigateFallbackDenylist: [/^\/api\//, /^\/.well-known\//],
-                runtimeCaching: [
-                    {
-                        urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-                        handler: 'CacheFirst',
-                        options: {
-                            cacheName: 'google-fonts-cache',
-                            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-                        handler: 'CacheFirst',
-                        options: {
-                            cacheName: 'gstatic-fonts-cache',
-                            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/products(\?.*)?$/,
-                        handler: 'StaleWhileRevalidate',
-                        options: {
-                            cacheName: 'api-products',
-                            expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/products\/[^/]+$/,
-                        handler: 'StaleWhileRevalidate',
-                        options: {
-                            cacheName: 'api-product-detail',
-                            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 5 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/categories(\?.*)?$/,
-                        handler: 'StaleWhileRevalidate',
-                        options: {
-                            cacheName: 'api-categories',
-                            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/banners(\?.*)?$/,
-                        handler: 'StaleWhileRevalidate',
-                        options: {
-                            cacheName: 'api-banners',
-                            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 15 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/courses(\?.*)?$/,
-                        handler: 'StaleWhileRevalidate',
-                        options: {
-                            cacheName: 'api-courses',
-                            expiration: { maxEntries: 30, maxAgeSeconds: 60 * 10 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/cart(\?.*)?$/,
-                        handler: 'NetworkFirst',
-                        options: {
-                            cacheName: 'api-cart',
-                            expiration: { maxEntries: 5, maxAgeSeconds: 60 * 5 },
-                            networkTimeoutSeconds: 2,
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/orders\/my-orders(\?.*)?$/,
-                        handler: 'NetworkFirst',
-                        options: {
-                            cacheName: 'api-orders',
-                            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 5 },
-                            networkTimeoutSeconds: 2,
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                    {
-                        urlPattern: /\/api\/auth\/me$/,
-                        handler: 'NetworkOnly',
-                    },
-                    {
-                        urlPattern: /\/api\/.*(POST|PUT|PATCH|DELETE)/,
-                        handler: 'NetworkOnly',
-                    },
-                    {
-                        urlPattern: /\.(png|jpg|jpeg|webp|gif|avif)$/i,
-                        handler: 'CacheFirst',
-                        options: {
-                            cacheName: 'images-cache',
-                            expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
-                            cacheableResponse: { statuses: [0, 200] },
-                        },
-                    },
-                ],
+            injectManifest: {
+                globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
             },
             devOptions: {
                 enabled: false,
@@ -193,20 +119,13 @@ export default defineConfig(({ mode }) => ({
             '@': path.resolve(__dirname, './src'),
         },
     },
+    esbuild: {
+        drop: ['console', 'debugger'],
+    },
     build: {
-        // Target modern browsers - smaller output
         target: 'es2015',
-        // Warn if a chunk exceeds 500 kB
         chunkSizeWarningLimit: 500,
-        // Production optimization controls
         sourcemap: false,
-        minify: 'terser',
-        terserOptions: {
-            compress: {
-                drop_console: true,
-                drop_debugger: true,
-            },
-        },
         rollupOptions: {
             output: {
                 // Requested baseline vendor splits

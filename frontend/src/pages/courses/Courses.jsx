@@ -5,12 +5,14 @@ import Button from '../../components/ui/Button';
 import { coursesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { handleImageError } from '../../utils/image';
+import { useSEO } from '../../hooks/useSEO';
 
 const Courses = () => {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [category, setCategory] = useState('All');
     const [searchParams] = useSearchParams();
+    useSEO({ title: 'Computer Courses in Etah — CMGROUPS Academy', description: 'Learn Tally, computer basics, web development and more with expert instructors in Etah.' });
 
     useEffect(() => {
         coursesAPI.getAll()
