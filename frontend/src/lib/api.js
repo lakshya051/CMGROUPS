@@ -14,6 +14,8 @@ const getAuthHeaders = async () => {
     };
 };
 
+export { getAuthHeaders };
+
 const apiFetch = async (endpoint, options = {}) => {
     const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -33,6 +35,18 @@ const apiFetch = async (endpoint, options = {}) => {
 // ============ AUTH ============
 export const authAPI = {
     getMe: () => apiFetch('/auth/me'),
+
+    register: (name) =>
+        apiFetch('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        }),
+
+    onboarding: (data) =>
+        apiFetch('/auth/onboarding', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
 
     updateProfile: (data) =>
         apiFetch('/auth/profile', {
@@ -206,16 +220,7 @@ export const notificationsAPI = {
     getAll: () => apiFetch('/notifications'),
     markRead: (id) => apiFetch(`/notifications/${id}/read`, { method: 'PATCH' }),
     markAllRead: () => apiFetch('/notifications/read-all', { method: 'POST' }),
-    registerDevice: (token, platform = 'android') =>
-        apiFetch('/notifications/device', {
-            method: 'PUT',
-            body: JSON.stringify({ token, platform })
-        }),
-    unregisterDevice: (token) =>
-        apiFetch('/notifications/device', {
-            method: 'DELETE',
-            body: JSON.stringify({ token })
-        })
+    delete: (id) => apiFetch(`/notifications/${id}`, { method: 'DELETE' }),
 };
 
 // ============ REVIEWS ============
@@ -303,32 +308,26 @@ export const coursesAPI = {
     getById: (id) => apiFetch(`/courses/${id}`),
     getCoursePlayer: (id) => apiFetch(`/courses/${id}/player`),
 
-    // Student
     apply: (data) => apiFetch('/courses/apply', { method: 'POST', body: JSON.stringify(data) }),
     getMyApplications: () => apiFetch('/courses/my-applications'),
-    getMyEnrollments: () => apiFetch('/courses/my-enrollments'), // backward compat
+    getMyEnrollments: () => apiFetch('/courses/my-enrollments'),
 
-    // Admin - Courses
     create: (data) => apiFetch('/courses', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiFetch(`/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => apiFetch(`/courses/${id}`, { method: 'DELETE' }),
 
-    // Admin - Durations
     addDuration: (courseId, data) => apiFetch(`/courses/${courseId}/durations`, { method: 'POST', body: JSON.stringify(data) }),
     updateDuration: (id, data) => apiFetch(`/courses/durations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteDuration: (id) => apiFetch(`/courses/durations/${id}`, { method: 'DELETE' }),
 
-    // Admin - Batches
     addBatch: (durationId, data) => apiFetch(`/courses/durations/${durationId}/batches`, { method: 'POST', body: JSON.stringify(data) }),
     updateBatch: (id, data) => apiFetch(`/courses/batches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteBatch: (id) => apiFetch(`/courses/batches/${id}`, { method: 'DELETE' }),
 
-    // Admin - Applications
     getAllApplications: () => apiFetch('/courses/applications/all'),
     updateStatus: (id, status) => apiFetch(`/courses/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
     recordFeePayment: (id, data) => apiFetch(`/courses/applications/${id}/fee`, { method: 'POST', body: JSON.stringify(data) }),
 
-    // Certificate
     downloadCertificate: async (courseId) => {
         const headers = await getAuthHeaders();
         const response = await fetch(`${API_BASE}/courses/${courseId}/certificate`, {

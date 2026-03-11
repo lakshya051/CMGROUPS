@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getAuthHeaders } from '../lib/api';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -13,7 +14,7 @@ function urlBase64ToUint8Array(base64String) {
     return arr;
 }
 
-export function usePushNotifications(getToken) {
+export function usePushNotifications() {
     const isSupported =
         typeof window !== 'undefined' &&
         'serviceWorker' in navigator &&
@@ -32,14 +33,6 @@ export function usePushNotifications(getToken) {
         setPermission(Notification.permission);
     }, [isSupported]);
 
-    const authHeaders = useCallback(async () => {
-        const token = getToken ? await getToken() : null;
-        return {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-        };
-    }, [getToken]);
-
     const subscribe = useCallback(async () => {
         if (!isSupported) return false;
 
@@ -54,7 +47,7 @@ export function usePushNotifications(getToken) {
         });
 
         const json = subscription.toJSON();
-        const headers = await authHeaders();
+        const headers = await getAuthHeaders();
         await fetch(`${API_BASE}/push/subscribe`, {
             method: 'POST',
             headers,
@@ -67,7 +60,7 @@ export function usePushNotifications(getToken) {
         localStorage.setItem(LS_KEY, 'true');
         setIsSubscribed(true);
         return true;
-    }, [isSupported, authHeaders]);
+    }, [isSupported]);
 
     const unsubscribe = useCallback(async () => {
         if (!isSupported) return;
@@ -79,7 +72,7 @@ export function usePushNotifications(getToken) {
             const endpoint = subscription.endpoint;
             await subscription.unsubscribe();
 
-            const headers = await authHeaders();
+            const headers = await getAuthHeaders();
             await fetch(`${API_BASE}/push/unsubscribe`, {
                 method: 'DELETE',
                 headers,
@@ -89,7 +82,32 @@ export function usePushNotifications(getToken) {
 
         localStorage.removeItem(LS_KEY);
         setIsSubscribed(false);
-    }, [isSupported, authHeaders]);
+    }, [isSupported]);
 
-    return { isSupported, isSubscribed, subscribe, unsubscribe, permission };
+    // Layer 2: re-subscribe silently on every app open
+    const refreshSubscription = useCallback(async () => {
+        if (!isSupported) return;
+        if (Notification.permission !== 'granted') return;
+
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            const existing = await reg.pushManager.getSubscription();
+            if (existing) {
+                const json = existing.toJSON();
+                const headers = await getAuthHeaders();
+                await fetch(`${API_BASE}/push/subscribe`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        endpoint: json.endpoint,
+                        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+                    }),
+                });
+            }
+        } catch (err) {
+            console.warn('Push refresh failed silently:', err);
+        }
+    }, [isSupported]);
+
+    return { isSupported, isSubscribed, subscribe, unsubscribe, refreshSubscription, permission };
 }

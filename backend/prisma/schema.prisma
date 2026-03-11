@@ -12,7 +12,7 @@ datasource db {
 
 model User {
   id             Int      @id @default(autoincrement())
-  clerkId        String?  @unique
+  firebaseUid    String?  @unique
   email          String   @unique
   name           String?
   phone          String?
@@ -45,6 +45,7 @@ model User {
   enrollments        Enrollment[]
   attendances        Attendance[]
 
+  @@index([firebaseUid])
   @@index([role])
   @@index([createdAt])
 }

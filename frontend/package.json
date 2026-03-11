@@ -12,8 +12,8 @@
     "generate-icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.2",
     "clsx": "^2.0.0",
+    "firebase": "^12.10.0",
     "formik": "^2.4.9",
     "framer-motion": "^10.16.4",
     "lucide-react": "^0.292.0",

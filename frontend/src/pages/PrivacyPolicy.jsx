@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
                         <h2 className="text-xl font-heading font-bold">2. Information We Collect</h2>
                         <p className="text-text-secondary leading-relaxed">We may collect the following types of information:</p>
                         <ul className="list-disc pl-5 text-text-secondary space-y-1">
-                            <li><strong>Account Information:</strong> Name, email address, and phone number provided during sign-up via our authentication provider (Clerk).</li>
+                            <li><strong>Account Information:</strong> Name, email address, and phone number provided during sign-up via our authentication provider (Firebase Authentication).</li>
                             <li><strong>Order Data:</strong> Shipping address, order history, and payment transaction references.</li>
                             <li><strong>Service Bookings:</strong> Details of repair and maintenance service requests you submit.</li>
                             <li><strong>Course Enrollment:</strong> Course selections, progress, and certificate data.</li>
@@ -49,7 +49,7 @@ export default function PrivacyPolicy() {
                             We do not sell your personal information. We may share data with:
                         </p>
                         <ul className="list-disc pl-5 text-text-secondary space-y-1">
-                            <li><strong>Service providers:</strong> Payment processors, delivery partners, and our authentication provider (Clerk) to operate the Service.</li>
+                            <li><strong>Service providers:</strong> Payment processors, delivery partners, and our authentication provider (Firebase Authentication) to operate the Service.</li>
                             <li><strong>Technicians:</strong> Limited contact and service details shared with assigned technicians for repair bookings.</li>
                             <li><strong>Legal requirements:</strong> When required by law, regulation, or legal process.</li>
                         </ul>

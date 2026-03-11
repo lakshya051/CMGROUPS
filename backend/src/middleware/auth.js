@@ -1,5 +1,4 @@
-import { getAuth, clerkClient } from '@clerk/express';
-import crypto from 'crypto';
+import admin from '../utils/firebase.js';
 import prisma from '../lib/prisma.js';
 
 const SAFE_USER_SELECT = {
@@ -10,88 +9,34 @@ const SAFE_USER_SELECT = {
     role: true,
     referralCode: true,
     walletBalance: true,
-    createdAt: true
+    createdAt: true,
 };
-
-function generateReferralCode() {
-    return 'TN' + crypto.randomBytes(3).toString('hex').toUpperCase();
-}
-
-async function findOrCreateUser(clerkUserId) {
-    let user = await prisma.user.findUnique({
-        where: { clerkId: clerkUserId },
-        select: SAFE_USER_SELECT
-    });
-
-    if (user) {
-        if (user.email && user.email.startsWith('pending_')) {
-            try {
-                const clerkUser = await clerkClient.users.getUser(clerkUserId);
-                const email = clerkUser.emailAddresses.find(
-                    e => e.id === clerkUser.primaryEmailAddressId
-                )?.emailAddress;
-                const name = `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() || null;
-
-                if (email) {
-                    user = await prisma.user.update({
-                        where: { clerkId: clerkUserId },
-                        data: { email, ...(name && { name }) },
-                        select: SAFE_USER_SELECT
-                    });
-                }
-            } catch (err) {
-                console.error('Failed to resolve pending user from Clerk:', err.message);
-            }
-        }
-        return user;
-    }
-
-    let email = `pending_${clerkUserId}@clerk.dev`;
-    let name = null;
-    try {
-        const clerkUser = await clerkClient.users.getUser(clerkUserId);
-        const primaryEmail = clerkUser.emailAddresses.find(
-            e => e.id === clerkUser.primaryEmailAddressId
-        )?.emailAddress;
-        if (primaryEmail) email = primaryEmail;
-        name = `${clerkUser.firstName ?? ''} ${clerkUser.lastName ?? ''}`.trim() || null;
-    } catch (err) {
-        console.error('Failed to fetch user from Clerk API:', err.message);
-    }
-
-    let referralCode;
-    let unique = false;
-    while (!unique) {
-        referralCode = generateReferralCode();
-        const found = await prisma.user.findFirst({ where: { referralCode } });
-        if (!found) unique = true;
-    }
-
-    user = await prisma.user.create({
-        data: {
-            clerkId: clerkUserId,
-            email,
-            name,
-            referralCode,
-        },
-        select: SAFE_USER_SELECT
-    });
-
-    return user;
-}
 
 export const protect = async (req, res, next) => {
     try {
-        const { userId } = getAuth(req);
-        if (!userId) {
-            return res.status(401).json({ error: 'Not authorized, no token' });
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'No token provided' });
         }
 
-        req.user = await findOrCreateUser(userId);
+        const token = authHeader.split('Bearer ')[1];
+        const decoded = await admin.auth().verifyIdToken(token);
+
+        const user = await prisma.user.findUnique({
+            where: { firebaseUid: decoded.uid },
+            select: SAFE_USER_SELECT,
+        });
+
+        if (!user) {
+            return res.status(401).json({ error: 'User not found' });
+        }
+
+        req.user = user;
+        req.firebaseUid = decoded.uid;
         next();
-    } catch (error) {
-        console.error('Auth middleware error:', error.message);
-        return res.status(401).json({ error: 'Not authorized, invalid token' });
+    } catch (err) {
+        console.error('Auth middleware error:', err.message);
+        return res.status(401).json({ error: 'Invalid or expired token' });
     }
 };
 
@@ -105,9 +50,18 @@ export const adminOnly = (req, res, next) => {
 
 export const optionalProtect = async (req, res, next) => {
     try {
-        const { userId } = getAuth(req);
-        if (userId) {
-            req.user = await findOrCreateUser(userId);
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.split('Bearer ')[1];
+            const decoded = await admin.auth().verifyIdToken(token);
+            const user = await prisma.user.findUnique({
+                where: { firebaseUid: decoded.uid },
+                select: SAFE_USER_SELECT,
+            });
+            if (user) {
+                req.user = user;
+                req.firebaseUid = decoded.uid;
+            }
         }
         next();
     } catch {
