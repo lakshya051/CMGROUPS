@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
         const { category, search, sort, minPrice, maxPrice, isSecondHand, page, limit } = req.query;
 
         // Build where clause
-        let where = {};
+        let where = { isActive: true };
         if (category) {
             const categories = category.split(',').map(c => c.trim()).filter(Boolean);
             if (categories.length > 0) where.category = { in: categories };
@@ -99,8 +99,8 @@ router.get('/:id', async (req, res) => {
         const cached = cache.get(cacheKey);
         if (cached) return res.json(cached);
 
-        const product = await prisma.product.findUnique({
-            where: { id: parseInt(req.params.id) },
+        const product = await prisma.product.findFirst({
+            where: { id: parseInt(req.params.id), isActive: true },
             include: {
                 variants: true,
                 reviews: {
@@ -262,7 +262,10 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 // DELETE /api/products/:id (Admin only)
 router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
-        await prisma.product.delete({ where: { id: parseInt(req.params.id) } });
+        await prisma.product.update({
+            where: { id: parseInt(req.params.id) },
+            data: { isActive: false }
+        });
 
         // Invalidate caches
         cache.delByPrefix('products:');

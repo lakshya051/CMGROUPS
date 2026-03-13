@@ -97,11 +97,11 @@ router.post('/', optionalProtect, async (req, res) => {
         const [dbProducts, dbVariants] = await Promise.all([
             prisma.product.findMany({
                 where: { id: { in: productIds } },
-                select: { id: true, title: true, stock: true }
+                select: { id: true, title: true, stock: true, price: true }
             }),
             prisma.productVariant.findMany({
                 where: { id: { in: variantIds } },
-                select: { id: true, name: true, stock: true, productId: true }
+                select: { id: true, name: true, stock: true, productId: true, price: true }
             })
         ]);
         logCheckoutTiming(checkoutRequestId, 'stock_prefetch_complete', checkoutStart);
@@ -188,10 +188,17 @@ router.post('/', optionalProtect, async (req, res) => {
         const newOrderId = await prisma.$transaction(async (tx) => {
             // 1. Deduct wallet balance (if applicable)
             if (useWallet && parsedWalletUsed > 0 && req.user) {
-                await tx.user.update({
-                    where: { id: req.user.id },
+                const updatedWallet = await tx.user.updateMany({
+                    where: {
+                        id: req.user.id,
+                        walletBalance: { gte: parsedWalletUsed } // SECURE: DB-level constraint prevents race condition
+                    },
                     data: { walletBalance: { decrement: parsedWalletUsed } }
                 });
+
+                if (updatedWallet.count === 0) {
+                    throw new Error('Insufficient wallet balance during transaction processing');
+                }
             }
 
             // 1.5 Real-time Stock Validation
@@ -269,9 +276,16 @@ router.post('/', optionalProtect, async (req, res) => {
                             const pId = parseInt(item.productId, 10);
                             const vId = item.variantId ? parseInt(item.variantId, 10) : null;
                             const qty = parseInt(item.quantity, 10);
-                            const prc = parseFloat(String(item.price).replace(/,/g, ''));
 
-                            if (isNaN(pId) || isNaN(qty) || isNaN(prc)) {
+                            // SECURE: Always use the price from the database, never trust the client
+                            let actualPrice;
+                            if (vId !== null) {
+                                actualPrice = variantMap.get(vId)?.price;
+                            } else {
+                                actualPrice = productMap.get(pId)?.price;
+                            }
+
+                            if (isNaN(pId) || isNaN(qty) || actualPrice === undefined || actualPrice === null) {
                                 throw new Error('Invalid item data in cart');
                             }
 
@@ -279,7 +293,7 @@ router.post('/', optionalProtect, async (req, res) => {
                                 productId: pId,
                                 variantId: vId,
                                 quantity: qty,
-                                price: prc
+                                price: actualPrice // SECURE: Price enforced from DB
                             };
                         })
                     }
@@ -378,7 +392,7 @@ router.post('/', optionalProtect, async (req, res) => {
             user: req.user?.id
         });
         // If it's a known error from the transaction (like stock issue), return 400
-        if (error.message && (error.message.includes('Insufficient stock') || error.message.includes('Invalid item data'))) {
+        if (error.message && (error.message.includes('Insufficient stock') || error.message.includes('Invalid item data') || error.message.includes('Insufficient wallet balance'))) {
             return res.status(400).json({ error: error.message });
         }
         res.status(500).json({ error: 'Internal server error. Our team has been notified.' });

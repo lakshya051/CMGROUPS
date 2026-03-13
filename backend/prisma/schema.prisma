@@ -6,40 +6,40 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id             Int      @id @default(autoincrement())
-  firebaseUid    String?  @unique
-  email          String   @unique
-  name           String?
-  phone          String?
-  referralCode   String?  @unique
-  walletBalance  Float    @default(0)
-  tier           String   @default("Bronze")
-  tierPoints     Float    @default(0)
-  referredById   Int?
-  referredBy     User?    @relation("UserReferrals", fields: [referredById], references: [id])
-  role           String   @default("customer")
-  createdAt      DateTime @default(now())
-  
-  orders    Order[]
-  reviews   Review[]
-  bookings  ServiceBooking[]
-  referrals User[]     @relation("UserReferrals")
-  referralsMade     Referral[] @relation("Referrer")
-  referralsReceived Referral[] @relation("Referee")
-  walletTransactions WalletTransaction[]
-  productAlerts      ProductAlert[]
-  notifications      Notification[]
+  id            Int      @id @default(autoincrement())
+  firebaseUid   String?  @unique
+  email         String   @unique
+  name          String?
+  phone         String?
+  referralCode  String?  @unique
+  walletBalance Float    @default(0)
+  tier          String   @default("Bronze")
+  tierPoints    Float    @default(0)
+  referredById  Int?
+  referredBy    User?    @relation("UserReferrals", fields: [referredById], references: [id])
+  role          String   @default("customer")
+  createdAt     DateTime @default(now())
+
+  orders              Order[]
+  reviews             Review[]
+  bookings            ServiceBooking[]
+  referrals           User[]               @relation("UserReferrals")
+  referralsMade       Referral[]           @relation("Referrer")
+  referralsReceived   Referral[]           @relation("Referee")
+  walletTransactions  WalletTransaction[]
+  productAlerts       ProductAlert[]
+  notifications       Notification[]
   deviceRegistrations DeviceRegistration[]
-  pushSubscriptions  PushSubscription[]
-  wishlists          Wishlist[]
-  cartItems          CartItem[]
-  addresses          Address[]
-  
+  pushSubscriptions   PushSubscription[]
+  wishlists           Wishlist[]
+  cartItems           CartItem[]
+  addresses           Address[]
+
   // Education Module
   courseApplications CourseApplication[]
   enrollments        Enrollment[]
@@ -51,54 +51,54 @@ model User {
 }
 
 model Course {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String
-  instructor  String
-  category    String   @default("Computer")
-  thumbnail   String   @default("")
-  hasCertificate Boolean @default(true)
-  isPublished Boolean  @default(true)
-  referrerPoints    Float?
-  refereePoints     Float?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  title          String
+  description    String
+  instructor     String
+  category       String   @default("Computer")
+  thumbnail      String   @default("")
+  hasCertificate Boolean  @default(true)
+  isPublished    Boolean  @default(true)
+  referrerPoints Float?
+  refereePoints  Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   applications CourseApplication[]
   durations    CourseDuration[]
-  enrollments  Enrollment[]  // kept for backward compat
+  enrollments  Enrollment[] // kept for backward compat
   materials    CourseMaterial[]
   attendances  Attendance[]
 }
 
 model CourseDuration {
-  id               Int      @id @default(autoincrement())
-  courseId         Int
-  course           Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  label            String   // "3 Months", "6 Months"
-  totalFee         Float
-  fullPayDiscount  Float    @default(0)  // discount % for full upfront payment
-  installments     Int      @default(3)  // number of monthly installments
-  batches          CourseBatch[]
-  applications     CourseApplication[]
+  id              Int                 @id @default(autoincrement())
+  courseId        Int
+  course          Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  label           String // "3 Months", "6 Months"
+  totalFee        Float
+  fullPayDiscount Float               @default(0) // discount % for full upfront payment
+  installments    Int                 @default(3) // number of monthly installments
+  batches         CourseBatch[]
+  applications    CourseApplication[]
 }
 
 model CourseBatch {
-  id           Int            @id @default(autoincrement())
+  id           Int                 @id @default(autoincrement())
   durationId   Int
-  duration     CourseDuration @relation(fields: [durationId], references: [id], onDelete: Cascade)
-  name         String         // "Morning", "Afternoon", "Evening"
-  timing       String         // "10:00 AM – 12:00 PM"
-  seatLimit    Int            @default(20)
+  duration     CourseDuration      @relation(fields: [durationId], references: [id], onDelete: Cascade)
+  name         String // "Morning", "Afternoon", "Evening"
+  timing       String // "10:00 AM – 12:00 PM"
+  seatLimit    Int                 @default(20)
   applications CourseApplication[]
 }
 
 model CourseApplication {
-  id           Int      @id @default(autoincrement())
+  id           Int             @id @default(autoincrement())
   userId       Int
-  user         User     @relation(fields: [userId], references: [id])
+  user         User            @relation(fields: [userId], references: [id])
   courseId     Int
-  course       Course   @relation(fields: [courseId], references: [id])
+  course       Course          @relation(fields: [courseId], references: [id])
   durationId   Int?
   duration     CourseDuration? @relation(fields: [durationId], references: [id])
   batchId      Int?
@@ -107,14 +107,14 @@ model CourseApplication {
   email        String
   phone        String
   message      String?
-  paymentMode  String   @default("Installment") // "Full" | "Installment"
+  paymentMode  String          @default("Installment") // "Full" | "Installment"
   referralCode String?
-  status       String   @default("Pending")     // "Pending" | "Approved" | "Rejected" | "Enrolled" | "Completed"
+  status       String          @default("Pending") // "Pending" | "Approved" | "Rejected" | "Enrolled" | "Completed"
   enrolledAt   DateTime?
   completedAt  DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime        @default(now())
 
-  feePayments  FeePayment[]
+  feePayments FeePayment[]
 
   @@index([userId])
   @@index([status])
@@ -122,28 +122,28 @@ model CourseApplication {
 }
 
 model FeePayment {
-  id            Int              @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
   applicationId Int
   application   CourseApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   amount        Float
   note          String?
-  paidAt        DateTime         @default(now())
-  markedBy      String           // admin email
+  paidAt        DateTime          @default(now())
+  markedBy      String // admin email
 }
 
 model Enrollment {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  courseId  Int
-  course    Course   @relation(fields: [courseId], references: [id])
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  courseId      Int
+  course        Course   @relation(fields: [courseId], references: [id])
   status        String   @default("Active") // "Active", "Completed", "Dropped"
   progress      Int      @default(0)
   paymentStatus String   @default("Pending") // "Pending", "Partial", "Paid"
   feePaid       Float    @default(0)
   createdAt     DateTime @default(now())
-  
-  attendances   Attendance[]
+
+  attendances Attendance[]
 
   @@unique([userId, courseId])
 }
@@ -155,7 +155,7 @@ model CourseMaterial {
   title       String
   description String?
   fileUrl     String
-  fileType    String   // "PDF", "Video", "Link", "Document"
+  fileType    String // "PDF", "Video", "Link", "Document"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -181,7 +181,7 @@ model WalletTransaction {
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
   amount      Float
-  type        String   // "CREDIT" | "DEBIT"
+  type        String // "CREDIT" | "DEBIT"
   description String
   orderId     Int?
   createdAt   DateTime @default(now())
@@ -190,30 +190,31 @@ model WalletTransaction {
 }
 
 model Product {
-  id          Int      @id @default(autoincrement())
-  title       String
-  price       Float
-  stock       Int
-  category    String
-  brand       String?
-  images      String[]  @default([])
-  description String?
-  specs       Json?
-  rating      Float    @default(0)
-  numReviews  Int      @default(0)
-  condition   String   @default("New")
-  isSecondHand Boolean @default(false)
-  isReturnable Boolean @default(true)
-  returnWindowDays Int @default(3)
-  referrerPoints    Float?
-  refereePoints     Float?
-  
-  orderItems  OrderItem[]
-  reviews     Review[]
-  alerts      ProductAlert[]
-  wishlists   Wishlist[]
-  variants    ProductVariant[]
-  cartItems   CartItem[]
+  id               Int      @id @default(autoincrement())
+  title            String
+  price            Float
+  stock            Int
+  category         String
+  brand            String?
+  images           String[] @default([])
+  description      String?
+  specs            Json?
+  rating           Float    @default(0)
+  numReviews       Int      @default(0)
+  condition        String   @default("New")
+  isSecondHand     Boolean  @default(false)
+  isReturnable     Boolean  @default(true)
+  returnWindowDays Int      @default(3)
+  referrerPoints   Float?
+  refereePoints    Float?
+  isActive         Boolean  @default(true)
+
+  orderItems OrderItem[]
+  reviews    Review[]
+  alerts     ProductAlert[]
+  wishlists  Wishlist[]
+  variants   ProductVariant[]
+  cartItems  CartItem[]
 
   @@index([category])
   @@index([isSecondHand])
@@ -234,55 +235,54 @@ model Wishlist {
 }
 
 model CartItem {
-  id        Int      @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId Int
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   variantId Int?
   variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  quantity  Int      @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  quantity  Int             @default(1)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@unique([userId, productId, variantId])
   @@index([userId])
 }
 
-
 model Order {
-  id              Int         @id @default(autoincrement())
-  userId          Int?
-  user            User?       @relation(fields: [userId], references: [id])
-  total           Float
-  walletUsed      Float       @default(0)
-  status          String      @default("Processing")
-  paymentMethod   String      @default("pay_at_store")
-  paymentOtp      String?
-  isPaid          Boolean     @default(false)
-  shippingAddress Json?
-  guestInfo       Json?
+  id               Int      @id @default(autoincrement())
+  userId           Int?
+  user             User?    @relation(fields: [userId], references: [id])
+  total            Float
+  walletUsed       Float    @default(0)
+  status           String   @default("Processing")
+  paymentMethod    String   @default("pay_at_store")
+  paymentOtp       String?
+  isPaid           Boolean  @default(false)
+  shippingAddress  Json?
+  guestInfo        Json?
   referralCodeUsed String?
-  couponCode      String?
-  discountAmount  Float       @default(0)
-  createdAt       DateTime    @default(now())
-  
+  couponCode       String?
+  discountAmount   Float    @default(0)
+  createdAt        DateTime @default(now())
+
   // Cancellation & Return Fields
-  cancelReason    String?
-  returnReason    String?
-  returnStatus    String      @default("None") // "None", "Requested", "Approved", "Rejected", "Completed"
-  refundStatus    String      @default("None") // "None", "Pending", "Processed"
-  refundAmount    Float?
-  deliveredAt     DateTime?
+  cancelReason       String?
+  returnReason       String?
+  returnStatus       String    @default("None") // "None", "Requested", "Approved", "Rejected", "Completed"
+  refundStatus       String    @default("None") // "None", "Pending", "Processed"
+  refundAmount       Float?
+  deliveredAt        DateTime?
   referralEligibleAt DateTime?
 
   // Smart Delivery location fields
-  latitude        Float?
-  longitude       Float?
-  googleMapLink   String?
+  latitude      Float?
+  longitude     Float?
+  googleMapLink String?
 
-  items           OrderItem[]
-  referrals       Referral[]
+  items     OrderItem[]
+  referrals Referral[]
 
   @@index([userId])
   @@index([status])
@@ -293,11 +293,11 @@ model Order {
 }
 
 model OrderItem {
-  id        Int      @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   orderId   Int
-  order     Order    @relation(fields: [orderId], references: [id])
+  order     Order           @relation(fields: [orderId], references: [id])
   productId Int
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product         @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
   variantId Int?
@@ -309,75 +309,75 @@ model OrderItem {
 }
 
 model Review {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  productId Int
-  product   Product  @relation(fields: [productId], references: [id])
-  rating    Int
-  comment   String?
-  images    String[]   @default([])
-  isVerified Boolean   @default(false)
-  helpfulVotes Int     @default(0)
-  voters    Int[]      @default([]) // Store user IDs who voted
-  createdAt DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  productId    Int
+  product      Product  @relation(fields: [productId], references: [id])
+  rating       Int
+  comment      String?
+  images       String[] @default([])
+  isVerified   Boolean  @default(false)
+  helpfulVotes Int      @default(0)
+  voters       Int[]    @default([]) // Store user IDs who voted
+  createdAt    DateTime @default(now())
 
   @@index([productId, createdAt])
   @@index([userId, productId])
 }
 
 model ServiceBooking {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  user           User     @relation(fields: [userId], references: [id])
-  serviceType    String
-  description    String?
-  deviceType     String?
-  deviceBrand    String?
-  date           DateTime
-  timeSlot       String?
-  status         String   @default("Pending")
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  user             User      @relation(fields: [userId], references: [id])
+  serviceType      String
+  description      String?
+  deviceType       String?
+  deviceBrand      String?
+  date             DateTime
+  timeSlot         String?
+  status           String    @default("Pending")
   referralCodeUsed String?
   // Customer details
-  customerName   String?
-  customerPhone  String?
-  address        String?
-  city           String?
-  pincode        String?
-  landmark       String?
+  customerName     String?
+  customerPhone    String?
+  address          String?
+  city             String?
+  pincode          String?
+  landmark         String?
   // Admin fields
-  estimatedPrice Float?
-  finalPrice     Float?
-  adminNotes     String?
-  assignedTo     String?
+  estimatedPrice   Float?
+  finalPrice       Float?
+  adminNotes       String?
+  assignedTo       String?
   // OTP for pickup verification
-  pickupOtp      String?
+  pickupOtp        String?
   // Timestamps
-  confirmedAt    DateTime?
-  pickedUpAt     DateTime?
-  completedAt    DateTime?
-  deliveredAt    DateTime?
-  createdAt      DateTime @default(now())
+  confirmedAt      DateTime?
+  pickedUpAt       DateTime?
+  completedAt      DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime  @default(now())
 
   // --- Service Hub Upgrade Fields ---
   // OTP verification
-  otpVerified              Boolean   @default(false)
-  otpGeneratedAt           DateTime?
+  otpVerified             Boolean     @default(false)
+  otpGeneratedAt          DateTime?
   // Technician assignment
-  technicianId             Int?
-  technician               Technician? @relation(fields: [technicianId], references: [id])
+  technicianId            Int?
+  technician              Technician? @relation(fields: [technicianId], references: [id])
   // Scheduling & invoice
-  estimatedCompletionDate  DateTime?
-  invoiceUrl               String?
+  estimatedCompletionDate DateTime?
+  invoiceUrl              String?
   // Cancellation
-  cancelledAt              DateTime?
-  cancellationReason       String?
+  cancelledAt             DateTime?
+  cancellationReason      String?
   // Customer feedback
-  customerRating           Int?
-  customerReview           String?
+  customerRating          Int?
+  customerReview          String?
 
   // Relations
-  invoice        ServiceInvoice?
+  invoice ServiceInvoice?
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -391,7 +391,7 @@ model Technician {
   name      String
   phone     String           @unique
   email     String?          @unique
-  skills    String[]         // e.g. ["Laptop Repair", "CCTV"]
+  skills    String[] // e.g. ["Laptop Repair", "CCTV"]
   isActive  Boolean          @default(true)
   createdAt DateTime         @default(now())
   bookings  ServiceBooking[]
@@ -419,7 +419,7 @@ model ServiceInvoice {
 model Coupon {
   id             Int       @id @default(autoincrement())
   code           String    @unique
-  discountType   String    // "percent" or "fixed"
+  discountType   String // "percent" or "fixed"
   value          Float
   active         Boolean   @default(true)
   expiresAt      DateTime?
@@ -429,26 +429,26 @@ model Coupon {
 }
 
 model Referral {
-  id           Int       @id @default(autoincrement())
-  referrerId   Int
-  referrer     User      @relation("Referrer", fields: [referrerId], references: [id])
-  refereeId    Int
-  referee      User      @relation("Referee", fields: [refereeId], references: [id])
-  status       String    @default("pending")  // "pending" | "completed" | "rewarded"
-  rewardAmount Float     @default(200)       // This is the referrer's reward
-  refereeReward Float?                        // This is the referee's reward
-  orderId      Int?
-  order        Order?    @relation(fields: [orderId], references: [id])
-  source       String    @default("shopping") // "shopping" | "course"
-  courseName   String?   // name of the course (for display in portal)
-  createdAt    DateTime  @default(now())
-  completedAt  DateTime?
+  id            Int       @id @default(autoincrement())
+  referrerId    Int
+  referrer      User      @relation("Referrer", fields: [referrerId], references: [id])
+  refereeId     Int
+  referee       User      @relation("Referee", fields: [refereeId], references: [id])
+  status        String    @default("pending") // "pending" | "completed" | "rewarded"
+  rewardAmount  Float     @default(200) // This is the referrer's reward
+  refereeReward Float? // This is the referee's reward
+  orderId       Int?
+  order         Order?    @relation(fields: [orderId], references: [id])
+  source        String    @default("shopping") // "shopping" | "course"
+  courseName    String? // name of the course (for display in portal)
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
 
+  @@unique([orderId]) // Prevents duplicate referral payouts for the same order
   @@index([referrerId])
   @@index([refereeId])
   @@index([status])
   @@index([source])
-  @@index([orderId])
   @@index([referrerId, status])
   @@index([referrerId, source])
   @@index([refereeId, referrerId, source])
@@ -466,48 +466,48 @@ model Category {
 }
 
 model ServiceType {
-  id          Int      @id @default(autoincrement())
-  title       String   @unique
-  description String?
-  icon        String?     // Icon name e.g. "Wrench", "Monitor", "Cpu"
-  price       String?     // Starting price e.g. "₹499"
-  features    Json?       // Array of feature strings
-  active      Boolean  @default(true)
-  referrerPoints    Float?
-  refereePoints     Float?
-  createdAt   DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  title          String   @unique
+  description    String?
+  icon           String? // Icon name e.g. "Wrench", "Monitor", "Cpu"
+  price          String? // Starting price e.g. "₹499"
+  features       Json? // Array of feature strings
+  active         Boolean  @default(true)
+  referrerPoints Float?
+  refereePoints  Float?
+  createdAt      DateTime @default(now())
 
   @@index([active])
 }
 
 model ProductVariant {
-  id          Int      @id @default(autoincrement())
-  productId   Int
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name        String   // e.g. "64GB", "Red", "512GB SSD"
-  price       Float    // variant specific price
-  stock       Int      @default(0)
-  sku         String?  // optional stock keeping unit code
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String // e.g. "64GB", "Red", "512GB SSD"
+  price     Float // variant specific price
+  stock     Int      @default(0)
+  sku       String? // optional stock keeping unit code
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  orderItems  OrderItem[] // so order items can reference a variant
-  cartItems   CartItem[]
+  orderItems OrderItem[] // so order items can reference a variant
+  cartItems  CartItem[]
 
   @@index([productId])
   @@index([productId, price])
 }
 
 model ProductAlert {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
-  productId Int
-  product   Product  @relation(fields: [productId], references: [id])
-  type      String   // "STOCK" | "PRICE_DROP"
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id])
+  productId      Int
+  product        Product  @relation(fields: [productId], references: [id])
+  type           String // "STOCK" | "PRICE_DROP"
   priceThreshold Float? // For price drop alerts, notify if price drops below this
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
   @@unique([userId, productId, type])
   @@index([userId])
@@ -520,9 +520,9 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id])
   title     String
   message   String
-  type      String   // "ALERT" | "ORDER" | "SYSTEM"
+  type      String // "ALERT" | "ORDER" | "SYSTEM"
   isRead    Boolean  @default(false)
-  link      String?  // Optional link to redirect user
+  link      String? // Optional link to redirect user
   createdAt DateTime @default(now())
 
   @@index([userId])
@@ -561,11 +561,11 @@ model ReferralSettings {
   pointsPerServiceBooking   Float    @default(100)
   pointsPerCourseEnrollment Float    @default(300)
   pointToRupeeRate          Float    @default(100) // 100 points = ₹10
-  pointExpiryDays           Int?     // null = no expiry
+  pointExpiryDays           Int? // null = no expiry
   tierSystemEnabled         Boolean  @default(false)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
-  
+
   @@unique([id]) // Single settings record
 }
 
@@ -631,7 +631,6 @@ model Banner {
   @@index([displayOrder])
   @@index([active, displayOrder])
 }
-
 
 model Address {
   id            String   @id @default(uuid())

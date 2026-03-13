@@ -1,0 +1,26 @@
+{
+	"appId": "com.cmgroups.technova",
+	"appName": "TechNova",
+	"webDir": "dist",
+	"server": {
+		"url": "https://cmgroups.vercel.app/",
+		"errorPath": "error.html",
+		"cleartext": true
+	},
+	"plugins": {
+		"StatusBar": {
+			"overlaysWebView": false,
+			"style": "LIGHT",
+			"backgroundColor": "#EAEDED"
+		},
+		"SplashScreen": {
+			"launchShowDuration": 3000,
+			"launchAutoHide": true,
+			"backgroundColor": "#ffffff",
+			"showSpinner": true
+		}
+	},
+	"packageClassList": [
+		"StatusBarPlugin"
+	]
+}
