@@ -1,19 +1,27 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import BottomNav from './BottomNav';
+import MobileDrawer from './MobileDrawer';
 
 const SharedLayout = () => {
     const location = useLocation();
-    const hasMobileSearchHeader = !location.pathname.startsWith('/tally-erp');
+    const hasMobileSearchHeader = !location.pathname.startsWith('/tally-erp') && !location.pathname.startsWith('/cctv');
+    const [drawerOpen, setDrawerOpen] = useState(false);
+
+    const openDrawer = useCallback(() => setDrawerOpen(true), []);
+    const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
     return (
-        <div className="safe-screen min-h-screen flex flex-col bg-background text-text-main">
+        <div className="safe-screen min-h-screen flex flex-col bg-background text-text-main pb-14 md:pb-0">
             <Navbar />
-            <main className={`flex-grow md:pt-16 ${hasMobileSearchHeader ? 'pt-32' : 'pt-16'}`}>
+            <main className={`flex-grow md:pt-16 ${hasMobileSearchHeader ? 'pt-36' : 'pt-24'}`}>
                 <Outlet />
             </main>
             <Footer />
+            <BottomNav onMenuClick={openDrawer} />
+            <MobileDrawer isOpen={drawerOpen} onClose={closeDrawer} />
         </div>
     );
 };
