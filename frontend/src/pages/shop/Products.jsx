@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import ProductCard from '../../components/shop/ProductCard'
 import FilterSidebar from '../../components/shop/FilterSidebar'
@@ -61,16 +61,22 @@ const Products = () => {
     }, [])
 
     // ─── Sync URL changes to local state ────────────────────────
+    const urlSyncRef = useRef(false)
     useEffect(() => {
         const urlQ = searchParams.get('q') || '';
-        if (urlQ !== searchTerm) {
+        if (urlQ !== debouncedSearchTerm) {
+            urlSyncRef.current = true
             setSearchTerm(urlQ);
             setDebouncedSearchTerm(urlQ);
         }
-    }, [searchParams]);
+    }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // ─── Debounce search ────────────────────────────────────────
+    // ─── Debounce search (skip when driven by URL change) ───────
     useEffect(() => {
+        if (urlSyncRef.current) {
+            urlSyncRef.current = false
+            return
+        }
         const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300)
         return () => clearTimeout(timer)
     }, [searchTerm])
@@ -80,7 +86,8 @@ const Products = () => {
         setPage(1)
     }, [debouncedSearchTerm, selectedCategories, selectedPriceRanges, minRating, conditionFilter, includeOutOfStock, sortBy])
 
-    // ─── Sync filters → URL params ─────────────────────────────
+    // ─── Sync filters → URL params (skip if nothing changed) ───
+    const prevParamsStr = useRef(searchParams.toString())
     useEffect(() => {
         const params = new URLSearchParams()
         if (debouncedSearchTerm) params.set('q', debouncedSearchTerm)
@@ -99,7 +106,11 @@ const Products = () => {
         if (sortBy !== 'newest') params.set('sort', sortBy)
         if (page > 1) params.set('page', String(page))
 
-        setSearchParams(params, { replace: true })
+        const nextStr = params.toString()
+        if (nextStr !== prevParamsStr.current) {
+            prevParamsStr.current = nextStr
+            setSearchParams(params, { replace: true })
+        }
     }, [debouncedSearchTerm, selectedCategories, selectedPriceRanges, minRating, conditionFilter, includeOutOfStock, sortBy, page, setSearchParams])
 
     // ─── Fetch Products ─────────────────────────────────────────

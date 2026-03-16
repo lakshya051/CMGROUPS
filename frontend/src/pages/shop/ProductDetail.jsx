@@ -113,6 +113,7 @@ const ProductDetail = () => {
             setTimeout(() => setShake(false), 500);
             return;
         }
+        if (isCurrentlyOutOfStock) return;
         setErrorMsg("");
         const variantToAdd = hasMultipleVariants ? selectedVariant : (product.variants?.[0] || null);
         addToCart(product, 1, variantToAdd);
@@ -248,20 +249,28 @@ const ProductDetail = () => {
                                         <button
                                             key={variant.id}
                                             onClick={() => {
-                                                if (!outOfStock) {
-                                                    setSelectedVariant(variant);
-                                                    setErrorMsg("");
-                                                }
+                                                setSelectedVariant(variant);
+                                                setErrorMsg("");
                                             }}
-                                            disabled={outOfStock}
-                                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all flex items-center gap-2 ${outOfStock ? 'opacity-40 cursor-not-allowed bg-page-bg border-border-default line-through' : isSelected ? 'border-trust bg-trust/10 text-trust' : 'border-border-default text-text-primary hover:border-trust hover:bg-surface-hover'}`}
+                                            className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all flex items-center gap-2 ${
+                                                isSelected
+                                                    ? outOfStock
+                                                        ? 'border-error bg-error/10 text-error'
+                                                        : 'border-trust bg-trust/10 text-trust'
+                                                    : outOfStock
+                                                        ? 'opacity-60 bg-page-bg border-border-default text-text-muted'
+                                                        : 'border-border-default text-text-primary hover:border-trust hover:bg-surface-hover'
+                                            }`}
                                         >
-                                            {variant.name} {isSelected && !outOfStock && <CheckCircle size={14} className="text-trust" />}
+                                            {outOfStock && !isSelected && <span className="line-through">{variant.name}</span>}
+                                            {outOfStock && isSelected && <>{variant.name}</>}
+                                            {!outOfStock && variant.name}
+                                            {isSelected && !outOfStock && <CheckCircle size={14} className="text-trust" />}
+                                            {outOfStock && <span className="text-[10px] font-bold uppercase tracking-wider">(OOS)</span>}
                                         </button>
                                     );
                                 })}
                             </div>
-                            {/* Selected Variant Stock Indicator */}
                             {selectedVariant && (
                                 <div className="mt-3">
                                     {selectedVariant.stock > 10 ? null : selectedVariant.stock > 5 ? (
@@ -269,7 +278,9 @@ const ProductDetail = () => {
                                     ) : selectedVariant.stock > 0 ? (
                                         <span className="text-sm font-medium text-orange-500">Only {selectedVariant.stock} left!</span>
                                     ) : (
-                                        <span className="text-sm font-medium text-red-500">Out of Stock</span>
+                                        <span className="text-sm font-medium text-error flex items-center gap-1.5">
+                                            <Bell size={14} /> This option is out of stock — set a notification below
+                                        </span>
                                     )}
                                 </div>
                             )}
@@ -277,18 +288,27 @@ const ProductDetail = () => {
                     )}
 
                     <div className="flex gap-4 pt-4 border-t border-border-default">
-                        {hasMultipleVariants && !selectedVariant ? (
+                        {hasMultipleVariants && !selectedVariant && !isOutOfStock ? (
                             <Button size="lg" className="flex-1 gap-2" variant="outline" onClick={handleAddToCartClick}>
                                 <ShoppingCart size={20} /> Select an Option
                             </Button>
                         ) : isCurrentlyOutOfStock ? (
-                            <Button
-                                size="lg"
-                                className={`flex-1 gap-2 ${isStockAlertSet ? 'bg-success hover:bg-green-700' : 'bg-text-primary hover:bg-text-primary/90 border-none text-surface'}`}
-                                onClick={() => handleToggleAlert('STOCK')}
-                            >
-                                <Bell size={20} /> {isStockAlertSet ? 'You will be notified' : 'Notify Me When Available'}
-                            </Button>
+                            <>
+                                <Button
+                                    size="lg"
+                                    className="flex-1 gap-2 bg-border-default text-text-muted cursor-not-allowed border-none"
+                                    disabled
+                                >
+                                    Out of Stock
+                                </Button>
+                                <Button
+                                    size="lg"
+                                    className={`gap-2 ${isStockAlertSet ? 'bg-success hover:bg-green-700' : 'bg-text-primary hover:bg-text-primary/90 border-none text-surface'}`}
+                                    onClick={() => handleToggleAlert('STOCK')}
+                                >
+                                    <Bell size={20} /> {isStockAlertSet ? 'You will be notified' : 'Notify Me When Available'}
+                                </Button>
+                            </>
                         ) : (
                             <Button size="lg" className="flex-1 gap-2" onClick={handleAddToCartClick}>
                                 <ShoppingCart size={20} /> Add to Cart
