@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
             if (maxPrice) where.price.lte = parseFloat(maxPrice);
         }
 
-        // Build orderBy
+        // Build orderBy (single field — used for both in-stock and out-of-stock groups)
         let orderBy;
         switch (sort) {
             case 'price-low':
@@ -51,7 +51,6 @@ router.get('/', async (req, res) => {
         }
 
         // ── Cache key ──────────────────────────────────────────────────────────
-        // Ensure pagination values are in cache key even if not provided by client
         const parsedPage = Number.parseInt(page, 10);
         const parsedLimit = Number.parseInt(limit, 10);
         const cachePage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -64,14 +63,45 @@ router.get('/', async (req, res) => {
             return res.json(cached);
         }
 
-        // ── Pagination ─────────────────────────────────────────────────────────
         const take = cacheLimit;
         const skip = (cachePage - 1) * take;
 
-        const [products, total] = await Promise.all([
-            prisma.product.findMany({ where, orderBy, take, skip, include: { variants: true } }),
+        // Out-of-stock last: fetch in-stock and out-of-stock separately with same sort, then merge
+        const whereInStock = { ...where, stock: { gt: 0 } };
+        const whereOutOfStock = { ...where, stock: { lte: 0 } };
+
+        const [total, inStockCount] = await Promise.all([
             prisma.product.count({ where }),
+            prisma.product.count({ where: whereInStock }),
         ]);
+
+        const inStockSkip = Math.min(skip, inStockCount);
+        const inStockTake = Math.min(take, inStockCount - inStockSkip);
+        const outOfStockSkip = Math.max(0, skip - inStockCount);
+        const outOfStockTake = take - inStockTake;
+
+        const [inStockProducts, outOfStockProducts] = await Promise.all([
+            inStockTake > 0
+                ? prisma.product.findMany({
+                    where: whereInStock,
+                    orderBy,
+                    skip: inStockSkip,
+                    take: inStockTake,
+                    include: { variants: true },
+                })
+                : [],
+            outOfStockTake > 0
+                ? prisma.product.findMany({
+                    where: whereOutOfStock,
+                    orderBy,
+                    skip: outOfStockSkip,
+                    take: outOfStockTake,
+                    include: { variants: true },
+                })
+                : [],
+        ]);
+
+        const products = [...inStockProducts, ...outOfStockProducts];
 
         const result = {
             data: products,

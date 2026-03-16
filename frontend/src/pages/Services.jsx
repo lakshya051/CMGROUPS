@@ -6,7 +6,7 @@ import {
     Wrench, Monitor, Cpu, CheckCircle, Calendar, X, MapPin, Phone, User,
     Printer, HardDrive, Settings, Gift, Clock, Shield, Award, Star,
     ArrowRight, MousePointerClick, MessageSquare, CreditCard, Zap, Wifi,
-    PcCase, Smartphone, BadgeCheck
+    PcCase, Smartphone, BadgeCheck, Info
 } from 'lucide-react';
 import { servicesAPI, serviceTypesAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -246,7 +246,7 @@ const Services = () => {
                                     <div className="border-t border-border-default pt-4 mt-auto">
                                         <div className="flex items-center justify-between mb-3">
                                             <div>
-                                                <p className="text-xs text-text-muted">Starting from</p>
+                                                <p className="text-xs text-text-muted">Base Charge</p>
                                                 <p className="text-xl font-bold text-text-primary">{service.price}</p>
                                             </div>
                                             <div className="text-right">
@@ -434,6 +434,15 @@ const Services = () => {
                                         </div>
                                         <input name="referralCode" type="text" className="input-field uppercase" placeholder="Enter code e.g. TNAB3F7E" value={formik.values.referralCode} onChange={formik.handleChange} />
                                         <p className="text-xs text-text-muted">Your friend earns store credit when your service is completed!</p>
+                                    </div>
+
+                                    <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 leading-relaxed">
+                                        <Info size={16} className="flex-shrink-0 mt-0.5" />
+                                        <p>
+                                            Note: The {selectedService.price} covers technician visit and diagnostics.
+                                            Any required hardware parts or premium software will be quoted separately
+                                            after inspection and require your approval before proceeding.
+                                        </p>
                                     </div>
 
                                     <Button type="submit" className="w-full" disabled={formik.isSubmitting}>

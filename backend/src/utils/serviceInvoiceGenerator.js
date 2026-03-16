@@ -86,18 +86,28 @@ export function generateServiceInvoicePdf(booking, invoiceData) {
 
             doc.fillColor('#000000').font('Helvetica');
 
-            // Labor
+            // Diagnostic / Labor Fee
             doc
-                .text(`${invoiceData.serviceType} — Labour Charges`, 50, y)
+                .text('Diagnostic / Labor Fee', 50, y)
                 .text(`₹${invoiceData.laborCost.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
             y += 20;
 
-            // Parts (if any)
+            // Hardware / Software (only when partsCost > 0)
             if (invoiceData.partsCost > 0) {
                 doc
-                    .text('Spare Parts / Materials', 50, y)
+                    .text('Hardware / Software', 50, y)
                     .text(`₹${invoiceData.partsCost.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
-                y += 20;
+                y += 16;
+
+                if (invoiceData.partsNotes) {
+                    doc
+                        .fontSize(9)
+                        .fillColor('#555555')
+                        .text(`  ${invoiceData.partsNotes}`, 50, y);
+                    y += 14;
+                    doc.fontSize(10).fillColor('#000000');
+                }
+                y += 4;
             }
 
             // Technician
@@ -114,23 +124,10 @@ export function generateServiceInvoicePdf(booking, invoiceData) {
             y += 12;
 
             // ── Totals ───────────────────────────────────────────────────────
-            const subtotal = invoiceData.laborCost + invoiceData.partsCost;
-            const gstAmount = invoiceData.gst;
             const total = invoiceData.totalAmount;
 
             doc
                 .fillColor('#000000')
-                .font('Helvetica')
-                .text('Taxable Amount:', 350, y, { width: 100, align: 'right' })
-                .text(`₹${subtotal.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
-            y += 16;
-
-            doc
-                .text('GST (18%):', 350, y, { width: 100, align: 'right' })
-                .text(`₹${gstAmount.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
-            y += 20;
-
-            doc
                 .font('Helvetica-Bold')
                 .fontSize(12)
                 .fillColor('#1e3a5f')

@@ -52,9 +52,8 @@ const Navbar = () => {
     }, [location.pathname]);
 
     useEffect(() => {
-        const isSearchablePage = ['/products', '/courses', '/services']
-            .some((path) => location.pathname.startsWith(path));
-        if (!isSearchablePage) return;
+        const exactSearchPages = ['/products', '/courses', '/services'];
+        if (!exactSearchPages.includes(location.pathname)) return;
 
         const nextQuery = debouncedSearchQuery.trim();
         const currentQuery = searchParams.get('q') || '';
@@ -91,10 +90,8 @@ const Navbar = () => {
         setDebouncedSearchQuery('');
         setIsOpen(false);
 
-        const isSearchablePage = ['/products', '/courses', '/services']
-            .some((path) => location.pathname.startsWith(path));
-
-        if (isSearchablePage) {
+        const exactSearchPages = ['/products', '/courses', '/services'];
+        if (exactSearchPages.includes(location.pathname)) {
             navigate(currentSearchContext.path, { replace: true });
         }
     }, [currentSearchContext.path, location.pathname, navigate]);

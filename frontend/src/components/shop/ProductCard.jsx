@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
-import { Heart, ShoppingCart, Star, ArrowLeftRight, Eye } from 'lucide-react';
+import { Heart, ShoppingCart, Star, ArrowLeftRight, Eye, Bell } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { handleImageError } from '../../utils/image';
 
@@ -35,10 +35,11 @@ const ProductCard = ({ product }) => {
         e.preventDefault();
         if (hasMultipleVariants) {
             navigate(`/products/${product.id}`);
-        } else {
-            addToCart(product); // Pass full product object
+            return;
         }
-    }, [addToCart, hasMultipleVariants, navigate, product]);
+        if (isOutOfStock) return;
+        addToCart(product);
+    }, [addToCart, hasMultipleVariants, isOutOfStock, navigate, product]);
 
     const handleWishlistToggle = useCallback((e) => {
         e.preventDefault();
@@ -51,7 +52,7 @@ const ProductCard = ({ product }) => {
     }, [addToCompare, product.id]);
 
     return (
-        <div className="glass-panel group relative flex flex-col overflow-hidden h-full">
+        <div className={`glass-panel group relative flex flex-col overflow-hidden h-full ${isOutOfStock ? 'opacity-90' : ''}`}>
             {/* Image Area */}
             <div className="relative aspect-square bg-page-bg flex items-center justify-center p-6 transition-colors group-hover:bg-surface-hover/80">
                 <Link
@@ -70,19 +71,23 @@ const ProductCard = ({ product }) => {
                         className="w-full h-full object-contain drop-shadow-lg transition-transform duration-500 group-hover:scale-110"
                     />
                 </Link>
+                {/* Out of stock overlay — pointer-events-none so card stays clickable */}
+                {isOutOfStock && (
+                    <div className="absolute inset-0 bg-text-muted/40 pointer-events-none" aria-hidden />
+                )}
 
                 {/* Wishlist Button */}
                 <button
                     onClick={handleWishlistToggle}
-                    className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-colors ${isWishlisted ? 'bg-primary/20 text-primary' : 'bg-black/20 text-text-main hover:bg-primary hover:text-text-main'}`}
+                    className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-colors z-10 ${isWishlisted ? 'bg-primary/20 text-primary' : 'bg-black/20 text-text-main hover:bg-primary hover:text-text-main'}`}
                 >
                     <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
                 </button>
 
                 {/* Quick Badges */}
-                <div className="absolute top-3 left-3 flex flex-col gap-1 items-start">
+                <div className="absolute top-3 left-3 flex flex-col gap-1 items-start z-10">
                     {isOutOfStock ? (
-                        <span className="bg-red-500/80 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-md">
+                        <span className="bg-border-default text-text-muted text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-md">
                             Out of Stock
                         </span>
                     ) : isLowStock ? (
@@ -140,12 +145,18 @@ const ProductCard = ({ product }) => {
                         </button>
                         <Button
                             size="sm"
-                            disabled={isOutOfStock}
-                            className={`rounded-full h-10 w-10 p-0 flex items-center justify-center shrink-0 ${isOutOfStock ? 'bg-border-default text-text-muted cursor-not-allowed' : 'bg-surface-hover hover:bg-buy-primary text-text-primary hover:text-white'}`}
+                            disabled={isOutOfStock && !hasMultipleVariants}
+                            className={`rounded-full h-10 w-10 p-0 flex items-center justify-center shrink-0 ${
+                                isOutOfStock && !hasMultipleVariants
+                                    ? 'bg-border-default text-text-muted cursor-not-allowed'
+                                    : isOutOfStock && hasMultipleVariants
+                                        ? 'bg-surface-hover hover:bg-trust text-text-primary hover:text-white'
+                                        : 'bg-surface-hover hover:bg-buy-primary text-text-primary hover:text-white'
+                            }`}
                             onClick={handleAddToCart}
-                            title={isOutOfStock ? "Out of Stock" : hasMultipleVariants ? "Select Option" : "Add to Cart"}
+                            title={isOutOfStock ? (hasMultipleVariants ? "Notify Me" : "Out of Stock") : hasMultipleVariants ? "Select Option" : "Add to Cart"}
                         >
-                            {hasMultipleVariants ? <Eye size={18} /> : <ShoppingCart size={18} />}
+                            {isOutOfStock && hasMultipleVariants ? <Bell size={18} /> : hasMultipleVariants ? <Eye size={18} /> : <ShoppingCart size={18} />}
                         </Button>
                     </div>
                 </div>

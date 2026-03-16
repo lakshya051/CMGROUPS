@@ -407,6 +407,7 @@ model ServiceInvoice {
   technicianName String
   laborCost      Float
   partsCost      Float          @default(0)
+  partsNotes     String?
   gst            Float
   totalAmount    Float
   pdfUrl         String?

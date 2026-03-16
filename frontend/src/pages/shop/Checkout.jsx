@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -73,6 +73,8 @@ const Checkout = () => {
     const [paymentMethod, setPaymentMethod] = useState('pay_at_store');
     const [otpCopied, setOtpCopied] = useState(false);
     const [orderError, setOrderError] = useState('');
+    const orderSuccessRef = useRef(false);
+    const placingOrderRef = useRef(false);
     const [referralCode, setReferralCode] = useState('');
     const [useWallet, setUseWallet] = useState(false);
 
@@ -200,6 +202,9 @@ const Checkout = () => {
 
     // ── Place order ──────────────────────────────────────────────────────────
     const handlePlaceOrder = async () => {
+        if (placingOrderRef.current) return;
+        placingOrderRef.current = true;
+        orderSuccessRef.current = false;
         setIsProcessing(true);
         setOrderError('');
         try {
@@ -254,16 +259,20 @@ const Checkout = () => {
                 googleMapLink: finalMapLink,
             });
 
+            orderSuccessRef.current = true;
             setOrderId(order.id);
             setPaymentOtp(order.paymentOtp);
+            setOrderError('');
             setStep(3);
         } catch (err) {
+            if (orderSuccessRef.current) return;
             const errorMessage = err.message || 'Failed to place order. Please try again.';
             setOrderError(errorMessage);
             if (errorMessage.includes('Insufficient stock')) {
                 setTimeout(() => navigate('/cart'), 3500);
             }
         } finally {
+            placingOrderRef.current = false;
             setIsProcessing(false);
         }
     };

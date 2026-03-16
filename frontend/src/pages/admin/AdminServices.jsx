@@ -5,7 +5,7 @@ import {
     UserPlus, Users, ShieldCheck, RefreshCw, FileText, Star, BadgeCheck,
     LayoutList, Trash2, Edit3, ArrowRight, Info, ToggleLeft, ToggleRight
 } from 'lucide-react';
-import { servicesAPI, techniciansAPI } from '../../lib/api';
+import { servicesAPI, techniciansAPI, serviceTypesAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ const STATUS_BADGE = {
 // ──────────────────────────────────────────────────────────────────────────
 // Booking Detail Modal
 // ──────────────────────────────────────────────────────────────────────────
-const BookingModal = ({ booking, technicians, onClose, onUpdate }) => {
+const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes }) => {
     const [localBooking, setLocalBooking] = useState(booking);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -47,8 +47,19 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate }) => {
 
     // Cancel sub-modal
     const [showCancelPrompt, setShowCancelPrompt] = useState(false);
+
+    // Completion modal with itemised costs
     const [showCompletePrompt, setShowCompletePrompt] = useState(false);
-    const [completeFinalPrice, setCompleteFinalPrice] = useState(booking.finalPrice || '');
+    const baseChargeAmount = (() => {
+        const st = (serviceTypes || []).find(s => s.title === booking.serviceType);
+        if (st?.price) return parseInt(String(st.price).replace(/[^\d]/g, '')) || 0;
+        return 0;
+    })();
+    const [completeLaborCost, setCompleteLaborCost] = useState(baseChargeAmount || '');
+    const [completePartsCost, setCompletePartsCost] = useState(0);
+    const [completePartsNotes, setCompletePartsNotes] = useState('');
+    const completeSubtotal = (parseFloat(completeLaborCost) || 0) + (parseFloat(completePartsCost) || 0);
+    const completeTotal = completeSubtotal;
 
     const update = async (data) => {
         setSaving(true); setError('');
@@ -105,10 +116,16 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate }) => {
     };
 
     const handleCompleteBooking = async () => {
-        if (!completeFinalPrice || isNaN(Number(completeFinalPrice))) {
-            setError('Please enter a valid final price.'); return;
+        if (!completeLaborCost || isNaN(Number(completeLaborCost))) {
+            setError('Please enter a valid labor cost.'); return;
         }
-        await update({ status: 'Completed', finalPrice: Number(completeFinalPrice) });
+        await update({
+            status: 'Completed',
+            finalPrice: completeTotal,
+            laborCost: Number(completeLaborCost),
+            partsCost: Number(completePartsCost) || 0,
+            partsNotes: completePartsNotes || undefined,
+        });
         setShowCompletePrompt(false);
     };
 
@@ -273,6 +290,17 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate }) => {
                         </div>
                     )}
 
+                    {/* Pickup OTP — show to admin so they can match when someone goes for pickup */}
+                    {localBooking.pickupOtp && (
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">Pickup OTP (match when technician/customer goes for pickup)</p>
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                                <p className="text-sm text-amber-800 mb-1">Share this OTP with the person going for pickup. Customer will enter it in the app to verify.</p>
+                                <p className="text-2xl font-mono font-bold tracking-[0.3em] text-amber-900 text-center py-2">{localBooking.pickupOtp}</p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* OTP Section (Confirmed only) */}
                     {localBooking.status === 'Confirmed' && (
                         <div>
@@ -337,7 +365,7 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate }) => {
                                 </Button>
                             )}
 
-                            {/* In Progress → Complete (needs final price) */}
+                            {/* In Progress → Complete (itemised costs) */}
                             {localBooking.status === 'In Progress' && (
                                 <Button size="sm" onClick={() => setShowCompletePrompt(true)} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700">
                                     <CheckCircle size={14} />Mark Completed
@@ -373,15 +401,38 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate }) => {
                     </div>
                 )}
 
-                {/* ── Final Price Prompt (Complete) ──────────────────── */}
+                {/* ── Itemised Completion Modal ─────────────────────── */}
                 {showCompletePrompt && (
                     <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center p-6">
-                        <div className="bg-surface border border-border-default rounded-2xl p-5 w-full max-w-sm shadow-2xl">
+                        <div className="bg-surface border border-border-default rounded-2xl p-5 w-full max-w-md shadow-2xl">
                             <h3 className="font-bold text-text-primary mb-1">Mark as Completed</h3>
-                            <p className="text-sm text-text-secondary mb-4">Enter the final billable amount. An invoice PDF will be generated automatically.</p>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">Final Price (₹) *</label>
-                            <input type="number" min="0" autoFocus className="input-field mb-4 text-lg font-bold" placeholder="e.g. 1180" value={completeFinalPrice} onChange={e => setCompleteFinalPrice(e.target.value)} />
-                            <div className="flex gap-2">
+                            <p className="text-sm text-text-secondary mb-4">Enter itemised costs. An invoice PDF will be generated automatically.</p>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">Base / Labor Cost (₹) *</label>
+                                    <input type="number" min="0" autoFocus className="input-field text-lg font-bold" placeholder="e.g. 499" value={completeLaborCost} onChange={e => setCompleteLaborCost(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">Parts / Software Cost (₹)</label>
+                                    <input type="number" min="0" className="input-field text-lg font-bold" placeholder="0" value={completePartsCost} onChange={e => setCompletePartsCost(e.target.value)} />
+                                </div>
+                                {Number(completePartsCost) > 0 && (
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">Parts Notes</label>
+                                        <input type="text" className="input-field text-sm" placeholder="e.g. Crucial 512GB NVMe SSD + SATA Cable" value={completePartsNotes} onChange={e => setCompletePartsNotes(e.target.value)} />
+                                    </div>
+                                )}
+
+                                <div className="bg-page-bg border border-border-default rounded-xl p-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="font-bold text-text-primary">Total</span>
+                                        <span className="font-bold text-green-700 text-lg">₹{completeTotal.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 mt-4">
                                 <Button variant="outline" className="flex-1" onClick={() => setShowCompletePrompt(false)}>Cancel</Button>
                                 <Button className="flex-1 bg-green-600 hover:bg-green-700" disabled={saving} onClick={handleCompleteBooking}>
                                     {saving ? 'Processing...' : 'Complete & Invoice'}
@@ -515,6 +566,9 @@ const AdminServices = () => {
     const [totalBookings, setTotalBookings] = useState(0);
     const [statusCounts, setStatusCounts] = useState({});
 
+    // Service types (for base charge lookup)
+    const [serviceTypes, setServiceTypes] = useState([]);
+
     // Technicians state
     const [technicians, setTechnicians] = useState([]);
     const [techLoading, setTechLoading] = useState(false);
@@ -554,6 +608,11 @@ const AdminServices = () => {
 
     useEffect(() => { fetchBookings(); }, [fetchBookings]);
     useEffect(() => { if (activeTab === 'technicians') fetchTechnicians(); }, [activeTab, fetchTechnicians]);
+    useEffect(() => {
+        serviceTypesAPI.getAll()
+            .then(data => { if (Array.isArray(data)) setServiceTypes(data); })
+            .catch(() => {});
+    }, []);
 
     const handleBookingUpdate = (updated) => {
         setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b));
@@ -796,6 +855,7 @@ const AdminServices = () => {
                     technicians={technicians.filter(t => t.isActive)}
                     onClose={() => setSelectedBooking(null)}
                     onUpdate={handleBookingUpdate}
+                    serviceTypes={serviceTypes}
                 />
             )}
         </div>

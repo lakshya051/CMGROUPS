@@ -96,6 +96,9 @@ const BOOKING_SAFE_SELECT = {
     invoice: true
 };
 
+/** Admin list/detail — includes pickupOtp so admin can match at pickup */
+const BOOKING_ADMIN_SELECT = { ...BOOKING_SAFE_SELECT, pickupOtp: true };
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/services/available-slots (Public)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -290,7 +293,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
         const [bookings, total, groupedStatuses] = await Promise.all([
             withDbRetry(() => prisma.serviceBooking.findMany({
                 where,
-                select: BOOKING_SAFE_SELECT,
+                select: BOOKING_ADMIN_SELECT,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take
@@ -346,7 +349,7 @@ router.patch('/:id/assign', protect, adminOnly, async (req, res) => {
         const booking = await prisma.serviceBooking.update({
             where: { id: bookingId },
             data: { technicianId: parseInt(technicianId), assignedTo: technician.name },
-            select: BOOKING_SAFE_SELECT
+            select: BOOKING_ADMIN_SELECT
         });
 
         res.json(booking);
@@ -362,7 +365,7 @@ router.patch('/:id/assign', protect, adminOnly, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.patch('/:id/status', protect, adminOnly, async (req, res) => {
     try {
-        const { status, estimatedPrice, finalPrice, adminNotes, assignedTo, estimatedCompletionDate, cancellationReason } = req.body;
+        const { status, estimatedPrice, finalPrice, adminNotes, assignedTo, estimatedCompletionDate, cancellationReason, laborCost: reqLaborCost, partsCost: reqPartsCost, partsNotes: reqPartsNotes } = req.body;
 
         const updateData = {};
 
@@ -390,6 +393,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 updateData.otpGeneratedAt = now;
                 updateData.otpVerified = false;
             }
+
         }
 
         if (estimatedPrice !== undefined) updateData.estimatedPrice = parseFloat(estimatedPrice);
@@ -409,15 +413,22 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
         });
 
         // ── INVOICE GENERATION on "Completed" ────────────────────────────
-        if (status === 'Completed' && booking.finalPrice != null) {
+        if (status === 'Completed') {
             try {
-                const laborCost = booking.finalPrice / 1.18; // back-calculate ex-GST
-                const partsCost = 0;
-                const gst = booking.finalPrice - laborCost;
+                const laborCost = reqLaborCost != null ? parseFloat(reqLaborCost) : (booking.finalPrice != null ? booking.finalPrice : 0);
+                const partsCost = reqPartsCost != null ? parseFloat(reqPartsCost) : 0;
+                const partsNotes = reqPartsNotes || null;
+                const totalAmount = parseFloat((laborCost + partsCost).toFixed(2));
+
+                await prisma.serviceBooking.update({
+                    where: { id: booking.id },
+                    data: { finalPrice: totalAmount }
+                });
+                booking.finalPrice = totalAmount;
+
                 const invoiceNumber = `SINV-${Date.now()}-${booking.id}`;
                 const technicianName = booking.technician?.name || booking.assignedTo || 'TechNova Technician';
 
-                // Create ServiceInvoice record
                 const serviceInvoice = await prisma.serviceInvoice.create({
                     data: {
                         bookingId: booking.id,
@@ -425,9 +436,10 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                         serviceType: booking.serviceType,
                         technicianName,
                         laborCost: parseFloat(laborCost.toFixed(2)),
-                        partsCost,
-                        gst: parseFloat(gst.toFixed(2)),
-                        totalAmount: booking.finalPrice,
+                        partsCost: parseFloat(partsCost.toFixed(2)),
+                        partsNotes,
+                        gst: 0,
+                        totalAmount,
                     }
                 });
 
@@ -582,9 +594,8 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
-        // Strip OTP from response
-        const { pickupOtp: _otp, ...safeBooking } = booking;
-        res.json(safeBooking);
+        // Admin gets full booking including OTP for pickup verification
+        res.json(booking);
     } catch (error) {
         console.error('Update booking error:', error);
         if (isDbUnavailableError(error)) {

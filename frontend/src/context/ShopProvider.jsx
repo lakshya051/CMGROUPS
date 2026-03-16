@@ -129,9 +129,14 @@ export const ShopProvider = ({ children }) => {
     }, [compareList]);
 
     const cartQueue = React.useRef(Promise.resolve());
+    const cartGen = React.useRef(0);
 
     const enqueueCartAction = useCallback((action) => {
-        cartQueue.current = cartQueue.current.then(action).catch((err) => {
+        const gen = cartGen.current;
+        cartQueue.current = cartQueue.current.then(() => {
+            if (cartGen.current !== gen) return;
+            return action();
+        }).catch((err) => {
             console.error('Cart Queue Error:', err);
         });
         return cartQueue.current;
@@ -179,13 +184,14 @@ export const ShopProvider = ({ children }) => {
             return;
         }
 
-        if (stock <= 0) {
+        const availableStock = Number(stock) || 0;
+        if (availableStock <= 0) {
             toast.error('This item is out of stock');
             return;
         }
 
-        if (existingQuantity + newQtyNumber > stock) {
-            toast.error(`Only ${stock} item${stock === 1 ? '' : 's'} available in stock`);
+        if (existingQuantity + newQtyNumber > availableStock) {
+            toast.error(`Only ${availableStock} item${availableStock === 1 ? '' : 's'} available in stock`);
             return;
         }
 
@@ -204,7 +210,7 @@ export const ShopProvider = ({ children }) => {
                 variantId,
                 variantName,
                 price,
-                stock,
+                stock: availableStock,
                 quantity: newQtyNumber,
             }];
         });
@@ -212,12 +218,9 @@ export const ShopProvider = ({ children }) => {
         enqueueCartAction(async () => {
             try {
                 await cartAPI.addItem(productId, variantId, newQtyNumber);
-                // Don't overwrite optimistic state with DB response on success —
-                // this avoids clobbering rapid-click increments.
             } catch (err) {
                 console.error('Failed to add item to cart:', err);
                 toast.error(getErrorMessage(err, 'Failed to add to cart'));
-                // On error, revert to the real DB state
                 try { setCart(await cartAPI.get()); } catch { /* ignore */ }
             }
         });
@@ -234,7 +237,6 @@ export const ShopProvider = ({ children }) => {
         enqueueCartAction(async () => {
             try {
                 await cartAPI.removeItem(item.productId || item.id, item.variantId || null);
-                // Trust optimistic update; don't overwrite state on success
             } catch (err) {
                 console.error('Failed to remove item from cart:', err);
                 toast.error(getErrorMessage(err, 'Failed to remove from cart'));
@@ -263,8 +265,6 @@ export const ShopProvider = ({ children }) => {
         enqueueCartAction(async () => {
             try {
                 await cartAPI.updateItem(item.productId || item.id, item.variantId || null, boundedQty);
-                // Don't overwrite optimistic state on success — avoids quantity jitter
-                // when clicking +/- rapidly (each queued action already has the right boundedQty).
             } catch (err) {
                 console.error('Failed to update cart quantity:', err);
                 toast.error(getErrorMessage(err, 'Failed to update quantity'));
@@ -282,6 +282,10 @@ export const ShopProvider = ({ children }) => {
     const removeCoupon = () => setCoupon(null);
 
     const placeOrder = async (orderData) => {
+        // Kill all pending cart queue actions immediately so they never fire.
+        // The order API validates stock independently inside a DB transaction.
+        cartGen.current += 1;
+
         const items = cart.map(item => ({
             productId: item.productId || item.id,
             variantId: item.variantId || null,
@@ -302,6 +306,7 @@ export const ShopProvider = ({ children }) => {
             orderData.longitude || null,
             orderData.googleMapLink || null
         );
+
         clearCart();
         try { await cartAPI.clear(); } catch { /* ignore */ }
         if (orderData.useWallet && refreshUser) {
