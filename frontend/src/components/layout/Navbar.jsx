@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search, Download } from 'lucide-react';
+import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search, Download, MapPin } from 'lucide-react';
 import Button from '../ui/Button';
 import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
@@ -83,7 +83,7 @@ const Navbar = () => {
     const isActive = useCallback((path) => location.pathname === path, [location.pathname]);
     const mobileProfilePath = user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/sign-in';
     const hasSearchQuery = searchQuery.trim().length > 0;
-    const showSearchBar = !location.pathname.startsWith('/tally-erp');
+    const showSearchBar = !location.pathname.startsWith('/tally-erp') && !location.pathname.startsWith('/cctv');
 
     const handleClearSearch = useCallback(() => {
         setSearchQuery('');
@@ -149,23 +149,14 @@ const Navbar = () => {
     return (
         <header className="fixed safe-top-offset top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border-default">
             <div className="md:hidden flex flex-col">
-                <div className="container mx-auto flex h-16 items-center gap-3 px-4">
-                    <button
-                        className="text-text-primary p-2 -ml-2"
-                        onClick={() => setIsOpen(!isOpen)}
-                        aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'}
-                    >
-                        {isOpen ? <X size={24} /> : <Menu size={24} />}
-                    </button>
-
-                    <Link to="/" className="min-w-0 flex-1 text-2xl font-heading font-bold text-text-primary">
+                {/* Row 1: Logo + Bell */}
+                <div className="flex items-center justify-between h-14 px-4">
+                    <Link to="/" className="text-xl font-heading font-bold text-text-primary">
                         CM<span className="text-trust">GROUPS</span>
                     </Link>
 
                     <div className="flex items-center gap-1">
                         {user && <PointsBadge points={user.walletBalance} compact className="mr-1" />}
-
-                        {/* Mobile Bell */}
                         {user && (
                             <div className="relative">
                                 <button
@@ -183,36 +174,21 @@ const Navbar = () => {
                                 <NotificationDropdown />
                             </div>
                         )}
-
-                        <Link
-                            to={mobileProfilePath}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust"
-                            aria-label={user ? 'Open account' : 'Login'}
-                            onClick={() => setIsOpen(false)}
-                        >
-                            <User size={20} />
-                        </Link>
-                        <Link
-                            to="/cart"
-                            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust"
-                            aria-label="Open cart"
-                            onClick={() => setIsOpen(false)}
-                        >
-                            <ShoppingCart size={20} />
-                            {cartCount > 0 && (
-                                <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-trust text-[10px] text-white flex items-center justify-center rounded-full">
-                                    {cartCount > 9 ? '9+' : cartCount}
-                                </span>
-                            )}
-                        </Link>
                     </div>
                 </div>
 
+                {/* Row 2: Search Bar */}
                 {showSearchBar && (
-                    <div className="border-t border-border-default bg-surface-hover px-4 py-3">
+                    <div className="px-4 py-2 bg-surface">
                         {renderSearchForm({ mobile: true })}
                     </div>
                 )}
+
+                {/* Row 3: Location Strip */}
+                <div className="flex items-center gap-1.5 px-4 py-1.5 bg-page-bg border-t border-border-default">
+                    <MapPin size={14} className="text-text-secondary flex-shrink-0" />
+                    <span className="text-xs text-text-secondary truncate">Deliver to Etah 207001</span>
+                </div>
             </div>
 
             <div className="hidden md:flex container mx-auto px-4 h-16 items-center justify-between">
@@ -342,60 +318,6 @@ const Navbar = () => {
                 </div>
             </div>
 
-            {/* Mobile Drawer */}
-            {isOpen && (
-                <div className="md:hidden absolute top-full left-0 right-0 bg-surface border-b border-border-default p-4 flex flex-col gap-4 animate-in slide-in-from-top-5">
-                    <Link to="/" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-primary font-medium hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Home</Link>
-                    <Link to="/products" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Products</Link>
-                    <Link to="/services" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Services</Link>
-                    <Link to="/courses" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Academy</Link>
-                    <Link to="/tally-erp" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>Tally ERP</Link>
-                    <Link to="/cctv" className="px-4 py-3 rounded-lg hover:bg-surface-hover text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>CCTV Security</Link>
-                    {canInstall && !isInstalled && (
-                        <button
-                            onClick={() => { install(); setIsOpen(false); }}
-                            className="px-4 py-3 rounded-lg hover:bg-surface-hover text-trust font-medium flex items-center gap-2 transition-colors"
-                        >
-                            <Download size={18} /> Install App
-                        </button>
-                    )}
-                    <div className="h-px bg-border-default my-2"></div>
-                    <div className="flex items-center justify-between px-4">
-                        <Link to="/wishlist" className="flex items-center gap-2 text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>
-                            <Heart size={18} /> Wishlist
-                        </Link>
-                        <Link to="/cart" className="flex items-center gap-2 text-text-secondary hover:text-trust transition-colors" onClick={() => setIsOpen(false)}>
-                            <ShoppingCart size={18} /> Cart ({cartCount})
-                        </Link>
-                    </div>
-
-                    {user ? (
-                        <>
-                            <div className="px-4">
-                                <PointsBadge points={user.walletBalance} className="w-full justify-center" />
-                            </div>
-                            <Link
-                                to={user.role === 'admin' ? '/admin' : '/dashboard'}
-                                onClick={() => setIsOpen(false)}
-                            >
-                                <Button variant="outline" className="w-full gap-2">
-                                    <LayoutDashboard size={16} /> Dashboard
-                                </Button>
-                            </Link>
-                            <button
-                                onClick={() => { void logout(); setIsOpen(false); }}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-text-muted hover:text-error rounded-lg transition-colors"
-                            >
-                                <LogOut size={16} /> Logout
-                            </button>
-                        </>
-                    ) : (
-                        <Link to="/sign-in" onClick={() => setIsOpen(false)}>
-                            <Button className="w-full">Login</Button>
-                        </Link>
-                    )}
-                </div>
-            )}
         </header>
     );
 };

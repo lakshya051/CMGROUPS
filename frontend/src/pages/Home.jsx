@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
-import { productsAPI } from '../lib/api';
+import { productsAPI, categoriesAPI } from '../lib/api';
 import { RECENTLY_VIEWED_KEY } from '../constants';
 
 // Homepage section components
@@ -14,6 +15,7 @@ const Home = () => {
     useSEO({ title: 'CMGROUPS — Shop, Services & Courses in Etah', description: 'Your one-stop destination for computers, tech services, CCTV, Tally ERP and professional courses in Etah.' });
     const [bestSellers, setBestSellers] = useState([]);
     const [bestSellersLoading, setBestSellersLoading] = useState(true);
+    const [pillCategories, setPillCategories] = useState([]);
 
     // ── Recently Viewed ──
     const [recentlyViewed, setRecentlyViewed] = useState([]);
@@ -22,6 +24,12 @@ const Home = () => {
         import('./shop/Products');
         import('./shop/ProductDetail');
         import('./shop/Cart');
+    }, []);
+
+    useEffect(() => {
+        categoriesAPI.getAll()
+            .then(setPillCategories)
+            .catch(console.error);
     }, []);
 
     useEffect(() => {
@@ -40,6 +48,27 @@ const Home = () => {
 
     return (
         <div className="min-h-screen bg-page-bg">
+            {/* Category Pills — mobile only */}
+            {pillCategories.length > 0 && (
+                <div className="md:hidden flex gap-2 overflow-x-auto px-4 py-3 bg-surface border-b border-border-default [&::-webkit-scrollbar]:hidden">
+                    <Link
+                        to="/products"
+                        className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium bg-trust text-white border border-trust whitespace-nowrap"
+                    >
+                        All
+                    </Link>
+                    {pillCategories.map(cat => (
+                        <Link
+                            key={cat.id}
+                            to={`/products?category=${encodeURIComponent(cat.name)}`}
+                            className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium bg-surface text-text-primary border border-border-default whitespace-nowrap hover:border-trust/40 transition-colors"
+                        >
+                            {cat.name}
+                        </Link>
+                    ))}
+                </div>
+            )}
+
             {/* 1. Hero Banner Slider */}
             <HeroBannerSlider />
 
