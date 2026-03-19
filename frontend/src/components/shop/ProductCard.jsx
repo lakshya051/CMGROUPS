@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
+import PriceDisplay from '../common/PriceDisplay';
 import { Heart, ShoppingCart, Star, ArrowLeftRight, Eye, Bell } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { handleImageError } from '../../utils/image';
@@ -13,23 +14,34 @@ const ProductCard = ({ product }) => {
         [wishlist, product.id]
     );
 
-    // Variant logic
-    const hasMultipleVariants = Array.isArray(product.variants) && product.variants.length > 1;
+    // Variant logic: 0 = base price/stock, 1 = single option (use variant), 2+ = multiple options
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const hasMultipleVariants = variants.length > 1;
+    const hasSingleVariant = variants.length === 1;
 
-    const { isOutOfStock, isLowStock, displayPrice } = useMemo(() => {
-        // If variants exist, stock/price badges should reflect variant data.
-        const variants = Array.isArray(product.variants) ? product.variants : [];
+    const { isOutOfStock, isLowStock, displayPrice, displayOriginalPrice, effectiveVariant } = useMemo(() => {
         const totalStock = variants.length > 0
             ? variants.reduce((acc, v) => acc + v.stock, 0)
             : product.stock;
         const isOut = totalStock === 0;
         const isLow = totalStock > 0 && totalStock < 5;
-        const price = hasMultipleVariants
-            ? Math.min(...variants.map(v => v.price))
-            : product.price;
+        let price = product.price;
+        let orig = product.originalPrice != null && product.originalPrice > price ? product.originalPrice : null;
+        let singleVariant = null;
 
-        return { isOutOfStock: isOut, isLowStock: isLow, displayPrice: price };
-    }, [hasMultipleVariants, product.price, product.stock, product.variants]);
+        if (variants.length === 1) {
+            singleVariant = variants[0];
+            price = singleVariant.price;
+            orig = (singleVariant.originalPrice != null && singleVariant.originalPrice > price) ? singleVariant.originalPrice : (product.originalPrice != null && product.originalPrice > price ? product.originalPrice : null);
+        } else if (variants.length > 1) {
+            const sortedByPrice = [...variants].sort((a, b) => a.price - b.price);
+            const cheapest = sortedByPrice[0];
+            price = cheapest.price;
+            orig = (cheapest.originalPrice != null && cheapest.originalPrice > price) ? cheapest.originalPrice : (product.originalPrice != null && product.originalPrice > price ? product.originalPrice : null);
+        }
+
+        return { isOutOfStock: isOut, isLowStock: isLow, displayPrice: price, displayOriginalPrice: orig, effectiveVariant: singleVariant };
+    }, [variants, product.price, product.originalPrice, product.stock]);
 
     const handleAddToCart = useCallback((e) => {
         e.preventDefault();
@@ -38,8 +50,8 @@ const ProductCard = ({ product }) => {
             return;
         }
         if (isOutOfStock) return;
-        addToCart(product);
-    }, [addToCart, hasMultipleVariants, isOutOfStock, navigate, product]);
+        addToCart(product, 1, effectiveVariant || undefined);
+    }, [addToCart, effectiveVariant, hasMultipleVariants, isOutOfStock, navigate, product]);
 
     const handleWishlistToggle = useCallback((e) => {
         e.preventDefault();
@@ -96,7 +108,12 @@ const ProductCard = ({ product }) => {
                         </span>
                     ) : null}
 
-                    {product.isSecondHand && (
+                    {product.isRefurbished && (
+                        <span className="bg-amber-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-md">
+                            REFURBISHED
+                        </span>
+                    )}
+                    {!product.isRefurbished && product.isSecondHand && (
                         <span className="bg-amber-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-md">
                             Pre-Owned ({product.condition})
                         </span>
@@ -122,18 +139,20 @@ const ProductCard = ({ product }) => {
                     </h3>
                     {hasMultipleVariants && (
                         <span className="inline-block mt-1 text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                            {product.variants.length} options available
+                            {variants.length} options · From ₹{displayPrice.toLocaleString('en-IN')}
                         </span>
                     )}
                 </Link>
 
                 <div className="flex items-end justify-between mt-4 gap-4">
                     <div className="flex flex-col">
-                        <span className="text-xs text-text-muted">Price</span>
-                        <span className="flex items-baseline gap-1 text-xl font-bold text-text-main">
-                            {hasMultipleVariants && <span className="text-sm font-normal text-text-muted">From</span>}
-                            ₹{displayPrice.toLocaleString()}
-                        </span>
+                        {hasMultipleVariants && <span className="text-xs text-text-muted">From</span>}
+                        <PriceDisplay
+                            sellingPrice={displayPrice}
+                            originalPrice={displayOriginalPrice}
+                            size="sm"
+                            showBadge={true}
+                        />
                     </div>
                     <div className="flex items-center gap-2">
                         <button

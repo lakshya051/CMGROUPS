@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useShop } from '../../context/ShopContext'
 import { Link, useNavigate } from 'react-router-dom'
-import { QuantitySelector, ProgressBar, EmptyState, PriceDisplay, SkeletonCard } from '../../components/ui/index'
+import { QuantitySelector, ProgressBar, EmptyState, SkeletonCard } from '../../components/ui/index'
+import PriceDisplay from '../../components/common/PriceDisplay'
 import { ShoppingCart, Tag, Bookmark, Trash2, ArrowRight, ChevronRight, Package } from 'lucide-react'
 import { couponsAPI, productsAPI } from '../../lib/api'
 import { FREE_DELIVERY_THRESHOLD, EMI_MINIMUM_ORDER, SAVED_LATER_STORAGE_KEY } from '../../constants'
@@ -240,7 +241,7 @@ const Cart = () => {
                                             <Link to={`/products/${item.id}`} className="text-sm font-medium text-text-primary hover:text-trust transition-colors duration-fast line-clamp-2">
                                                 {item.title}
                                             </Link>
-                                            <p className="text-sm font-bold text-text-primary mt-xs">₹{item.price.toLocaleString('en-IN')}</p>
+                                            <PriceDisplay sellingPrice={item.price} originalPrice={item.originalPrice} size="sm" showBadge={false} />
                                         </div>
                                         <div className="flex items-center gap-md text-sm">
                                             <button onClick={() => handleMoveToCart(item)} className="text-trust hover:underline font-medium">
@@ -393,7 +394,7 @@ const Cart = () => {
                                     />
                                 </div>
                                 <h3 className="text-xs font-medium text-text-primary line-clamp-2 mb-xs">{product.title}</h3>
-                                <p className="text-sm font-bold text-text-primary">₹{product.price.toLocaleString('en-IN')}</p>
+                                <PriceDisplay sellingPrice={product.price} originalPrice={product.originalPrice} size="sm" showBadge={true} />
                             </Link>
                         ))}
                     </div>
@@ -477,9 +478,12 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
 
             {/* Price */}
             <div className="flex-shrink-0 text-right">
-                <p className="text-lg font-bold text-text-primary">
-                    ₹{(item.price * item.quantity).toLocaleString('en-IN')}
-                </p>
+                <PriceDisplay
+                    sellingPrice={item.price * item.quantity}
+                    originalPrice={item.originalPrice != null ? item.originalPrice * item.quantity : null}
+                    size="md"
+                    showBadge={false}
+                />
                 {item.quantity > 1 && (
                     <p className="text-xs text-text-muted">₹{item.price.toLocaleString('en-IN')} each</p>
                 )}

@@ -11,10 +11,18 @@ const router = express.Router();
 //   ?isSecondHand=true
 router.get('/', async (req, res) => {
     try {
-        const { category, search, sort, minPrice, maxPrice, isSecondHand, page, limit } = req.query;
+        const { category, search, sort, minPrice, maxPrice, isSecondHand, refurbished, onSale, page, limit } = req.query;
 
         // Build where clause
         let where = { isActive: true };
+
+        // Refurbished: default listings exclude refurbished; ?refurbished=true returns only refurbished
+        if (refurbished === 'true') {
+            where.isRefurbished = true;
+        } else {
+            where.isRefurbished = false;
+        }
+
         if (category) {
             const categories = category.split(',').map(c => c.trim()).filter(Boolean);
             if (categories.length > 0) where.category = { in: categories };
@@ -25,6 +33,9 @@ router.get('/', async (req, res) => {
             where.price = {};
             if (minPrice) where.price.gte = parseFloat(minPrice);
             if (maxPrice) where.price.lte = parseFloat(maxPrice);
+        }
+        if (onSale === 'true') {
+            where.originalPrice = { not: null };
         }
 
         // Build orderBy (single field — used for both in-stock and out-of-stock groups)
@@ -153,7 +164,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/products (Admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, price, stock, category, brand, image, images, description, specs, condition, isSecondHand, isReturnable, returnWindowDays, referrerPoints, refereePoints } = req.body;
+        const { title, price, originalPrice, stock, category, brand, image, images, description, specs, condition, isSecondHand, isRefurbished, isReturnable, returnWindowDays, referrerPoints, refereePoints } = req.body;
 
         const productImages = Array.isArray(images) ? images : (image ? [image] : []);
 
@@ -165,6 +176,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
             data: {
                 title,
                 price: parseFloat(price),
+                originalPrice: originalPrice != null && originalPrice !== '' ? parseFloat(originalPrice) : null,
                 stock: parseInt(stock),
                 category,
                 brand: brand || null,
@@ -173,6 +185,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 specs: specs || null,
                 condition: condition || 'New',
                 isSecondHand: isSecondHand === true || isSecondHand === 'true',
+                isRefurbished: isRefurbished === true || isRefurbished === 'true',
                 isReturnable: isReturnable !== undefined ? (isReturnable === true || isReturnable === 'true') : true,
                 returnWindowDays: returnWindowDays !== undefined ? parseInt(returnWindowDays) : 3,
                 referrerPoints: referrerPoints !== undefined && referrerPoints !== null ? parseFloat(referrerPoints) : null,
@@ -194,7 +207,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
-        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, ...otherData } = req.body;
+        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, originalPrice, isRefurbished, ...otherData } = req.body;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
 
@@ -212,6 +225,8 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 
         if (isReturnable !== undefined) updateData.isReturnable = isReturnable === true || isReturnable === 'true';
         if (returnWindowDays !== undefined) updateData.returnWindowDays = parseInt(returnWindowDays);
+        if (originalPrice !== undefined) updateData.originalPrice = originalPrice == null || originalPrice === '' ? null : parseFloat(originalPrice);
+        if (isRefurbished !== undefined) updateData.isRefurbished = isRefurbished === true || isRefurbished === 'true';
 
         const product = await prisma.product.update({
             where: { id: productId },
@@ -328,18 +343,20 @@ router.get('/:id/variants', async (req, res) => {
 // POST /api/products/:id/variants (Admin only)
 router.post('/:id/variants', protect, adminOnly, async (req, res) => {
     try {
-        const { name, price, stock, sku } = req.body;
+        const { name, price, originalPrice, stock, sku } = req.body;
         const productId = parseInt(req.params.id);
 
-        const variant = await prisma.productVariant.create({
-            data: {
-                productId,
-                name,
-                price: parseFloat(price),
-                stock: parseInt(stock),
-                sku: sku || null
-            }
-        });
+        const variantData = {
+            productId,
+            name,
+            price: parseFloat(price),
+            stock: parseInt(stock),
+            sku: sku || null
+        };
+        if (originalPrice != null && originalPrice !== '' && !isNaN(parseFloat(originalPrice))) {
+            variantData.originalPrice = parseFloat(originalPrice);
+        }
+        const variant = await prisma.productVariant.create({ data: variantData });
 
         cache.delByPrefix('products:'); // full cache flush for simplicity
         res.status(201).json(variant);
@@ -352,11 +369,12 @@ router.post('/:id/variants', protect, adminOnly, async (req, res) => {
 // PUT /api/products/:id/variants/:variantId (Admin only)
 router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
     try {
-        const { name, price, stock, sku } = req.body;
+        const { name, price, originalPrice, stock, sku } = req.body;
 
         const updateData = {};
         if (name !== undefined) updateData.name = name;
         if (price !== undefined) updateData.price = parseFloat(price);
+        if (originalPrice !== undefined) updateData.originalPrice = originalPrice != null && originalPrice !== '' ? parseFloat(originalPrice) : null;
         if (stock !== undefined) updateData.stock = parseInt(stock);
         if (sku !== undefined) updateData.sku = sku || null;
 

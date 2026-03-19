@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     X, UserCircle, Store, Heart, ShoppingBag, Wrench,
     GraduationCap, FileText, Shield, LayoutDashboard,
-    Settings, Gift, LogOut, LogIn, ChevronRight, Download
+    Settings, Gift, LogOut, LogIn, ChevronRight, Download, RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
@@ -49,6 +49,7 @@ const MobileDrawer = ({ isOpen, onClose }) => {
             label: 'SHOPPING',
             links: [
                 { name: 'Products', path: '/products', icon: Store },
+                { name: 'Refurbished', path: '/refurbished', icon: RefreshCw, amber: true },
                 { name: 'Wishlist', path: '/wishlist', icon: Heart },
                 { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
             ]
@@ -138,6 +139,7 @@ const MobileDrawer = ({ isOpen, onClose }) => {
                                 {group.links.map((link) => {
                                     const Icon = link.icon;
                                     const active = isActiveRoute(link.path);
+                                    const isAmber = link.amber && !active;
                                     return (
                                         <Link
                                             key={link.path}
@@ -145,10 +147,12 @@ const MobileDrawer = ({ isOpen, onClose }) => {
                                             className={`flex items-center gap-3 px-4 py-3 transition-colors ${
                                                 active
                                                     ? 'text-trust bg-trust/5 font-medium'
-                                                    : 'text-text-primary hover:bg-surface-hover'
+                                                    : isAmber
+                                                        ? 'text-amber-600 hover:bg-surface-hover'
+                                                        : 'text-text-primary hover:bg-surface-hover'
                                             }`}
                                         >
-                                            <Icon size={20} className={active ? 'text-trust' : 'text-text-secondary'} />
+                                            <Icon size={20} className={active ? 'text-trust' : isAmber ? 'text-amber-500' : 'text-text-secondary'} />
                                             <span className="flex-1 text-sm">{link.name}</span>
                                             <ChevronRight size={16} className="text-text-muted" />
                                         </Link>
