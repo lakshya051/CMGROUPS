@@ -1,6 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Allow TLS with self-signed certs (e.g. corporate proxy) — set ALLOW_INSECURE_TLS=1 in .env for local dev only.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// Allow TLS with self-signed certs (e.g. corporate proxy / local Neon) — set ALLOW_INSECURE_TLS=1 in .env for local dev only. Do NOT set on Render.
 // Must run before app/firebase load, so we use dynamic import below.
 if (process.env.ALLOW_INSECURE_TLS === '1' || process.env.ALLOW_INSECURE_TLS === 'true') {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';

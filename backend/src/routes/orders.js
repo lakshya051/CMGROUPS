@@ -73,7 +73,7 @@ router.post('/', optionalProtect, async (req, res) => {
     const checkoutStart = Date.now();
     const checkoutRequestId = `ord-${checkoutStart}-${Math.floor(Math.random() * 10000)}`;
     try {
-        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink } = req.body;
+        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink, couponCode, discountAmount } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ error: 'No items in order' });
@@ -178,6 +178,28 @@ router.post('/', optionalProtect, async (req, res) => {
             }
         }
 
+        // Compute server-side total from DB prices and validate against client total
+        let computedSubtotal = 0;
+        for (const item of items) {
+            const qty = parseInt(item.quantity, 10);
+            if (item.variantId) {
+                const variant = variantMap.get(parseInt(item.variantId, 10));
+                if (variant) computedSubtotal += variant.price * qty;
+            } else {
+                const product = productMap.get(parseInt(item.productId, 10));
+                if (product) computedSubtotal += product.price * qty;
+            }
+        }
+        const serverTotal = Math.round(computedSubtotal * 1.18); // items + 18% GST
+        const tolerance = Math.max(2, serverTotal * 0.01);
+        if (Math.abs(serverTotal - parsedTotal - (parsedWalletUsed || 0)) > tolerance && Math.abs(serverTotal - parsedTotal) > tolerance) {
+            // Allow if total + walletUsed matches OR total alone matches (wallet already subtracted client-side)
+            const totalPlusWallet = parsedTotal + parsedWalletUsed;
+            if (Math.abs(serverTotal - totalPlusWallet) > tolerance && Math.abs(serverTotal - parsedTotal) > tolerance) {
+                return res.status(400).json({ error: 'Order total mismatch. Please refresh and try again.' });
+            }
+        }
+
         logCheckoutTiming(checkoutRequestId, 'pre_validation_complete', checkoutStart);
 
         const isFullyPaidWithWallet = useWallet && req.user && parsedWalletUsed >= parsedTotal;
@@ -268,6 +290,8 @@ router.post('/', optionalProtect, async (req, res) => {
                     shippingAddress: shippingAddress || null,
                     guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
                     referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
+                    couponCode: couponCode ? String(couponCode).trim().toUpperCase() : null,
+                    discountAmount: discountAmount ? parseFloat(discountAmount) : null,
                     latitude: latitude ? parseFloat(latitude) : null,
                     longitude: longitude ? parseFloat(longitude) : null,
                     googleMapLink: googleMapLink || null,
@@ -372,7 +396,7 @@ router.post('/', optionalProtect, async (req, res) => {
                     push: {
                         enabled: true,
                         title: 'Payment OTP Ready',
-                        body: 'Your payment OTP is available in TechNova.',
+                        body: 'Your payment OTP is available in CMGROUPS.',
                     },
                 }).catch((notifErr) => {
                     console.error('Order OTP notification error (non-blocking):', notifErr);
@@ -664,55 +688,54 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                         });
 
                         if (referrer && referrer.id !== orderWithItems.userId) {
-                            // Credit referrer
-                            await prisma.user.update({
-                                where: { id: referrer.id },
-                                data: { walletBalance: { increment: referrerPoints } }
-                            });
-
-                            await prisma.referral.create({
-                                data: {
-                                    referrerId: referrer.id,
-                                    refereeId: orderWithItems.userId,
-                                    status: 'rewarded',
-                                    rewardAmount: referrerPoints,
-                                    refereeReward: refereePoints > 0 ? refereePoints : null,
-                                    orderId: orderId,
-                                    completedAt: new Date()
-                                }
-                            });
-
-                            // Credit buyer
-                            if (orderWithItems.userId) {
-                                await prisma.user.update({
-                                    where: { id: orderWithItems.userId },
-                                    data: { walletBalance: { increment: refereePoints } }
-                                });
-                            }
-
-                            // Tier system
-                            const tierSettings = await prisma.referralSettings.findFirst();
-                            if (tierSettings && tierSettings.tierSystemEnabled) {
-                                const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
-
-                                const upRef = await prisma.user.update({
+                            await prisma.$transaction(async (tx) => {
+                                await tx.user.update({
                                     where: { id: referrer.id },
-                                    data: { tierPoints: { increment: referrerPoints } },
-                                    select: { id: true, tierPoints: true, tier: true }
+                                    data: { walletBalance: { increment: referrerPoints } }
                                 });
-                                const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                if (nRT !== upRef.tier) await prisma.user.update({ where: { id: referrer.id }, data: { tier: nRT } });
+
+                                await tx.referral.create({
+                                    data: {
+                                        referrerId: referrer.id,
+                                        refereeId: orderWithItems.userId,
+                                        status: 'rewarded',
+                                        rewardAmount: referrerPoints,
+                                        refereeReward: refereePoints > 0 ? refereePoints : null,
+                                        orderId: orderId,
+                                        completedAt: new Date()
+                                    }
+                                });
 
                                 if (orderWithItems.userId) {
-                                    const upBuy = await prisma.user.update({
+                                    await tx.user.update({
                                         where: { id: orderWithItems.userId },
+                                        data: { walletBalance: { increment: refereePoints } }
+                                    });
+                                }
+
+                                const tierSettings = await tx.referralSettings.findFirst();
+                                if (tierSettings && tierSettings.tierSystemEnabled) {
+                                    const tiers = await tx.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
+
+                                    const upRef = await tx.user.update({
+                                        where: { id: referrer.id },
                                         data: { tierPoints: { increment: referrerPoints } },
                                         select: { id: true, tierPoints: true, tier: true }
                                     });
-                                    const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                    if (nBT !== upBuy.tier) await prisma.user.update({ where: { id: orderWithItems.userId }, data: { tier: nBT } });
+                                    const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                    if (nRT !== upRef.tier) await tx.user.update({ where: { id: referrer.id }, data: { tier: nRT } });
+
+                                    if (orderWithItems.userId) {
+                                        const upBuy = await tx.user.update({
+                                            where: { id: orderWithItems.userId },
+                                            data: { tierPoints: { increment: refereePoints } },
+                                            select: { id: true, tierPoints: true, tier: true }
+                                        });
+                                        const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                        if (nBT !== upBuy.tier) await tx.user.update({ where: { id: orderWithItems.userId }, data: { tier: nBT } });
+                                    }
                                 }
-                            }
+                            });
                         }
                     }
                 }
@@ -810,57 +833,54 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                         });
 
                         if (referrer && referrer.id !== order.userId) {
-                            // Credit referrer
-                            await prisma.user.update({
-                                where: { id: referrer.id },
-                                data: { walletBalance: { increment: referrerPoints } }
-                            });
-
-                            await prisma.referral.create({
-                                data: {
-                                    referrerId: referrer.id,
-                                    refereeId: order.userId,
-                                    status: 'rewarded',
-                                    rewardAmount: referrerPoints,
-                                    refereeReward: refereePoints > 0 ? refereePoints : null,
-                                    orderId: orderId,
-                                    completedAt: new Date()
-                                }
-                            });
-
-                            // Credit buyer
-                            if (order.userId) {
-                                await prisma.user.update({
-                                    where: { id: order.userId },
-                                    data: { walletBalance: { increment: refereePoints } }
-                                });
-                            }
-
-                            // Tier system
-                            const tierSettings = await prisma.referralSettings.findFirst();
-                            if (tierSettings && tierSettings.tierSystemEnabled) {
-                                const tiers = await prisma.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
-
-                                // Referrer
-                                const upRef = await prisma.user.update({
+                            await prisma.$transaction(async (tx) => {
+                                await tx.user.update({
                                     where: { id: referrer.id },
-                                    data: { tierPoints: { increment: referrerPoints } },
-                                    select: { id: true, tierPoints: true, tier: true }
+                                    data: { walletBalance: { increment: referrerPoints } }
                                 });
-                                const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                if (nRT !== upRef.tier) await prisma.user.update({ where: { id: referrer.id }, data: { tier: nRT } });
 
-                                // Buyer
+                                await tx.referral.create({
+                                    data: {
+                                        referrerId: referrer.id,
+                                        refereeId: order.userId,
+                                        status: 'rewarded',
+                                        rewardAmount: referrerPoints,
+                                        refereeReward: refereePoints > 0 ? refereePoints : null,
+                                        orderId: orderId,
+                                        completedAt: new Date()
+                                    }
+                                });
+
                                 if (order.userId) {
-                                    const upBuy = await prisma.user.update({
+                                    await tx.user.update({
                                         where: { id: order.userId },
+                                        data: { walletBalance: { increment: refereePoints } }
+                                    });
+                                }
+
+                                const tierSettings = await tx.referralSettings.findFirst();
+                                if (tierSettings && tierSettings.tierSystemEnabled) {
+                                    const tiers = await tx.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
+
+                                    const upRef = await tx.user.update({
+                                        where: { id: referrer.id },
                                         data: { tierPoints: { increment: referrerPoints } },
                                         select: { id: true, tierPoints: true, tier: true }
                                     });
-                                    const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
-                                    if (nBT !== upBuy.tier) await prisma.user.update({ where: { id: order.userId }, data: { tier: nBT } });
+                                    const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                    if (nRT !== upRef.tier) await tx.user.update({ where: { id: referrer.id }, data: { tier: nRT } });
+
+                                    if (order.userId) {
+                                        const upBuy = await tx.user.update({
+                                            where: { id: order.userId },
+                                            data: { tierPoints: { increment: refereePoints } },
+                                            select: { id: true, tierPoints: true, tier: true }
+                                        });
+                                        const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
+                                        if (nBT !== upBuy.tier) await tx.user.update({ where: { id: order.userId }, data: { tier: nBT } });
+                                    }
                                 }
-                            }
+                            });
                         }
                     }
                 }

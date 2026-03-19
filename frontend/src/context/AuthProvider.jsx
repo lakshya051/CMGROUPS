@@ -143,9 +143,24 @@ export const AuthProvider = ({ children }) => {
                 firebaseConfigured: !!auth,
                 logout,
                 refreshUser,
-                loginWithEmail: (email, password) => {
+                loginWithEmail: async (email, password) => {
                     if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
-                    return signInWithEmailAndPassword(auth, email, password);
+                    const cred = await signInWithEmailAndPassword(auth, email, password);
+                    const idToken = await cred.user.getIdToken();
+                    tokenRef.current = idToken;
+                    setTokenGetter(() => Promise.resolve(tokenRef.current));
+                    try {
+                        const res = await fetch(`${API_BASE}/auth/me`, {
+                            headers: { Authorization: `Bearer ${idToken}` },
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            setUser(data.user);
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch DB user after email login:', err);
+                    }
+                    return cred;
                 },
                 registerWithEmail,
                 loginWithGoogle,

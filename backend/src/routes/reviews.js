@@ -10,6 +10,19 @@ router.post('/:productId', protect, async (req, res) => {
         const { rating, comment, images } = req.body;
         const productId = parseInt(req.params.productId);
 
+        const parsedRating = Number(rating);
+        if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+            return res.status(400).json({ error: 'Rating must be an integer between 1 and 5' });
+        }
+
+        if (comment && typeof comment === 'string' && comment.length > 2000) {
+            return res.status(400).json({ error: 'Comment must be 2000 characters or fewer' });
+        }
+
+        if (images && (!Array.isArray(images) || images.length > 5)) {
+            return res.status(400).json({ error: 'Maximum 5 review images allowed' });
+        }
+
         // Check if already reviewed
         const existing = await prisma.review.findFirst({
             where: { userId: req.user.id, productId }

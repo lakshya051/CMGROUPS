@@ -13,7 +13,7 @@ const API_BASE = import.meta.env.VITE_API_URL;
 
 // ── Config — change these two values ──────────────────────────────────
 const CITY = 'Etah';
-const WA_NUMBER = '919999999999'; // 91 + 10-digit number, no spaces/dashes
+const WA_NUMBER = '918171838388'; // TODO: Replace with actual CMGROUPS WhatsApp business number
 // ──────────────────────────────────────────────────────────────────────
 
 const WA_MSG = encodeURIComponent('Hi, I am interested in Tally ERP software. Please share details and pricing.');

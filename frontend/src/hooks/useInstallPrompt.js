@@ -23,6 +23,8 @@ export function useInstallPrompt() {
             if (daysSince < DISMISS_DAYS) return;
         }
 
+        let timerRef = null;
+
         const handler = (e) => {
             e.preventDefault();
             setDeferredPrompt(e);
@@ -35,8 +37,7 @@ export function useInstallPrompt() {
                 return;
             }
 
-            const timer = setTimeout(() => setShowPrompt(true), SECONDS_BEFORE_PROMPT * 1000);
-            return () => clearTimeout(timer);
+            timerRef = setTimeout(() => setShowPrompt(true), SECONDS_BEFORE_PROMPT * 1000);
         };
 
         window.addEventListener('beforeinstallprompt', handler);
@@ -49,6 +50,7 @@ export function useInstallPrompt() {
         window.addEventListener('appinstalled', installedHandler);
 
         return () => {
+            if (timerRef) clearTimeout(timerRef);
             window.removeEventListener('beforeinstallprompt', handler);
             window.removeEventListener('appinstalled', installedHandler);
         };

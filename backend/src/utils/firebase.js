@@ -14,7 +14,7 @@ function getCredential() {
         });
     }
     const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
-        ?? path.join(__dirname, '..', ' serviceAccountKey.json');
+        ?? path.join(__dirname, '..', 'serviceAccountKey.json');
     const serviceAccount = JSON.parse(readFileSync(keyPath, 'utf8'));
     return admin.credential.cert(serviceAccount);
 }

@@ -30,7 +30,12 @@ const CoursePlayer = () => {
         fetchCourseData();
     }, [id]);
 
-    if (loading) return <div className="p-8 text-center text-text-muted">Loading course player...</div>;
+    if (loading) return (
+        <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+            <p className="text-text-muted text-sm font-medium animate-pulse">Loading course player...</p>
+        </div>
+    );
 
     if (!courseData || !courseData.course) {
         return (

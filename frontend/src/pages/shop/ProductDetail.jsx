@@ -8,6 +8,7 @@ import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, 
 import ReviewSection from '../../components/shop/ReviewSection';
 import { RECENTLY_VIEWED_KEY } from '../../constants';
 import { handleImageError } from '../../utils/image';
+import toast from 'react-hot-toast';
 
 const MAX_RECENTLY_VIEWED = 10;
 
@@ -72,14 +73,14 @@ const ProductDetail = () => {
     }, [user, id, product]);
 
     const handleToggleAlert = async (type) => {
-        if (!user) return alert('Please login to set alerts');
+        if (!user) { toast.error('Please sign in to set alerts'); return; }
         try {
             const res = await alertsAPI.toggle(id, type);
             if (type === 'STOCK') setIsStockAlertSet(res.subscribed);
             if (type === 'PRICE_DROP') setIsPriceAlertSet(res.subscribed);
-            alert(res.message);
+            toast.success(res.message || 'Alert updated');
         } catch (err) {
-            alert('Failed to update alert');
+            toast.error('Failed to update alert');
         }
     };
 

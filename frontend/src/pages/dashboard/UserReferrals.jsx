@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { referralsAPI } from '../../lib/api';
+import SectionLoader from '../../components/ui/SectionLoader';
 import {
     CheckCircle,
     Clock,
@@ -91,10 +92,10 @@ const UserReferrals = () => {
         );
     };
 
-    if (loading) return <div className="p-8 text-center text-text-muted">Loading referral data...</div>;
+    if (loading) return <div className="p-8"><SectionLoader message="Loading referral data..." /></div>;
 
     const referralCode = stats?.referralCode || user?.referralCode || '';
-    const referralLink = stats?.referralLink || `${window.location.origin}/signup?ref=${referralCode}`;
+    const referralLink = stats?.referralLink || `${window.location.origin}/sign-up?ref=${referralCode}`;
     const activeReferrals = tab === 'sent' ? sentReferrals : receivedReferrals;
     const tabs = [
         { key: 'sent', label: 'Sent', count: sentReferrals.length, icon: <Users size={14} /> },

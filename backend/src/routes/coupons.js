@@ -1,6 +1,13 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+
+const validateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { error: 'Too many coupon validation attempts. Please try again in a minute.' }
+});
 
 const router = express.Router();
 const DISCOUNT_TYPES = ['percent', 'fixed'];
@@ -83,7 +90,7 @@ const buildCouponData = (body, { partial = false } = {}) => {
 };
 
 // POST /api/coupons/validate (Public - validate a coupon code)
-router.post('/validate', async (req, res) => {
+router.post('/validate', validateLimiter, async (req, res) => {
     try {
         const { code } = req.body;
 

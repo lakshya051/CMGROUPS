@@ -31,7 +31,7 @@ export function generateCertificate(enrollment, res) {
         .fillColor('#1F2937')
         .fontSize(40)
         .font('Helvetica-Bold')
-        .text('TechNova Institute', 0, 120, { align: 'center' });
+        .text('CMGROUPS Academy', 0, 120, { align: 'center' });
 
     doc
         .fillColor('#6B7280')

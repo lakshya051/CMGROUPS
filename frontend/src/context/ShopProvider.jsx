@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ordersAPI, wishlistAPI, cartAPI } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { ShopContext } from './ShopContext';
+import { MAX_COMPARE_ITEMS } from '../constants';
 import toast from 'react-hot-toast';
 
 const getErrorMessage = (err, fallback) => (err instanceof Error && err.message ? err.message : fallback);
@@ -276,7 +277,10 @@ export const ShopProvider = ({ children }) => {
     const clearCart = useCallback(() => {
         setCart([]);
         setCoupon(null);
-    }, []);
+        if (user) {
+            cartAPI.clear().catch((err) => console.error('Failed to clear cart on server:', err));
+        }
+    }, [user]);
 
     const applyCoupon = (couponData) => setCoupon(couponData);
     const removeCoupon = () => setCoupon(null);
@@ -345,7 +349,7 @@ export const ShopProvider = ({ children }) => {
         const numId = typeof productId === 'string' ? parseInt(productId) : productId;
         setCompareList(prev => {
             if (prev.includes(numId)) return prev;
-            if (prev.length >= 4) return prev;
+            if (prev.length >= MAX_COMPARE_ITEMS) return prev;
             return [...prev, numId];
         });
     };

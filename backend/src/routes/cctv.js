@@ -1,7 +1,14 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import nodemailer from 'nodemailer';
+
+const enquiryLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many enquiry submissions. Please try again later.' }
+});
 
 const router = express.Router();
 const cctvEnquiryDelegate = prisma.cCTVEnquiry ?? prisma.CCTVEnquiry ?? prisma.cctvEnquiry;
@@ -15,7 +22,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // PUBLIC — POST /api/cctv/enquiry
-router.post('/enquiry', async (req, res) => {
+router.post('/enquiry', enquiryLimiter, async (req, res) => {
     try {
         if (!cctvEnquiryDelegate) {
             throw new Error('CCTVEnquiry Prisma delegate is not available. Restart the backend after regenerating Prisma client.');
@@ -32,6 +39,10 @@ router.post('/enquiry', async (req, res) => {
 
         if (missing.length > 0) {
             return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+        }
+
+        if (message && typeof message === 'string' && message.length > 1000) {
+            return res.status(400).json({ error: 'Message must be 1000 characters or fewer' });
         }
 
         const cleanPhone = phone.replace(/\D/g, '');

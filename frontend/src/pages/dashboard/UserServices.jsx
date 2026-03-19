@@ -191,7 +191,7 @@ const UserServices = () => {
         // Base64 data URL — convert to blob and trigger download
         const link = document.createElement('a');
         link.href = invoiceUrl;
-        link.download = 'TechNova_Service_Invoice.pdf';
+        link.download = 'CMGROUPS_Service_Invoice.pdf';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -338,7 +338,7 @@ const UserServices = () => {
                                                     <ShieldCheck size={12} />OTP Verification
                                                 </p>
                                                 <p className="text-sm text-blue-700 mb-3">
-                                                    Your technician is confirmed. Once they arrive, enter the OTP from your email to start the service.
+                                                    When the technician arrives for pickup, they will give you a 6-digit OTP. Enter it here to confirm the device handover — only then will the pickup be recorded.
                                                 </p>
                                                 <div className="flex gap-2">
                                                     <input

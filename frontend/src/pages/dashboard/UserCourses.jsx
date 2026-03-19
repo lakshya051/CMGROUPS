@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Award, Clock, CreditCard, Link as LinkIcon, GraduationCap, Banknote, CheckCircle, AlertCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import SectionLoader from '../../components/ui/SectionLoader';
 import { Link } from 'react-router-dom';
 import { coursesAPI } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -36,7 +37,7 @@ const UserCourses = () => {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-text-muted">Loading your courses...</div>;
+    if (loading) return <div className="p-8"><SectionLoader message="Loading your courses..." /></div>;
 
     return (
         <div className="space-y-lg animate-in fade-in duration-500">

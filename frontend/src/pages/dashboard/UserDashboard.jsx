@@ -46,12 +46,13 @@ const UserDashboard = () => {
     const { user } = useAuth();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [statsError, setStatsError] = useState(false);
     useSEO({ title: 'My Dashboard — CMGROUPS', description: 'Manage your orders, services and account.', noIndex: true });
 
     useEffect(() => {
         ordersAPI.getMyStats()
             .then(data => setStats(data))
-            .catch(err => console.error('Failed to fetch stats:', err))
+            .catch(() => setStatsError(true))
             .finally(() => setLoading(false));
     }, []);
 
@@ -95,6 +96,11 @@ const UserDashboard = () => {
             {/* Stats Grid */}
             {loading ? (
                 <div className="text-center py-8 text-text-muted">Loading your stats...</div>
+            ) : statsError ? (
+                <div className="text-center py-8 bg-error/5 border border-error/20 rounded-lg">
+                    <p className="text-error text-sm font-medium">Failed to load dashboard stats.</p>
+                    <button onClick={() => window.location.reload()} className="text-primary text-sm underline mt-2">Retry</button>
+                </div>
             ) : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
