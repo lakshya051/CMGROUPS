@@ -35,6 +35,7 @@ export default {
                 'badge-bestseller':     '#FF6D00',
                 'badge-choice':         '#1a1a1a',
                 'badge-choice-text':    '#C7A33A',
+                'discount-green':       '#16a34a',
             },
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],
@@ -66,6 +67,7 @@ export default {
         'bg-deal',
         'bg-urgency',
         'bg-trust',
+        'bg-discount-green',
     ],
     plugins: [
         require("tailwindcss-animate"),

@@ -10,12 +10,14 @@ import { handleImageError } from '../../utils/image';
 const emptyProductValues = {
     title: '',
     price: '',
+    originalPrice: '',
     stock: '',
     category: '',
     brand: '',
     image: '',
     condition: 'New',
     isSecondHand: false,
+    isRefurbished: false,
     isReturnable: true,
     returnWindowDays: 3,
     enableReferral: false,
@@ -41,12 +43,8 @@ const AdminProducts = () => {
     const [editingProduct, setEditingProduct] = useState(null);
     const [specs, setSpecs] = useState({});
 
-    // Variant state
+    // Variant state (editable rows)
     const [variants, setVariants] = useState([]);
-    const [variantName, setVariantName] = useState('');
-    const [variantPrice, setVariantPrice] = useState('');
-    const [variantStock, setVariantStock] = useState('');
-    const [variantSku, setVariantSku] = useState('');
 
     // Multi-image state
     const [productImages, setProductImages] = useState([]);
@@ -75,6 +73,7 @@ const AdminProducts = () => {
             const productData = {
                 title: values.title,
                 price: parseFloat(values.price),
+                originalPrice: values.originalPrice ? parseFloat(values.originalPrice) : null,
                 stock: parseInt(values.stock),
                 category: values.category,
                 brand: values.brand || null,
@@ -82,6 +81,7 @@ const AdminProducts = () => {
                 description: values.description || null,
                 specs: Object.keys(specs).length > 0 ? specs : null,
                 isSecondHand: values.isSecondHand,
+                isRefurbished: values.isRefurbished,
                 isReturnable: values.isReturnable,
                 returnWindowDays: parseInt(values.returnWindowDays || 3),
                 referrerPoints: values.enableReferral && values.referrerPoints ? parseInt(values.referrerPoints) : null,
@@ -100,26 +100,29 @@ const AdminProducts = () => {
 
                 // Handle Variants
                 // For simplicity, if editing, we recreate variants based on the current state.
-                let finalVariants = [...variants];
+                const completeVariants = variants
+                    .filter(v => String(v.name || '').trim() && v.price !== '' && v.stock !== '')
+                    .map(v => ({
+                        name: String(v.name).trim(),
+                        price: parseFloat(v.price),
+                        originalPrice: v.originalPrice != null && v.originalPrice !== '' && !isNaN(parseFloat(v.originalPrice)) ? parseFloat(v.originalPrice) : null,
+                        stock: parseInt(v.stock, 10),
+                        sku: String(v.sku || '').trim() || null
+                    }));
 
-                // If no variants were defined by the admin, auto-generate one from the base details
-                if (finalVariants.length === 0) {
-                    finalVariants.push({
-                        name: 'Standard',
-                        price: parseFloat(values.price),
-                        stock: parseInt(values.stock),
-                        sku: values.sku || null
-                    });
-                }
+                const finalVariants = completeVariants.length > 0 ? completeVariants : [{
+                    name: 'Standard',
+                    price: parseFloat(values.price),
+                    stock: parseInt(values.stock),
+                    sku: values.sku || null
+                }];
 
                 if (finalVariants.length > 0) {
-                    // Delete existing variants if editing
                     if (editingProduct && editingProduct.variants) {
                         for (let v of editingProduct.variants) {
                             await productsAPI.deleteVariant(savedProduct.id, v.id);
                         }
                     }
-                    // Create new variants
                     for (let variant of finalVariants) {
                         await productsAPI.addVariant(savedProduct.id, variant);
                     }
@@ -217,6 +220,7 @@ const AdminProducts = () => {
             values: {
                 title: product.title || '',
                 price: product.price || '',
+                originalPrice: product.originalPrice != null ? product.originalPrice : '',
                 stock: product.stock !== undefined ? product.stock : '',
                 category: product.category || '',
                 brand: product.brand || '',
@@ -224,6 +228,7 @@ const AdminProducts = () => {
                 description: product.description || '',
                 condition: product.condition || 'New',
                 isSecondHand: product.isSecondHand || false,
+                isRefurbished: product.isRefurbished || false,
                 isReturnable: product.isReturnable !== undefined ? product.isReturnable : true,
                 returnWindowDays: product.returnWindowDays !== undefined ? product.returnWindowDays : 3,
                 enableReferral: product.referrerPoints !== null && product.referrerPoints !== undefined,
@@ -242,10 +247,6 @@ const AdminProducts = () => {
         setSpecKey('');
         setSpecValue('');
         setVariants([]);
-        setVariantName('');
-        setVariantPrice('');
-        setVariantStock('');
-        setVariantSku('');
         formik.resetForm();
     };
 
@@ -262,19 +263,18 @@ const AdminProducts = () => {
     };
 
     const addVariant = () => {
-        if (variantName.trim() && variantPrice !== '' && variantStock !== '') {
-            setVariants(prev => [...prev, {
-                id: Date.now(), // temp ID for UI list
-                name: variantName.trim(),
-                price: parseFloat(variantPrice),
-                stock: parseInt(variantStock),
-                sku: variantSku.trim() || null
-            }]);
-            setVariantName('');
-            setVariantPrice('');
-            setVariantStock('');
-            setVariantSku('');
-        }
+        setVariants(prev => [...prev, {
+            id: `new-${Date.now()}`,
+            name: '',
+            price: '',
+            originalPrice: '',
+            stock: '',
+            sku: ''
+        }]);
+    };
+
+    const updateVariant = (index, field, value) => {
+        setVariants(prev => prev.map((v, i) => i === index ? { ...v, [field]: value } : v));
     };
 
     const removeVariant = (id) => {
@@ -509,15 +509,24 @@ const AdminProducts = () => {
                                 </div>
                             </div>
 
-                            {/* Price, Stock, Category */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Price, Original Price, Stock, Category */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-text-muted mb-1">
-                                        Price (₹) <span className="text-error">*</span>
+                                        Selling Price (₹) <span className="text-error">*</span>
                                     </label>
-                                    <input type="number" name="price" className={`input-field ${formik.touched.price && formik.errors.price ? 'border-red-500' : ''}`} placeholder="245000" value={formik.values.price} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
+                                    <input type="number" name="price" className={`input-field ${formik.touched.price && formik.errors.price ? 'border-red-500' : ''}`} placeholder="32000" value={formik.values.price} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
                                     {formik.touched.price && formik.errors.price && <p className="text-red-400 text-sm mt-1">{formik.errors.price}</p>}
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-muted mb-1">
+                                        Original / MRP Price (₹)
+                                    </label>
+                                    <input type="number" name="originalPrice" className="input-field" placeholder="45000 (leave empty if no discount)" value={formik.values.originalPrice} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
+                                    <p className="text-xs text-text-muted mt-1">If set higher than selling price, a strikethrough + discount badge will appear</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-text-muted mb-1">
                                         Stock <span className="text-error">*</span>
@@ -565,6 +574,28 @@ const AdminProducts = () => {
                                         Item is Pre-Owned / Second Hand
                                     </label>
                                 </div>
+                            </div>
+
+                            {/* Refurbished Toggle */}
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="isRefurbished"
+                                        name="isRefurbished"
+                                        checked={formik.values.isRefurbished}
+                                        onChange={formik.handleChange}
+                                        className="w-5 h-5 text-amber-500 bg-surface border-border-default rounded focus:ring-amber-500 focus:ring-2 accent-amber-500"
+                                    />
+                                    <label htmlFor="isRefurbished" className="text-sm font-medium text-text-main cursor-pointer select-none">
+                                        This is a refurbished product
+                                    </label>
+                                </div>
+                                {formik.values.isRefurbished && (
+                                    <p className="text-xs text-amber-700 mt-2 ml-8">
+                                        This product will appear in the Refurbished section only, not in the main shop.
+                                    </p>
+                                )}
                             </div>
 
                             {/* Return Policy */}
@@ -774,54 +805,79 @@ const AdminProducts = () => {
                                 </div>
                             </div>
 
-                            {/* Variants Setup */}
+                            {/* Variants — editable table (options like Size, Storage, Color) */}
                             <div className="pt-4 border-t border-border-default">
-                                <label className="block text-sm font-medium text-text-muted mb-2">Product Variants</label>
+                                <label className="block text-sm font-medium text-text-muted mb-1">Product options (variants)</label>
+                                <p className="text-xs text-text-muted mb-3">
+                                    Add options like Size, Storage, or Color. Each row = one option with its own price and stock. Customers pick one before adding to cart. Leave all rows empty to use a single &quot;Standard&quot; option from the base price above.
+                                </p>
 
-                                {variants.length > 0 && (
-                                    <div className="overflow-x-auto mb-4 border border-border-default rounded-lg">
-                                        <table className="w-full text-left text-sm">
-                                            <thead className="bg-page-bg text-text-secondary">
-                                                <tr>
-                                                    <th className="p-3 font-medium">Variant Name</th>
-                                                    <th className="p-3 font-medium">Price (₹)</th>
-                                                    <th className="p-3 font-medium">Stock</th>
-                                                    <th className="p-3 font-medium">SKU</th>
-                                                    <th className="p-3 font-medium text-right">Actions</th>
+                                <div className="overflow-x-auto border border-border-default rounded-lg">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-page-bg text-text-secondary">
+                                            <tr>
+                                                <th className="p-2 font-medium">Option name</th>
+                                                <th className="p-2 font-medium w-24">Price (₹)</th>
+                                                <th className="p-2 font-medium w-20">Stock</th>
+                                                <th className="p-2 font-medium w-24">SKU</th>
+                                                <th className="p-2 w-10 text-right"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border-default">
+                                            {variants.map((variant, index) => (
+                                                <tr key={variant.id} className="bg-surface">
+                                                    <td className="p-2">
+                                                        <input
+                                                            type="text"
+                                                            className="input-field py-1.5 text-sm"
+                                                            placeholder="e.g. 128GB, Red, Large"
+                                                            value={variant.name ?? ''}
+                                                            onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <input
+                                                            type="number"
+                                                            className="input-field py-1.5 text-sm w-full"
+                                                            placeholder="0"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value={variant.price ?? ''}
+                                                            onChange={(e) => updateVariant(index, 'price', e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <input
+                                                            type="number"
+                                                            className="input-field py-1.5 text-sm w-full"
+                                                            placeholder="0"
+                                                            min="0"
+                                                            value={variant.stock ?? ''}
+                                                            onChange={(e) => updateVariant(index, 'stock', e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td className="p-2">
+                                                        <input
+                                                            type="text"
+                                                            className="input-field py-1.5 text-sm w-full font-mono"
+                                                            placeholder="Optional"
+                                                            value={variant.sku ?? ''}
+                                                            onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td className="p-2 text-right">
+                                                        <button type="button" onClick={() => removeVariant(variant.id)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors" title="Remove option">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </td>
                                                 </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-border-default">
-                                                {variants.map(variant => (
-                                                    <tr key={variant.id} className="bg-surface">
-                                                        <td className="p-3 font-medium">{variant.name}</td>
-                                                        <td className="p-3 text-success">₹{variant.price}</td>
-                                                        <td className="p-3">{variant.stock}</td>
-                                                        <td className="p-3 font-mono text-xs text-text-muted">{variant.sku || '-'}</td>
-                                                        <td className="p-3 text-right">
-                                                            <button type="button" onClick={() => removeVariant(variant.id)} className="text-text-muted hover:text-error transition-colors p-1" title="Delete Variant">
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
-                                    <div className="md:col-span-2">
-                                        <input type="text" className="input-field" placeholder="Variant Name (e.g. 1TB SSD)" value={variantName} onChange={(e) => setVariantName(e.target.value)} />
-                                    </div>
-                                    <input type="number" className="input-field" placeholder="Price" value={variantPrice} onChange={(e) => setVariantPrice(e.target.value)} min="0" />
-                                    <input type="number" className="input-field" placeholder="Stock" value={variantStock} onChange={(e) => setVariantStock(e.target.value)} min="0" />
-                                    <div className="flex gap-2">
-                                        <input type="text" className="input-field flex-1" placeholder="SKU" value={variantSku} onChange={(e) => setVariantSku(e.target.value)} />
-                                        <Button type="button" variant="outline" className="px-3" onClick={addVariant}>
-                                            <Plus size={16} />
-                                        </Button>
-                                    </div>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
+                                <Button type="button" variant="outline" size="sm" className="mt-2 gap-1" onClick={addVariant}>
+                                    <Plus size={14} /> Add another option
+                                </Button>
                             </div>
 
                             {/* Actions */}

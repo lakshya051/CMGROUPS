@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search, Download, MapPin } from 'lucide-react';
+import { Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell, Search, Download, MapPin, RefreshCw } from 'lucide-react';
 import Button from '../ui/Button';
 import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
@@ -80,7 +80,10 @@ const Navbar = () => {
         [cart]
     );
 
-    const isActive = useCallback((path) => location.pathname === path, [location.pathname]);
+    const isActive = useCallback((path) => {
+        if (path === '/') return location.pathname === '/';
+        return location.pathname === path || location.pathname.startsWith(path + '/');
+    }, [location.pathname]);
     const mobileProfilePath = user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/sign-in';
     const hasSearchQuery = searchQuery.trim().length > 0;
     const showSearchBar = !location.pathname.startsWith('/tally-erp') && !location.pathname.startsWith('/cctv');
@@ -205,10 +208,8 @@ const Navbar = () => {
                 )}
 
                 {/* Desktop Nav */}
-                <nav className="hidden md:flex items-center gap-6 flex-shrink-0">
-                    <Link to="/" className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}>
-                        Home
-                    </Link>
+                <nav className="hidden md:flex items-center gap-5 flex-shrink-0">
+                    <NavLink to="/" label="Home" active={isActive('/')} />
 
                     {/* Products Dropdown */}
                     <div
@@ -216,12 +217,7 @@ const Navbar = () => {
                         onMouseEnter={() => setShowCatMenu(true)}
                         onMouseLeave={() => setShowCatMenu(false)}
                     >
-                        <Link
-                            to="/products"
-                            className={`text-sm font-medium transition-colors flex items-center gap-1 ${isActive('/products') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}
-                        >
-                            Products
-                        </Link>
+                        <NavLink to="/products" label="Products" active={isActive('/products')} />
 
                         {showCatMenu && (
                             <div className="absolute top-full left-0 w-48 bg-surface border border-border-default shadow-sm rounded-lg p-2 flex flex-col gap-1 animate-in fade-in slide-in-from-top-2">
@@ -240,18 +236,23 @@ const Navbar = () => {
                         )}
                     </div>
 
-                    <Link to="/services" className={`text-sm font-medium transition-colors ${isActive('/services') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}>
-                        Services
+                    {/* Refurbished */}
+                    <Link
+                        to="/refurbished"
+                        className={`relative text-sm font-medium transition-colors flex items-center gap-1 pb-0.5 ${
+                            isActive('/refurbished')
+                                ? 'text-amber-600 font-semibold after:absolute after:left-0 after:right-0 after:-bottom-0.5 after:h-0.5 after:bg-amber-500 after:rounded-full'
+                                : 'text-amber-600/80 hover:text-amber-600'
+                        }`}
+                    >
+                        <RefreshCw size={14} />
+                        Refurbished
                     </Link>
-                    <Link to="/courses" className={`text-sm font-medium transition-colors ${isActive('/courses') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}>
-                        Academy
-                    </Link>
-                    <Link to="/tally-erp" className={`text-sm font-medium transition-colors ${isActive('/tally-erp') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}>
-                        Tally ERP
-                    </Link>
-                    <Link to="/cctv" className={`text-sm font-medium transition-colors ${isActive('/cctv') ? 'text-trust' : 'text-text-secondary hover:text-text-primary'}`}>
-                        CCTV Security
-                    </Link>
+
+                    <NavLink to="/services" label="Services" active={isActive('/services')} />
+                    <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
+                    <NavLink to="/tally-erp" label="Tally ERP" active={isActive('/tally-erp')} />
+                    <NavLink to="/cctv" label="CCTV" active={isActive('/cctv')} />
                 </nav>
 
                 {/* Actions */}
@@ -321,5 +322,18 @@ const Navbar = () => {
         </header>
     );
 };
+
+const NavLink = ({ to, label, active }) => (
+    <Link
+        to={to}
+        className={`relative text-sm font-medium transition-colors pb-0.5 ${
+            active
+                ? 'text-trust font-semibold after:absolute after:left-0 after:right-0 after:-bottom-0.5 after:h-0.5 after:bg-trust after:rounded-full'
+                : 'text-text-secondary hover:text-text-primary'
+        }`}
+    >
+        {label}
+    </Link>
+);
 
 export default memo(Navbar);

@@ -50,6 +50,7 @@ const Notifications = lazyRetry(() => import('./pages/Notifications'));
 
 // Shop
 const Products = lazyRetry(() => import('./pages/shop/Products'));
+const Refurbished = lazyRetry(() => import('./pages/shop/Refurbished'));
 const ProductDetail = lazyRetry(() => import('./pages/shop/ProductDetail'));
 const Cart = lazyRetry(() => import('./pages/shop/Cart'));
 const Wishlist = lazyRetry(() => import('./pages/shop/Wishlist'));
@@ -102,6 +103,7 @@ function App() {
                             <Route path="/" element={<ErrorBoundary><SharedLayout /></ErrorBoundary>}>
                                 <Route index element={<Home />} />
                                 <Route path="products" element={<Products />} />
+                                <Route path="refurbished" element={<Refurbished />} />
                                 <Route path="products/:id" element={<ProductDetail />} />
                                 <Route path="cart" element={<Cart />} />
                                 <Route path="wishlist" element={<Wishlist />} />

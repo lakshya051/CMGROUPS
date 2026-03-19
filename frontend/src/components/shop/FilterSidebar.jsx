@@ -31,6 +31,7 @@ function FilterSidebar({
     isMobileOpen,
     onCloseMobile,
     productCounts,
+    hideConditionFilter = false,
 }) {
     const [categorySearch, setCategorySearch] = useState('')
     const [showAllCategories, setShowAllCategories] = useState(false)
@@ -191,6 +192,7 @@ function FilterSidebar({
                     </section>
 
                     {/* ── Condition ── */}
+                    {!hideConditionFilter && (
                     <section>
                         <h3 className="text-sm font-bold text-text-primary mb-md">Condition</h3>
                         <ul className="space-y-sm">
@@ -212,6 +214,7 @@ function FilterSidebar({
                             ))}
                         </ul>
                     </section>
+                    )}
 
                     {/* ── Availability ── */}
                     <section>

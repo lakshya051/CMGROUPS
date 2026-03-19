@@ -196,6 +196,7 @@ model Product {
   id               Int      @id @default(autoincrement())
   title            String
   price            Float
+  originalPrice    Float?
   stock            Int
   category         String
   brand            String?
@@ -206,6 +207,7 @@ model Product {
   numReviews       Int      @default(0)
   condition        String   @default("New")
   isSecondHand     Boolean  @default(false)
+  isRefurbished    Boolean  @default(false)
   isReturnable     Boolean  @default(true)
   returnWindowDays Int      @default(3)
   referrerPoints   Float?
@@ -221,6 +223,7 @@ model Product {
 
   @@index([category])
   @@index([isSecondHand])
+  @@index([isRefurbished])
   @@index([price])
   @@index([rating])
 }
@@ -485,15 +488,16 @@ model ServiceType {
 }
 
 model ProductVariant {
-  id        Int      @id @default(autoincrement())
-  productId Int
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name      String // e.g. "64GB", "Red", "512GB SSD"
-  price     Float // variant specific price
-  stock     Int      @default(0)
-  sku       String? // optional stock keeping unit code
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  productId     Int
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name          String // e.g. "64GB", "Red", "512GB SSD"
+  price         Float // variant specific selling price
+  originalPrice Float? // optional compare-at / MRP for discount display
+  stock         Int      @default(0)
+  sku           String? // optional stock keeping unit code
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   orderItems OrderItem[] // so order items can reference a variant
   cartItems  CartItem[]
