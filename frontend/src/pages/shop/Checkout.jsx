@@ -190,6 +190,7 @@ const Checkout = () => {
 
     // ── Delete saved address ─────────────────────────────────────────────────
     const handleDeleteAddress = async (id) => {
+        if (!window.confirm('Delete this saved address?')) return;
         try {
             await addressesAPI.delete(id);
             setSavedAddresses(prev => prev.filter(a => a.id !== id));
@@ -284,6 +285,13 @@ const Checkout = () => {
             setTimeout(() => setOtpCopied(false), 2000);
         }
     };
+
+    // ── Empty cart guard ──────────────────────────────────────────────────────
+    useEffect(() => {
+        if (cart.length === 0 && step !== 3 && !orderId) {
+            navigate('/cart', { replace: true });
+        }
+    }, [cart.length, step, orderId, navigate]);
 
     // ── Step 3 – Order Confirmation ──────────────────────────────────────────
     if (step === 3) {

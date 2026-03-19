@@ -172,7 +172,6 @@ const AdminProducts = () => {
                 }
 
                 const productsRes = await productsAPI.getAll(params);
-                console.log('Admin Products API Response:', productsRes);
 
                 if (productsRes && productsRes.data) {
                     setProducts(productsRes.data);

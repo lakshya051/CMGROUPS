@@ -55,8 +55,8 @@ export const NotificationProvider = ({ children }) => {
     // Listen for custom refresh event (from push notifications etc)
     useEffect(() => {
         const handler = () => fetchNotifications();
-        window.addEventListener('technova:notifications:refresh', handler);
-        return () => window.removeEventListener('technova:notifications:refresh', handler);
+        window.addEventListener('cmgroups:notifications:refresh', handler);
+        return () => window.removeEventListener('cmgroups:notifications:refresh', handler);
     }, [fetchNotifications]);
 
     const markAsRead = useCallback(async (id) => {

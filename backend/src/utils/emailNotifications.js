@@ -41,7 +41,7 @@ export async function sendOrderConfirmationEmail(email, orderId, total, options 
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.log('\n[LOCAL DEV MOCK: Order Confirmation Email]');
         console.log(`To: ${email}`);
-        console.log(`Subject: Order Confirmed - TechNova #${orderId}`);
+        console.log(`Subject: Order Confirmed - CMGROUPS #${orderId}`);
         console.log(`Total: Rs.${total}`);
         if (shouldShowOtp) {
             console.log(`Payment Method: ${paymentModeLabel}`);
@@ -54,12 +54,12 @@ export async function sendOrderConfirmationEmail(email, orderId, total, options 
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
-        subject: `Order Confirmed - TechNova #${orderId}`,
+        subject: `Order Confirmed - CMGROUPS #${orderId}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-w-lg mx-auto p-6 bg-gray-50 border border-gray-100 rounded-lg">
                 <h2 style="color: #333; margin-bottom: 20px;">Order Confirmation</h2>
                 <p style="color: #555; line-height: 1.6;">Hello,</p>
-                <p style="color: #555; line-height: 1.6;">Thank you for shopping with TechNova!</p>
+                <p style="color: #555; line-height: 1.6;">Thank you for shopping with CMGROUPS!</p>
                 <p style="color: #555; line-height: 1.6;">Your order <strong>#${orderId}</strong> for <strong>Rs.${total}</strong> has been confirmed.</p>
                 <p style="color: #555; line-height: 1.6;">Payment mode: <strong>${paymentModeLabel}</strong></p>
                 ${otpBlock}
@@ -85,7 +85,7 @@ export async function sendServiceBookingEmail(email, bookingId) {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         console.log('\n[LOCAL DEV MOCK: Service Booking Email]');
         console.log(`To: ${email}`);
-        console.log(`Subject: Service Booking Confirmed - TechNova #${bookingId}`);
+        console.log(`Subject: Service Booking Confirmed - CMGROUPS #${bookingId}`);
         console.log('----------------------------------------\n');
         return true;
     }
@@ -93,7 +93,7 @@ export async function sendServiceBookingEmail(email, bookingId) {
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
-        subject: `Service Booking Confirmed - TechNova #${bookingId}`,
+        subject: `Service Booking Confirmed - CMGROUPS #${bookingId}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-w-lg mx-auto p-6 bg-gray-50 border border-gray-100 rounded-lg">
                 <h2 style="color: #333; margin-bottom: 20px;">Service Booking Confirmation</h2>

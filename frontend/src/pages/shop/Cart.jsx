@@ -202,7 +202,7 @@ const Cart = () => {
                                 key={item.uniqueId}
                                 item={item}
                                 onQuantityChange={handleQuantityChange}
-                                onRemove={() => removeFromCart(item.uniqueId)}
+                                onRemove={() => { if (window.confirm('Remove this item from your cart?')) removeFromCart(item.uniqueId); }}
                                 onSaveForLater={() => handleSaveForLater(item)}
                             />
                         ))
@@ -361,7 +361,7 @@ const Cart = () => {
                             <p className="text-xs text-center text-text-muted">
                                 {hasOutOfStockItems
                                     ? 'Checkout is disabled while unavailable items remain in your cart.'
-                                    : 'Secure Checkout powered by TechNova'}
+                                    : 'Secure Checkout powered by CMGROUPS'}
                             </p>
                         </div>
                     </div>

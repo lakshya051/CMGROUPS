@@ -11,7 +11,7 @@ export function generateInvoice(order, user, res) {
     doc
         .fillColor('#444444')
         .fontSize(20)
-        .text('TechNova Inc.', 50, 57)
+        .text('CMGROUPS', 50, 57)
         .fontSize(10)
         .text('123 Tech Park', 200, 50, { align: 'right' })
         .text('New Delhi, India 110001', 200, 65, { align: 'right' })

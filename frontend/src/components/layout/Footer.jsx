@@ -16,8 +16,13 @@ const Footer = () => {
                             A conglomerate of excellence in Technology, Services, and Education. Powering your digital future.
                         </p>
                         <div className="flex gap-3">
-                            {[Facebook, Twitter, Instagram, Youtube].map((Icon, i) => (
-                                <a key={i} href="#" className="w-9 h-9 rounded-lg bg-page-bg border border-border-default hover:bg-primary/20 hover:text-primary hover:border-transparent flex items-center justify-center text-text-muted transition-colors">
+                            {[
+                                { Icon: Facebook, url: 'https://facebook.com/cmgroups' },
+                                { Icon: Twitter, url: 'https://twitter.com/cmgroups' },
+                                { Icon: Instagram, url: 'https://instagram.com/cmgroups' },
+                                { Icon: Youtube, url: 'https://youtube.com/@cmgroups' },
+                            ].map(({ Icon, url }) => (
+                                <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg bg-page-bg border border-border-default hover:bg-primary/20 hover:text-primary hover:border-transparent flex items-center justify-center text-text-muted transition-colors">
                                     <Icon size={16} />
                                 </a>
                             ))}

@@ -14,7 +14,7 @@ export async function sendServiceNotification(booking, newStatus) {
         if (!email) return;
 
         const bookingRef = `SRV-${booking.id}`;
-        let subject = `TechNova Service Update — ${bookingRef}`;
+        let subject = `CMGROUPS Service Update — ${bookingRef}`;
         let bodyMessage = '';
         let showOtp = false;
 
@@ -81,11 +81,11 @@ export async function sendServiceNotification(booking, newStatus) {
 
         const html = `
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
-                <h2 style="color:#1e3a5f;margin-bottom:16px;">TechNova Service Hub</h2>
+                <h2 style="color:#1e3a5f;margin-bottom:16px;">CMGROUPS Service Hub</h2>
                 ${bodyMessage}
                 ${otpBlock}
                 <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-                <p style="color:#6b7280;font-size:12px;">This is an automated message from TechNova. Please do not reply.</p>
+                <p style="color:#6b7280;font-size:12px;">This is an automated message from CMGROUPS. Please do not reply.</p>
             </div>
         `;
 

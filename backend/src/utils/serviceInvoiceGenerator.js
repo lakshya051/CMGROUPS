@@ -23,7 +23,7 @@ export function generateServiceInvoicePdf(booking, invoiceData) {
                 .fillColor('#1e3a5f')
                 .fontSize(22)
                 .font('Helvetica-Bold')
-                .text('TechNova', 50, 50)
+                .text('CMGROUPS', 50, 50)
                 .fontSize(10)
                 .font('Helvetica')
                 .fillColor('#444444')
@@ -139,7 +139,7 @@ export function generateServiceInvoicePdf(booking, invoiceData) {
                 .fontSize(9)
                 .font('Helvetica')
                 .fillColor('#888888')
-                .text('Thank you for choosing TechNova Service Hub!', 50, 700, { align: 'center', width: 500 })
+                .text('Thank you for choosing CMGROUPS Service Hub!', 50, 700, { align: 'center', width: 500 })
                 .text('This is a computer-generated invoice and does not require a signature.', 50, 715, { align: 'center', width: 500 });
 
             doc.end();

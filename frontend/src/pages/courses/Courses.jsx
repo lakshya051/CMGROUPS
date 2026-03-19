@@ -22,7 +22,7 @@ const Courses = () => {
     }, []);
 
     const searchQuery = (searchParams.get('q') || '').trim().toLowerCase();
-    const categories = ['All', ...new Set(courses.map(c => c.category))];
+    const categories = ['All', ...new Set(courses.map(c => c.category).filter(Boolean))];
     const filtered = useMemo(() => {
         return courses.filter((course) => {
             const matchesCategory = category === 'All' || course.category === category;

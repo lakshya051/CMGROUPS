@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
+import SectionLoader from '../../components/ui/SectionLoader';
 import { Settings, Save, AlertCircle } from 'lucide-react';
 
 const AdminReferralSettings = () => {
@@ -65,7 +66,7 @@ const AdminReferralSettings = () => {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-text-muted">Loading settings...</div>;
+    if (loading) return <div className="p-8"><SectionLoader message="Loading settings..." /></div>;
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">

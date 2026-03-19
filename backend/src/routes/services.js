@@ -365,7 +365,26 @@ router.patch('/:id/assign', protect, adminOnly, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.patch('/:id/status', protect, adminOnly, async (req, res) => {
     try {
+        const bookingId = parseInt(req.params.id);
         const { status, estimatedPrice, finalPrice, adminNotes, assignedTo, estimatedCompletionDate, cancellationReason, laborCost: reqLaborCost, partsCost: reqPartsCost, partsNotes: reqPartsNotes } = req.body;
+
+        // Enforce OTP-only pickup: only the customer (via verify-otp) can confirm pickup
+        if (status === 'Picked Up') {
+            return res.status(400).json({
+                error: 'Pickup must be verified by the customer. The technician shares the OTP at pickup; the customer enters it in the app to confirm.'
+            });
+        }
+        if (status === 'In Progress') {
+            const current = await prisma.serviceBooking.findUnique({
+                where: { id: bookingId },
+                select: { status: true, otpVerified: true }
+            });
+            if (current?.status === 'Confirmed' && !current.otpVerified) {
+                return res.status(400).json({
+                    error: 'Customer must verify the pickup OTP in the app first. Only after they enter the OTP does the booking move to In Progress.'
+                });
+            }
+        }
 
         const updateData = {};
 
@@ -403,7 +422,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
         if (estimatedCompletionDate !== undefined) updateData.estimatedCompletionDate = new Date(estimatedCompletionDate);
 
         const booking = await prisma.serviceBooking.update({
-            where: { id: parseInt(req.params.id) },
+            where: { id: bookingId },
             data: updateData,
             include: {
                 user: { select: { id: true, name: true, email: true, phone: true } },
@@ -427,7 +446,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 booking.finalPrice = totalAmount;
 
                 const invoiceNumber = `SINV-${Date.now()}-${booking.id}`;
-                const technicianName = booking.technician?.name || booking.assignedTo || 'TechNova Technician';
+                const technicianName = booking.technician?.name || booking.assignedTo || 'CMGROUPS Technician';
 
                 const serviceInvoice = await prisma.serviceInvoice.create({
                     data: {
@@ -718,12 +737,12 @@ router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
             await createUserNotification({
                 userId: updated.userId,
                 title: 'Pickup OTP Updated',
-                message: `A new pickup OTP has been generated for SRV-${bookingId}. Check TechNova before technician pickup.`,
+                message: `A new pickup OTP has been generated for SRV-${bookingId}. Check CMGROUPS before technician pickup.`,
                 type: 'service',
                 link: '/dashboard/services',
                 push: {
                     enabled: true,
-                    body: `A new pickup OTP is available in TechNova for SRV-${bookingId}.`,
+                    body: `A new pickup OTP is available in CMGROUPS for SRV-${bookingId}.`,
                 },
             });
         } catch (notifErr) {

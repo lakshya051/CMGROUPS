@@ -119,6 +119,8 @@ model CourseApplication {
   @@index([userId])
   @@index([status])
   @@index([courseId])
+  @@index([durationId])
+  @@index([batchId])
 }
 
 model FeePayment {
@@ -187,6 +189,7 @@ model WalletTransaction {
   createdAt   DateTime @default(now())
 
   @@index([userId])
+  @@index([orderId])
 }
 
 model Product {

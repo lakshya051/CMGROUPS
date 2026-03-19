@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { Trash2, X, ShoppingCart, Star } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import SectionLoader from '../../components/ui/SectionLoader';
 import { productsAPI } from '../../lib/api';
 import { handleImageError } from '../../utils/image';
 
@@ -24,7 +25,7 @@ const Compare = () => {
             .finally(() => setLoading(false));
     }, [compareList]);
 
-    if (loading) return <div className="container mx-auto py-20 text-center">Loading comparison...</div>;
+    if (loading) return <div className="container mx-auto py-20"><SectionLoader message="Loading comparison..." /></div>;
 
     if (products.length === 0) {
         return (

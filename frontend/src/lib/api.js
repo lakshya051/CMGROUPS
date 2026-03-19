@@ -97,7 +97,12 @@ export const ordersAPI = {
             body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink })
         }),
 
-    getMyOrders: () => apiFetch('/orders/my-orders'),
+    getMyOrders: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined))
+        ).toString();
+        return apiFetch(`/orders/my-orders${query ? `?${query}` : ''}`);
+    },
 
     getMyStats: () => apiFetch('/orders/my-stats'),
 
@@ -153,7 +158,7 @@ export const ordersAPI = {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `TechNova_Invoice_${id}.pdf`;
+        a.download = `CMGROUPS_Invoice_${id}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();

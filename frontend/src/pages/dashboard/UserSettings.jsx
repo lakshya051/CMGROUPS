@@ -17,6 +17,7 @@ const UserSettings = () => {
             currentPassword: '',
             newPassword: '',
         },
+        enableReinitialize: true,
         validationSchema: profileUpdateSchema,
         validateOnBlur: true,
         validateOnChange: false,

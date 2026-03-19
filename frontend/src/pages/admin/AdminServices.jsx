@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Wrench, Search, CheckCircle, Clock, X, Calendar, MapPin, Phone, User,
     IndianRupee, Settings, Key, ChevronDown, ChevronUp, AlertCircle, Gift,
-    UserPlus, Users, ShieldCheck, RefreshCw, FileText, Star, BadgeCheck,
+    UserPlus, Users, RefreshCw, FileText, Star, BadgeCheck,
     LayoutList, Trash2, Edit3, ArrowRight, Info, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { servicesAPI, techniciansAPI, serviceTypesAPI } from '../../lib/api';
@@ -36,9 +36,6 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
     const [adminNotes, setAdminNotes] = useState(booking.adminNotes || '');
     const [selectedTechId, setSelectedTechId] = useState(booking.technicianId || '');
     const [cancellationReason, setCancellationReason] = useState('');
-    const [otpInput, setOtpInput] = useState('');
-    const [otpError, setOtpError] = useState('');
-    const [otpLoading, setOtpLoading] = useState(false);
     const [regenLoading, setRegenLoading] = useState(false);
 
     // Confirm-with-price modal
@@ -127,18 +124,6 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
             partsNotes: completePartsNotes || undefined,
         });
         setShowCompletePrompt(false);
-    };
-
-    const handleVerifyOtp = async () => {
-        if (!otpInput.trim()) return;
-        setOtpLoading(true); setOtpError('');
-        try {
-            const res = await servicesAPI.verifyOtp(localBooking.id, otpInput.trim());
-            const upd = res.booking || {};
-            setLocalBooking(prev => ({ ...prev, ...upd, status: 'In Progress', otpVerified: true }));
-            onUpdate({ ...localBooking, ...upd, status: 'In Progress', otpVerified: true });
-        } catch (err) { setOtpError(err.message || 'Invalid OTP'); }
-        finally { setOtpLoading(false); }
     };
 
     const handleRegenOtp = async () => {
@@ -301,30 +286,23 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                         </div>
                     )}
 
-                    {/* OTP Section (Confirmed only) */}
+                    {/* OTP status (Confirmed only) — customer enters OTP in the app at pickup, not here */}
                     {localBooking.status === 'Confirmed' && (
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">OTP Verification</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">Pickup verification</p>
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
                                 {!localBooking.otpVerified ? (
                                     <>
-                                        <p className="text-sm text-blue-700">An OTP was sent to the customer email. Verify it here to start service.</p>
-                                        <div className="flex gap-2">
-                                            <input type="text" maxLength={6} className="input-field font-mono tracking-widest text-center text-lg flex-1" placeholder="Enter 6-digit OTP" value={otpInput} onChange={e => setOtpInput(e.target.value)} />
-                                            <Button size="sm" disabled={otpLoading} onClick={handleVerifyOtp}>
-                                                {otpLoading ? <RefreshCw size={13} className="animate-spin" /> : <ShieldCheck size={14} />}
-                                            </Button>
-                                        </div>
-                                        {otpError && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle size={11} />{otpError}</p>}
+                                        <p className="text-sm text-blue-700">The customer must enter the OTP in the app when the technician arrives for pickup. Do not enter the OTP here — share the OTP above with the technician so they can give it to the customer.</p>
                                         <button onClick={handleRegenOtp} disabled={regenLoading}
                                             className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-60">
                                             {regenLoading ? <RefreshCw size={11} className="animate-spin" /> : <Key size={11} />}
-                                            Regenerate OTP (resends to customer)
+                                            Regenerate OTP (resends to customer email)
                                         </button>
                                     </>
                                 ) : (
                                     <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
-                                        <CheckCircle size={16} />OTP Verified — Device handed over to technician
+                                        <CheckCircle size={16} />OTP verified by customer — device handed over to technician
                                     </div>
                                 )}
                             </div>
@@ -351,18 +329,36 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                     {/* Status Action Buttons */}
                     {!isCancelled && (
                         <div className="flex flex-wrap gap-2 pt-2 border-t border-border-default">
-                            {/* "Confirm" (Pending) opens price prompt */}
+                            {/* "Confirm" (Pending): use form estimated price if set (ask once), else show price modal */}
                             {localBooking.status === 'Pending' && (
-                                <Button size="sm" onClick={() => setShowPricePrompt(true)} className="flex items-center gap-1.5">
+                                <Button
+                                    size="sm"
+                                    onClick={() => {
+                                        const priceVal = estimatedPrice !== '' && !isNaN(Number(estimatedPrice)) ? Number(estimatedPrice) : null;
+                                        if (priceVal != null && priceVal >= 0) {
+                                            update({ status: 'Confirmed', estimatedPrice: priceVal });
+                                        } else {
+                                            setConfirmPrice(estimatedPrice || '');
+                                            setShowPricePrompt(true);
+                                        }
+                                    }}
+                                    disabled={saving}
+                                    className="flex items-center gap-1.5"
+                                >
                                     <CheckCircle size={14} />Confirm Booking
                                 </Button>
                             )}
 
-                            {/* Generic Next → (not Pending→Confirmed, not In Progress→Completed) */}
-                            {nextStatus && localBooking.status !== 'Pending' && nextStatus !== 'Completed' && (
+                            {/* Generic Next → (not Pending→Confirmed, not Picked Up, not In Progress→Completed). Pickup is OTP-only — customer must verify in app. */}
+                            {nextStatus && localBooking.status !== 'Pending' && nextStatus !== 'Completed' && nextStatus !== 'Picked Up' && (
                                 <Button size="sm" variant="outline" disabled={saving} onClick={handleNextStatus} className="flex items-center gap-1.5">
                                     ➡ Move to {nextStatus}
                                 </Button>
+                            )}
+                            {localBooking.status === 'Confirmed' && !localBooking.otpVerified && (
+                                <span className="text-xs text-text-muted font-medium px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+                                    Pickup when customer enters OTP in app
+                                </span>
                             )}
 
                             {/* In Progress → Complete (itemised costs) */}

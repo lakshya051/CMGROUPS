@@ -15,6 +15,7 @@ const Home = () => {
     useSEO({ title: 'CMGROUPS — Shop, Services & Courses in Etah', description: 'Your one-stop destination for computers, tech services, CCTV, Tally ERP and professional courses in Etah.' });
     const [bestSellers, setBestSellers] = useState([]);
     const [bestSellersLoading, setBestSellersLoading] = useState(true);
+    const [bestSellersError, setBestSellersError] = useState(false);
     const [pillCategories, setPillCategories] = useState([]);
 
     // ── Recently Viewed ──
@@ -36,7 +37,7 @@ const Home = () => {
         // Best sellers: top-rated products
         productsAPI.getAll({ sort: 'rating', limit: 10 })
             .then(res => setBestSellers(res.data || []))
-            .catch(err => console.error('Failed to fetch best sellers:', err))
+            .catch(() => setBestSellersError(true))
             .finally(() => setBestSellersLoading(false));
 
         // Recently viewed from localStorage
@@ -80,13 +81,19 @@ const Home = () => {
 
             {/* 4. Best Sellers */}
             <div className="bg-page-bg border-t border-border-default">
-                <ProductRow
-                    title="Best Sellers"
-                    products={bestSellers}
-                    viewAllLink="/products?sort=rating"
-                    loading={bestSellersLoading}
-                    badge="bestseller"
-                />
+                {bestSellersError ? (
+                    <div className="container mx-auto px-4 py-12 text-center">
+                        <p className="text-text-muted text-sm">Unable to load best sellers right now. <button onClick={() => window.location.reload()} className="text-primary underline">Retry</button></p>
+                    </div>
+                ) : (
+                    <ProductRow
+                        title="Best Sellers"
+                        products={bestSellers}
+                        viewAllLink="/products?sort=rating"
+                        loading={bestSellersLoading}
+                        badge="bestseller"
+                    />
+                )}
             </div>
 
             {/* 5. Brand Spotlight */}

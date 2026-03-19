@@ -3,6 +3,7 @@ import { useShop } from '../../context/ShopContext';
 import ProductCard from '../../components/shop/ProductCard';
 import { Heart, ShoppingBag } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import SectionLoader from '../../components/ui/SectionLoader';
 import { Link } from 'react-router-dom';
 import { productsAPI } from '../../lib/api';
 
@@ -25,7 +26,7 @@ const Wishlist = () => {
     }, [wishlist]);
 
     if (loading) {
-        return <div className="container mx-auto py-20 text-center">Loading wishlist...</div>;
+        return <div className="container mx-auto py-20"><SectionLoader message="Loading wishlist..." /></div>;
     }
 
     return (

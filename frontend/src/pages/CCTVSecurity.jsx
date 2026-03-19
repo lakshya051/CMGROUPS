@@ -10,7 +10,7 @@ import { StarRating } from '../components/ui';
 
 const API_BASE = import.meta.env.VITE_API_URL;
 const CITY = 'Etah';
-const WA_NUMBER = '919999999999';
+const WA_NUMBER = '918171838388'; // TODO: Replace with actual CMGROUPS WhatsApp business number
 const WA_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Hi, I need CCTV installation in Etah. Please share package details and site visit timings.')}`;
 const PROPERTY_OPTIONS = ['Home', 'Shop', 'Medical Store', 'School', 'Factory or Godown', 'Other'];
 const CAMERA_OPTIONS = ['1-2', '3-4', '5-8', 'More than 8', 'Not Sure'];

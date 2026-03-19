@@ -67,7 +67,7 @@ const BADGE_STYLES = {
 const BADGE_LABELS = {
   bestseller: 'Best Seller',
   deal: 'Limited Time Deal',
-  choice: '★ TechNova Choice',
+  choice: '★ CMGROUPS Choice',
   new: 'New',
 }
 
