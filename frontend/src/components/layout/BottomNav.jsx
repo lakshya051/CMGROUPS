@@ -61,7 +61,7 @@ const BottomNav = ({ onMenuClick }) => {
                 <button
                     onClick={onMenuClick}
                     className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 transition-colors ${
-                        ['/refurbished', '/services', '/courses', '/tally-erp', '/cctv'].some(p => location.pathname.startsWith(p))
+                        ['/services', '/courses', '/tally-erp', '/cctv'].some(p => location.pathname.startsWith(p))
                             ? 'text-trust'
                             : 'text-text-secondary'
                     }`}
@@ -69,7 +69,7 @@ const BottomNav = ({ onMenuClick }) => {
                 >
                     <Menu size={22} />
                     <span className={`text-[10px] leading-tight ${
-                        ['/refurbished', '/services', '/courses', '/tally-erp', '/cctv'].some(p => location.pathname.startsWith(p))
+                        ['/services', '/courses', '/tally-erp', '/cctv'].some(p => location.pathname.startsWith(p))
                             ? 'font-bold'
                             : 'font-normal'
                     }`}>Menu</span>

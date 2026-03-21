@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     X, UserCircle, Store, Heart, ShoppingBag, Wrench,
     GraduationCap, FileText, Shield, LayoutDashboard,
-    Settings, Gift, LogOut, LogIn, ChevronRight, Download, RefreshCw
+    Settings, Gift, LogOut, LogIn, ChevronRight, Download
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
@@ -49,7 +49,6 @@ const MobileDrawer = ({ isOpen, onClose }) => {
             label: 'SHOPPING',
             links: [
                 { name: 'Products', path: '/products', icon: Store },
-                { name: 'Refurbished', path: '/refurbished', icon: RefreshCw, amber: true },
                 { name: 'Wishlist', path: '/wishlist', icon: Heart },
                 { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
             ]

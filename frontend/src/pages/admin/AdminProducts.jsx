@@ -18,7 +18,6 @@ const emptyProductValues = {
     image: '',
     condition: 'New',
     isSecondHand: false,
-    isRefurbished: false,
     isReturnable: true,
     returnWindowDays: 3,
     enableReferral: false,
@@ -89,7 +88,6 @@ const AdminProducts = () => {
                 description: values.description || null,
                 specs: Object.keys(specs).length > 0 ? specs : null,
                 isSecondHand: values.isSecondHand,
-                isRefurbished: values.isRefurbished,
                 isReturnable: values.isReturnable,
                 returnWindowDays: parseInt(values.returnWindowDays || 3),
                 referrerPoints: values.enableReferral && values.referrerPoints ? parseInt(values.referrerPoints) : null,
@@ -301,7 +299,6 @@ const AdminProducts = () => {
                 description: product.description || '',
                 condition: product.condition || 'New',
                 isSecondHand: product.isSecondHand || false,
-                isRefurbished: product.isRefurbished || false,
                 isReturnable: product.isReturnable !== undefined ? product.isReturnable : true,
                 returnWindowDays: product.returnWindowDays !== undefined ? product.returnWindowDays : 3,
                 enableReferral: product.referrerPoints !== null && product.referrerPoints !== undefined,
@@ -827,28 +824,6 @@ const AdminProducts = () => {
                                         Item is Pre-Owned / Second Hand
                                     </label>
                                 </div>
-                            </div>
-
-                            {/* Refurbished Toggle */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                                <div className="flex items-center gap-3">
-                                    <input
-                                        type="checkbox"
-                                        id="isRefurbished"
-                                        name="isRefurbished"
-                                        checked={formik.values.isRefurbished}
-                                        onChange={formik.handleChange}
-                                        className="w-5 h-5 text-amber-500 bg-surface border-border-default rounded focus:ring-amber-500 focus:ring-2 accent-amber-500"
-                                    />
-                                    <label htmlFor="isRefurbished" className="text-sm font-medium text-text-main cursor-pointer select-none">
-                                        This is a refurbished product
-                                    </label>
-                                </div>
-                                {formik.values.isRefurbished && (
-                                    <p className="text-xs text-amber-700 mt-2 ml-8">
-                                        This product will appear in the Refurbished section only, not in the main shop.
-                                    </p>
-                                )}
                             </div>
 
                             {/* Return Policy */}
