@@ -130,14 +130,14 @@ router.patch('/admin/enquiries/:id', protect, adminOnly, async (req, res) => {
             throw new Error('CCTVEnquiry Prisma delegate is not available. Restart the backend after regenerating Prisma client.');
         }
 
-        const { status, adminNotes } = req.body;
+        const { status, adminNotes, sellerName } = req.body;
         const validStatuses = ['new', 'contacted', 'converted'];
 
         if (status !== undefined && !validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Invalid status. Must be: new, contacted, or converted' });
         }
 
-        if (status === undefined && adminNotes === undefined) {
+        if (status === undefined && adminNotes === undefined && sellerName === undefined) {
             return res.status(400).json({ error: 'Nothing to update' });
         }
 
@@ -145,7 +145,8 @@ router.patch('/admin/enquiries/:id', protect, adminOnly, async (req, res) => {
             where: { id: parseInt(req.params.id, 10) },
             data: {
                 ...(status !== undefined ? { status } : {}),
-                ...(adminNotes !== undefined ? { adminNotes: adminNotes?.trim() || null } : {})
+                ...(adminNotes !== undefined ? { adminNotes: adminNotes?.trim() || null } : {}),
+                ...(sellerName !== undefined ? { sellerName: sellerName?.trim() || null } : {})
             }
         });
 

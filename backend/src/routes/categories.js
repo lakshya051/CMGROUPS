@@ -98,7 +98,7 @@ router.get('/service-types/all', protect, adminOnly, async (req, res) => {
 // POST /api/categories/service-types - Create service type (Admin)
 router.post('/service-types', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, icon, price, features, referrerPoints, refereePoints } = req.body;
+        const { title, description, icon, price, features, referrerPoints, refereePoints, sellerName } = req.body;
 
         if (!title) {
             return res.status(400).json({ error: 'Title is required' });
@@ -112,7 +112,8 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
                 price: price || null,
                 features: features || [],
                 referrerPoints: referrerPoints !== undefined ? parseFloat(referrerPoints) : null,
-                refereePoints: refereePoints !== undefined ? parseFloat(refereePoints) : null
+                refereePoints: refereePoints !== undefined ? parseFloat(refereePoints) : null,
+                sellerName: sellerName?.trim() || null
             }
         });
 
@@ -130,7 +131,7 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
 // PUT /api/categories/service-types/:id - Update service type (Admin)
 router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, icon, price, features, active, referrerPoints, refereePoints } = req.body;
+        const { title, description, icon, price, features, active, referrerPoints, refereePoints, sellerName } = req.body;
 
         const data = {};
         if (title !== undefined) data.title = title;
@@ -141,6 +142,7 @@ router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
         if (active !== undefined) data.active = active;
         if (referrerPoints !== undefined) data.referrerPoints = referrerPoints === null ? null : parseFloat(referrerPoints);
         if (refereePoints !== undefined) data.refereePoints = refereePoints === null ? null : parseFloat(refereePoints);
+        if (sellerName !== undefined) data.sellerName = sellerName?.trim() || null;
 
         const serviceType = await prisma.serviceType.update({
             where: { id: parseInt(req.params.id) },

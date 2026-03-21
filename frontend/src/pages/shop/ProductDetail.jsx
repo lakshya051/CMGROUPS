@@ -46,6 +46,7 @@ const ProductDetail = () => {
     const [activeImageIdx, setActiveImageIdx] = useState(0);
 
     const [selectedVariant, setSelectedVariant] = useState(null);
+    const [selectedOptions, setSelectedOptions] = useState({});
     const [isStockAlertSet, setIsStockAlertSet] = useState(false);
     const [isPriceAlertSet, setIsPriceAlertSet] = useState(false);
     const [shake, setShake] = useState(false);
@@ -69,9 +70,63 @@ const ProductDetail = () => {
                 setIsPriceAlertSet(productAlerts.some(a => a.type === 'PRICE_DROP'));
             }).catch(err => console.error(err));
         }
-
-        // Removed auto-select so users must actively choose a variant
     }, [user, id, product]);
+
+    useEffect(() => {
+        if (!product) return;
+        if (product.hasVariants && product.variantOptions?.length > 0) {
+            const initial = {};
+            product.variantOptions.forEach(opt => { initial[opt.name] = null; });
+            setSelectedOptions(initial);
+            setSelectedVariant(null);
+        }
+    }, [product]);
+
+    useEffect(() => {
+        if (!product?.hasVariants || !product.variants) return;
+        const allSelected = Object.values(selectedOptions).every(v => v !== null);
+        if (!allSelected) { setSelectedVariant(null); return; }
+
+        const match = product.variants.find(v => {
+            if (!v.combination) return false;
+            return Object.entries(selectedOptions).every(
+                ([key, val]) => v.combination[key] === val
+            );
+        });
+        setSelectedVariant(match || null);
+
+        if (match?.image) {
+            const imgIdx = product.images?.indexOf(match.image);
+            if (imgIdx >= 0) setActiveImageIdx(imgIdx);
+        }
+    }, [selectedOptions, product]);
+
+    const handleOptionSelect = (optionName, value) => {
+        setSelectedOptions(prev => ({ ...prev, [optionName]: value }));
+        setErrorMsg("");
+    };
+
+    const isValueAvailable = (optionName, value) => {
+        if (!product?.variants) return false;
+        const testSelection = { ...selectedOptions, [optionName]: value };
+        return product.variants.some(v => {
+            if (!v.combination || !v.isActive) return false;
+            return Object.entries(testSelection).every(
+                ([key, val]) => val === null || v.combination[key] === val
+            );
+        });
+    };
+
+    const isValueInStock = (optionName, value) => {
+        if (!product?.variants) return false;
+        const testSelection = { ...selectedOptions, [optionName]: value };
+        return product.variants.some(v => {
+            if (!v.combination || !v.isActive || v.stock <= 0) return false;
+            return Object.entries(testSelection).every(
+                ([key, val]) => val === null || v.combination[key] === val
+            );
+        });
+    };
 
     const handleToggleAlert = async (type) => {
         if (!user) { toast.error('Please sign in to set alerts'); return; }
@@ -93,34 +148,69 @@ const ProductDetail = () => {
 
     const isWishlisted = wishlist.includes(product.id);
 
+    const isVariableProduct = product.hasVariants && product.variantOptions?.length > 0;
     const variants = product.variants && product.variants.length > 0 ? product.variants : [];
-    const hasMultipleVariants = variants.length > 1;
-    const hasSingleVariant = variants.length === 1;
+    const hasMultipleVariants = !isVariableProduct && variants.length > 1;
+    const hasSingleVariant = !isVariableProduct && variants.length === 1;
     const totalStock = variants.length > 0
         ? variants.reduce((acc, v) => acc + v.stock, 0)
         : product.stock;
     const isOutOfStock = totalStock === 0;
 
-    const effectiveVariant = selectedVariant || (hasSingleVariant ? variants[0] : null);
-    const currentStock = effectiveVariant ? effectiveVariant.stock : product.stock;
-    const isCurrentlyOutOfStock = currentStock === 0;
-    const isCurrentlyLowStock = currentStock > 0 && currentStock <= 5;
+    const effectiveVariant = isVariableProduct
+        ? selectedVariant
+        : (selectedVariant || (hasSingleVariant ? variants[0] : null));
+    const currentStock = effectiveVariant ? effectiveVariant.stock : (isVariableProduct ? totalStock : product.stock);
+    const isCurrentlyOutOfStock = effectiveVariant ? effectiveVariant.stock === 0 : (isVariableProduct ? isOutOfStock : product.stock === 0);
+    const isCurrentlyLowStock = !isCurrentlyOutOfStock && currentStock > 0 && currentStock <= 5;
 
-    const displayPrice = effectiveVariant ? effectiveVariant.price : (hasMultipleVariants ? Math.min(...variants.map(v => v.price)) : product.price);
+    const displayPrice = effectiveVariant
+        ? effectiveVariant.price
+        : (isVariableProduct && variants.length > 0
+            ? Math.min(...variants.map(v => v.price))
+            : (hasMultipleVariants ? Math.min(...variants.map(v => v.price)) : product.price));
+
     const effectiveOriginal = effectiveVariant
-        ? (effectiveVariant.originalPrice != null && effectiveVariant.originalPrice > effectiveVariant.price ? effectiveVariant.originalPrice : (product.originalPrice != null && product.originalPrice > displayPrice ? product.originalPrice : null))
-        : (hasMultipleVariants && variants.length
-            ? (() => {
+        ? (effectiveVariant.originalPrice != null && effectiveVariant.originalPrice > effectiveVariant.price ? effectiveVariant.originalPrice : null)
+        : (() => {
+            if ((isVariableProduct || hasMultipleVariants) && variants.length > 0) {
                 const cheapest = variants.reduce((min, v) => (v.price < min.price ? v : min), variants[0]);
-                const vOrig = cheapest.originalPrice != null && cheapest.originalPrice > cheapest.price ? cheapest.originalPrice : null;
-                return vOrig ?? (product.originalPrice != null && product.originalPrice > displayPrice ? product.originalPrice : null);
-            })()
-            : (product.originalPrice != null && product.originalPrice > displayPrice ? product.originalPrice : null));
+                return cheapest.originalPrice != null && cheapest.originalPrice > cheapest.price ? cheapest.originalPrice : null;
+            }
+            return product.originalPrice != null && product.originalPrice > product.price ? product.originalPrice : null;
+        })();
     const displayOriginalPrice = effectiveOriginal;
     const discountPct = displayOriginalPrice ? Math.round(((displayOriginalPrice - displayPrice) / displayOriginalPrice) * 100) : 0;
     const savingsAmount = displayOriginalPrice ? displayOriginalPrice - displayPrice : 0;
 
+    const allOptionsSelected = isVariableProduct
+        ? Object.values(selectedOptions).every(v => v !== null)
+        : true;
+
+    const firstUnselectedOption = isVariableProduct
+        ? Object.entries(selectedOptions).find(([, v]) => v === null)?.[0]
+        : null;
+
     const handleAddToCartClick = () => {
+        if (isVariableProduct) {
+            if (!allOptionsSelected) {
+                setShake(true);
+                setErrorMsg(`Please select ${firstUnselectedOption}`);
+                setTimeout(() => setShake(false), 500);
+                return;
+            }
+            if (!selectedVariant) {
+                setShake(true);
+                setErrorMsg("This combination is not available");
+                setTimeout(() => setShake(false), 500);
+                return;
+            }
+            if (selectedVariant.stock <= 0) return;
+            setErrorMsg("");
+            addToCart(product, 1, selectedVariant);
+            return;
+        }
+
         if (hasMultipleVariants && !selectedVariant) {
             setShake(true);
             setErrorMsg("Please select an option above");
@@ -219,13 +309,23 @@ const ProductDetail = () => {
                         <span className="text-text-muted">({Array.isArray(product.reviews) ? product.reviews.length : (product.reviews || 0)} reviews)</span>
                     </div>
 
+                    {product.sellerName && (
+                        <p className="text-sm text-text-secondary">
+                            Sold by: <span className="font-semibold text-trust">{product.sellerName}</span>
+                        </p>
+                    )}
+
                     <div className="flex items-center justify-between">
                         <div className="space-y-1">
-                            {hasMultipleVariants && !selectedVariant && (
-                                <span className="text-base font-medium text-text-muted block">From</span>
+                            {(isVariableProduct || hasMultipleVariants) && !selectedVariant && (
+                                <span className="text-base font-medium text-text-muted block">Starting from</span>
                             )}
-                            {hasMultipleVariants && selectedVariant && (
-                                <span className="text-sm text-text-secondary block">Price for {selectedVariant.name}</span>
+                            {selectedVariant && (isVariableProduct || hasMultipleVariants) && (
+                                <span className="text-sm text-text-secondary block">
+                                    Price for {selectedVariant.combination
+                                        ? Object.values(selectedVariant.combination).join(' / ')
+                                        : selectedVariant.name}
+                                </span>
                             )}
                             <PriceDisplay
                                 sellingPrice={displayPrice}
@@ -254,7 +354,72 @@ const ProductDetail = () => {
                         {product.description}
                     </p>
 
-                    {/* Variants Selector — only when 2+ options */}
+                    {/* Combination-based Variant Selector */}
+                    {isVariableProduct && product.variantOptions?.length > 0 && (
+                        <div className={`pt-4 border-t border-border-default space-y-4 ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
+                            {errorMsg && <span className="text-sm font-medium text-error">{errorMsg}</span>}
+                            {product.variantOptions.map(option => (
+                                <div key={option.id}>
+                                    <h3 className="text-sm font-bold text-text-primary mb-2">
+                                        {option.name}:
+                                        {selectedOptions[option.name] && (
+                                            <span className="font-normal text-text-secondary ml-2">{selectedOptions[option.name]}</span>
+                                        )}
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {option.values.map(optVal => {
+                                            const isSelected = selectedOptions[option.name] === optVal.value;
+                                            const available = isValueAvailable(option.name, optVal.value);
+                                            const inStock = isValueInStock(option.name, optVal.value);
+
+                                            return (
+                                                <button
+                                                    key={optVal.id}
+                                                    type="button"
+                                                    disabled={!available}
+                                                    onClick={() => handleOptionSelect(option.name, optVal.value)}
+                                                    className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                                                        isSelected
+                                                            ? 'border-primary bg-primary text-white'
+                                                            : !available
+                                                                ? 'border-border-default bg-page-bg text-text-muted opacity-50 cursor-not-allowed line-through'
+                                                                : !inStock
+                                                                    ? 'border-border-default bg-page-bg text-text-muted'
+                                                                    : 'border-border-default text-text-primary hover:border-primary hover:bg-surface-hover'
+                                                    }`}
+                                                >
+                                                    {optVal.value}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {selectedVariant && (
+                                <div className="flex flex-wrap items-center gap-3 text-sm">
+                                    {selectedVariant.stock > 10 ? (
+                                        <span className="text-success font-medium">In Stock ({selectedVariant.stock} left)</span>
+                                    ) : selectedVariant.stock > 0 ? (
+                                        <span className="font-medium text-orange-500">Only {selectedVariant.stock} left — order soon!</span>
+                                    ) : (
+                                        <span className="font-medium text-error flex items-center gap-1.5">
+                                            <Bell size={14} /> Out of Stock
+                                        </span>
+                                    )}
+                                    {selectedVariant.sku && (
+                                        <span className="text-text-muted font-mono text-xs">SKU: {selectedVariant.sku}</span>
+                                    )}
+                                </div>
+                            )}
+
+                            {allOptionsSelected && !selectedVariant && (
+                                <p className="text-sm text-error font-medium">This combination is not available</p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Old-style flat variants selector (non hasVariants products with 2+ variants) */}
                     {hasMultipleVariants && (
                         <div className={`pt-4 border-t border-border-default ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}>
                             <div className="flex justify-between items-center mb-3">
@@ -325,7 +490,15 @@ const ProductDetail = () => {
                     )}
 
                     <div className="flex gap-4 pt-4 border-t border-border-default">
-                        {hasMultipleVariants && !selectedVariant && totalStock > 0 ? (
+                        {isVariableProduct && !allOptionsSelected ? (
+                            <Button size="lg" className="flex-1 gap-2" variant="outline" onClick={handleAddToCartClick}>
+                                <ShoppingCart size={20} /> Select {firstUnselectedOption}
+                            </Button>
+                        ) : isVariableProduct && allOptionsSelected && !selectedVariant ? (
+                            <Button size="lg" className="flex-1 gap-2 bg-border-default text-text-muted cursor-not-allowed border-none" disabled>
+                                Unavailable
+                            </Button>
+                        ) : hasMultipleVariants && !selectedVariant && totalStock > 0 ? (
                             <Button size="lg" className="flex-1 gap-2" variant="outline" onClick={handleAddToCartClick}>
                                 <ShoppingCart size={20} /> Select an option above
                             </Button>

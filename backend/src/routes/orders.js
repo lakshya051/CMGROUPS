@@ -133,7 +133,7 @@ router.post('/', optionalProtect, async (req, res) => {
             }
             if (variant.stock < requested) {
                 return res.status(400).json({
-                    error: `Insufficient stock for "${variant.name}". Available: ${variant.stock}, Requested: ${requested}`
+                    error: `Insufficient stock for "${variant.name || 'Variant'}". Available: ${variant.stock}, Requested: ${requested}`
                 });
             }
         }

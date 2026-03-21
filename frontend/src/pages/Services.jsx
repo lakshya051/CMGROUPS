@@ -230,7 +230,10 @@ const Services = () => {
                                     </div>
                                     {/* Title & meta */}
                                     <h3 className="text-xl font-bold text-text-primary mb-1">{service.title}</h3>
-                                    <p className="text-text-muted text-sm mb-4 flex-1">{service.description}</p>
+                                    <p className="text-text-muted text-sm mb-2 flex-1">{service.description}</p>
+                                    {service.sellerName && (
+                                        <p className="text-xs text-text-muted mb-3">Sold by: <span className="font-semibold text-trust">{service.sellerName}</span></p>
+                                    )}
 
                                     {/* Features */}
                                     <ul className="space-y-2 mb-5">

@@ -51,9 +51,13 @@ const CountdownTimer = () => {
 const DealCard = ({ product }) => {
     const { addToCart } = useShop();
     const variants = product.variants || [];
-    const hasMultipleVariants = variants.length > 1;
-    const singleVariant = variants.length === 1 ? variants[0] : null;
+    const isVariableProduct = product.hasVariants && variants.length > 0;
+    const hasMultipleVariants = !isVariableProduct && variants.length > 1;
+    const singleVariant = !isVariableProduct && variants.length === 1 ? variants[0] : null;
     const { displayPrice, displayOriginalPrice } = React.useMemo(() => {
+        if (product.displayPrice !== undefined) {
+            return { displayPrice: product.displayPrice, displayOriginalPrice: product.displayMrp || null };
+        }
         if (singleVariant) {
             const orig = product.originalPrice != null && product.originalPrice > singleVariant.price ? product.originalPrice : (singleVariant.originalPrice ?? null);
             return { displayPrice: singleVariant.price, displayOriginalPrice: orig };
@@ -65,12 +69,12 @@ const DealCard = ({ product }) => {
             return { displayPrice: price, displayOriginalPrice: orig };
         }
         return { displayPrice: product.price, displayOriginalPrice: product.originalPrice };
-    }, [singleVariant, product.price, product.originalPrice, variants]);
+    }, [singleVariant, product.price, product.originalPrice, product.displayPrice, product.displayMrp, variants]);
 
     const handleAdd = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (hasMultipleVariants) return; // user clicks card to go to detail
+        if (isVariableProduct || hasMultipleVariants) return;
         addToCart(product, 1, singleVariant || undefined);
     };
 
@@ -94,14 +98,14 @@ const DealCard = ({ product }) => {
                 <h3 className="text-sm font-semibold text-text-primary line-clamp-2 leading-tight">
                     {product.title}
                 </h3>
-                {hasMultipleVariants && <span className="text-xs text-text-muted">From </span>}
+                {(isVariableProduct || hasMultipleVariants) && <span className="text-xs text-text-muted">From </span>}
                 <PriceDisplay sellingPrice={displayPrice} originalPrice={displayOriginalPrice} size="sm" showBadge={true} />
                 <button
                     onClick={handleAdd}
                     className="w-full flex items-center justify-center gap-1.5 py-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold text-xs rounded-lg transition-colors"
                 >
                     <ShoppingCart size={14} />
-                    {hasMultipleVariants ? 'View options' : 'Add to Cart'}
+                    {(isVariableProduct || hasMultipleVariants) ? 'View options' : 'Add to Cart'}
                 </button>
             </div>
         </Link>

@@ -157,6 +157,8 @@ export const ShopProvider = ({ children }) => {
         let price = 0;
         let stock = 0;
 
+        let variantCombination = null;
+
         if (isIdOnly) {
             const searchId = String(productObj);
             const existing = cart.find(item => item.uniqueId === searchId || String(item.id) === searchId);
@@ -167,12 +169,14 @@ export const ShopProvider = ({ children }) => {
             productId = existing.id;
             variantId = existing.variantId || null;
             variantName = existing.variantName || null;
+            variantCombination = existing.variantCombination || null;
             price = existing.price || 0;
             stock = existing.stock ?? 0;
         } else {
             productId = productObj.id || productObj.productId;
             variantId = variant ? variant.id : (productObj.variantId || null);
             variantName = variant ? variant.name : (productObj.variantName || null);
+            variantCombination = variant ? (variant.combination || null) : (productObj.variantCombination || null);
             price = variant ? variant.price : (productObj.price || 0);
             stock = variant ? variant.stock : (productObj.stock || 0);
         }
@@ -210,6 +214,7 @@ export const ShopProvider = ({ children }) => {
                 uniqueId: uid,
                 variantId,
                 variantName,
+                variantCombination,
                 price,
                 stock: availableStock,
                 quantity: newQtyNumber,

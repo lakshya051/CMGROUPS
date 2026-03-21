@@ -14,26 +14,39 @@ const ProductCard = ({ product }) => {
         [wishlist, product.id]
     );
 
-    // Variant logic: 0 = base price/stock, 1 = single option (use variant), 2+ = multiple options
     const variants = Array.isArray(product.variants) ? product.variants : [];
+    const isVariableProduct = product.hasVariants && variants.length > 0;
     const hasMultipleVariants = variants.length > 1;
     const hasSingleVariant = variants.length === 1;
 
     const { isOutOfStock, isLowStock, displayPrice, displayOriginalPrice, effectiveVariant } = useMemo(() => {
-        const totalStock = variants.length > 0
-            ? variants.reduce((acc, v) => acc + v.stock, 0)
-            : product.stock;
+        const totalStock = product.totalStock !== undefined
+            ? product.totalStock
+            : (isVariableProduct
+                ? variants.reduce((acc, v) => acc + v.stock, 0)
+                : (hasSingleVariant ? variants[0].stock : product.stock));
         const isOut = totalStock === 0;
         const isLow = totalStock > 0 && totalStock < 5;
+
+        if (product.displayPrice !== undefined) {
+            return {
+                isOutOfStock: isOut,
+                isLowStock: isLow,
+                displayPrice: product.displayPrice,
+                displayOriginalPrice: product.displayMrp || null,
+                effectiveVariant: hasSingleVariant && !isVariableProduct ? variants[0] : null
+            };
+        }
+
         let price = product.price;
         let orig = product.originalPrice != null && product.originalPrice > price ? product.originalPrice : null;
         let singleVariant = null;
 
-        if (variants.length === 1) {
+        if (hasSingleVariant && !isVariableProduct) {
             singleVariant = variants[0];
             price = singleVariant.price;
             orig = (singleVariant.originalPrice != null && singleVariant.originalPrice > price) ? singleVariant.originalPrice : (product.originalPrice != null && product.originalPrice > price ? product.originalPrice : null);
-        } else if (variants.length > 1) {
+        } else if (variants.length > 0) {
             const sortedByPrice = [...variants].sort((a, b) => a.price - b.price);
             const cheapest = sortedByPrice[0];
             price = cheapest.price;
@@ -41,17 +54,17 @@ const ProductCard = ({ product }) => {
         }
 
         return { isOutOfStock: isOut, isLowStock: isLow, displayPrice: price, displayOriginalPrice: orig, effectiveVariant: singleVariant };
-    }, [variants, product.price, product.originalPrice, product.stock]);
+    }, [variants, product.price, product.originalPrice, product.stock, product.displayPrice, product.displayMrp, isVariableProduct, hasSingleVariant]);
 
     const handleAddToCart = useCallback((e) => {
         e.preventDefault();
-        if (hasMultipleVariants) {
+        if (isVariableProduct || hasMultipleVariants) {
             navigate(`/products/${product.id}`);
             return;
         }
         if (isOutOfStock) return;
         addToCart(product, 1, effectiveVariant || undefined);
-    }, [addToCart, effectiveVariant, hasMultipleVariants, isOutOfStock, navigate, product]);
+    }, [addToCart, effectiveVariant, hasMultipleVariants, isVariableProduct, isOutOfStock, navigate, product]);
 
     const handleWishlistToggle = useCallback((e) => {
         e.preventDefault();
@@ -137,16 +150,21 @@ const ProductCard = ({ product }) => {
                     <h3 className="font-heading font-bold text-lg leading-tight mb-2 line-clamp-2 hover:text-primary transition-colors">
                         {product.title}
                     </h3>
-                    {hasMultipleVariants && (
-                        <span className="inline-block mt-1 text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                            {variants.length} options · From ₹{displayPrice.toLocaleString('en-IN')}
+                    {(isVariableProduct || hasMultipleVariants) && (
+                        <span className="inline-block mt-1 text-[10px] font-medium text-text-muted">
+                            Multiple options available
+                        </span>
+                    )}
+                    {product.sellerName && (
+                        <span className="block mt-1 text-[11px] text-text-muted">
+                            Sold by: <span className="text-trust font-medium">{product.sellerName}</span>
                         </span>
                     )}
                 </Link>
 
                 <div className="flex items-end justify-between mt-4 gap-4">
                     <div className="flex flex-col">
-                        {hasMultipleVariants && <span className="text-xs text-text-muted">From</span>}
+                        {(isVariableProduct || hasMultipleVariants) && <span className="text-xs text-text-muted">From</span>}
                         <PriceDisplay
                             sellingPrice={displayPrice}
                             originalPrice={displayOriginalPrice}
@@ -164,18 +182,18 @@ const ProductCard = ({ product }) => {
                         </button>
                         <Button
                             size="sm"
-                            disabled={isOutOfStock && !hasMultipleVariants}
+                            disabled={isOutOfStock && !isVariableProduct && !hasMultipleVariants}
                             className={`rounded-full h-10 w-10 p-0 flex items-center justify-center shrink-0 ${
-                                isOutOfStock && !hasMultipleVariants
+                                isOutOfStock && !isVariableProduct && !hasMultipleVariants
                                     ? 'bg-border-default text-text-muted cursor-not-allowed'
-                                    : isOutOfStock && hasMultipleVariants
+                                    : (isOutOfStock && (isVariableProduct || hasMultipleVariants))
                                         ? 'bg-surface-hover hover:bg-trust text-text-primary hover:text-white'
                                         : 'bg-surface-hover hover:bg-buy-primary text-text-primary hover:text-white'
                             }`}
                             onClick={handleAddToCart}
-                            title={isOutOfStock ? (hasMultipleVariants ? "Notify Me" : "Out of Stock") : hasMultipleVariants ? "Select Option" : "Add to Cart"}
+                            title={isOutOfStock ? ((isVariableProduct || hasMultipleVariants) ? "View Options" : "Out of Stock") : (isVariableProduct || hasMultipleVariants) ? "Select Option" : "Add to Cart"}
                         >
-                            {isOutOfStock && hasMultipleVariants ? <Bell size={18} /> : hasMultipleVariants ? <Eye size={18} /> : <ShoppingCart size={18} />}
+                            {(isVariableProduct || hasMultipleVariants) ? <Eye size={18} /> : <ShoppingCart size={18} />}
                         </Button>
                     </div>
                 </div>

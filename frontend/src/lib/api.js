@@ -85,8 +85,47 @@ export const productsAPI = {
             body: JSON.stringify(variantData)
         }),
 
+    updateVariant: (productId, variantId, variantData) =>
+        apiFetch(`/products/${productId}/variants/${variantId}`, {
+            method: 'PUT',
+            body: JSON.stringify(variantData)
+        }),
+
     deleteVariant: (productId, variantId) =>
-        apiFetch(`/products/${productId}/variants/${variantId}`, { method: 'DELETE' })
+        apiFetch(`/products/${productId}/variants/${variantId}`, { method: 'DELETE' }),
+
+    bulkSaveVariants: (productId, variants) =>
+        apiFetch(`/products/${productId}/variants/bulk`, {
+            method: 'POST',
+            body: JSON.stringify({ variants })
+        }),
+
+    generateVariants: (productId) =>
+        apiFetch(`/products/${productId}/variants/generate`, { method: 'POST' }),
+
+    toggleVariants: (productId, hasVariants) =>
+        apiFetch(`/products/${productId}/toggle-variants`, {
+            method: 'PATCH',
+            body: JSON.stringify({ hasVariants })
+        }),
+
+    getOptions: (productId) =>
+        apiFetch(`/products/${productId}/options`),
+
+    addOption: (productId, optionData) =>
+        apiFetch(`/products/${productId}/options`, {
+            method: 'POST',
+            body: JSON.stringify(optionData)
+        }),
+
+    updateOption: (productId, optionId, optionData) =>
+        apiFetch(`/products/${productId}/options/${optionId}`, {
+            method: 'PUT',
+            body: JSON.stringify(optionData)
+        }),
+
+    deleteOption: (productId, optionId) =>
+        apiFetch(`/products/${productId}/options/${optionId}`, { method: 'DELETE' })
 };
 
 // ============ ORDERS ============

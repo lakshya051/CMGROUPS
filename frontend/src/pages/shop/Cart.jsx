@@ -430,11 +430,15 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
                     {item.title}
                 </Link>
 
-                {item.variantName && item.variantName !== 'Standard' && (
+                {item.variantCombination && typeof item.variantCombination === 'object' ? (
+                    <p className="text-xs text-text-muted mt-xs">
+                        {Object.entries(item.variantCombination).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+                    </p>
+                ) : item.variantName && item.variantName !== 'Standard' ? (
                     <p className="text-xs text-text-muted mt-xs">
                         Variant: <span className="text-text-secondary">{item.variantName}</span>
                     </p>
-                )}
+                ) : null}
 
                 {/* Stock badge */}
                 {!inStock ? (

@@ -55,6 +55,7 @@ const CourseDetail = () => {
                             <div className="flex flex-wrap gap-sm text-sm font-medium">
                                 <span className="flex items-center gap-xs text-text-muted"><GraduationCap size={16} className="text-trust" /> Instructor: {course.instructor}</span>
                                 {course.hasCertificate && <span className="flex items-center gap-xs text-trust"><Award size={16} /> Certificate on Completion</span>}
+                                {course.sellerName && <span className="flex items-center gap-xs text-text-muted">Sold by: <span className="font-semibold text-trust">{course.sellerName}</span></span>}
                             </div>
                         </div>
                         {course.thumbnail && (

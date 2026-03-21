@@ -16,7 +16,7 @@ const SharedLayout = () => {
     return (
         <div className="safe-screen min-h-screen flex flex-col bg-background text-text-main pb-14 md:pb-0">
             <Navbar />
-            <main className={`flex-grow md:pt-16 ${hasMobileSearchHeader ? 'pt-36' : 'pt-24'}`}>
+            <main className={`flex-grow md:pt-[104px] ${hasMobileSearchHeader ? 'pt-36' : 'pt-24'}`}>
                 <Outlet />
             </main>
             <Footer />

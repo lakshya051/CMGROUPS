@@ -8,7 +8,7 @@ import PDFDocument from 'pdfkit';
  * @param {object} invoiceData   - ServiceInvoice record
  * @returns {Promise<Buffer>}
  */
-export function generateServiceInvoicePdf(booking, invoiceData) {
+export function generateServiceInvoicePdf(booking, invoiceData, sellerName) {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({ margin: 50 });
@@ -18,12 +18,14 @@ export function generateServiceInvoicePdf(booking, invoiceData) {
             doc.on('end', () => resolve(Buffer.concat(buffers)));
             doc.on('error', reject);
 
+            const companyName = sellerName || 'CMGROUPS';
+
             // ── Header ──────────────────────────────────────────────────────
             doc
                 .fillColor('#1e3a5f')
                 .fontSize(22)
                 .font('Helvetica-Bold')
-                .text('CMGROUPS', 50, 50)
+                .text(companyName, 50, 50)
                 .fontSize(10)
                 .font('Helvetica')
                 .fillColor('#444444')
@@ -139,7 +141,7 @@ export function generateServiceInvoicePdf(booking, invoiceData) {
                 .fontSize(9)
                 .font('Helvetica')
                 .fillColor('#888888')
-                .text('Thank you for choosing CMGROUPS Service Hub!', 50, 700, { align: 'center', width: 500 })
+                .text(`Thank you for choosing ${companyName} Service Hub!`, 50, 700, { align: 'center', width: 500 })
                 .text('This is a computer-generated invoice and does not require a signature.', 50, 715, { align: 'center', width: 500 });
 
             doc.end();
