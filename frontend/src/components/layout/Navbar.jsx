@@ -343,17 +343,17 @@ const Navbar = () => {
                     </div>
                 </div>
 
-                {/* Row 2: Sub-Navigation */}
+                {/* Row 2: Sub-Navigation — centered links, utilities on the right */}
                 <div className="bg-surface border-b border-border-default">
-                    <div className="container mx-auto px-4 h-10 flex items-center justify-between gap-3 min-w-0">
+                    <div className="container mx-auto px-4 h-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 min-w-0">
+                        <div className="min-w-0" aria-hidden="true" />
+
                         {/*
-                          Products flyout uses position:absolute. A parent with overflow-x-auto forces overflow-y
-                          to clip (per CSS), which hides the menu — keep All + Products outside the scroll strip.
+                          Products flyout: keep All + Products outside overflow-x so the menu is not clipped.
                         */}
-                        <nav className="flex items-center gap-1 min-w-0 flex-1">
+                        <nav className="flex items-center justify-center gap-1 min-w-0 max-w-full">
                             <NavLink to="/" label="All" icon={<Menu size={14} />} active={isActive('/')} />
 
-                            {/* Products with category flyout on hover */}
                             <div
                                 className="relative shrink-0"
                                 onMouseEnter={() => setShowCatMenu(true)}
@@ -381,7 +381,7 @@ const Navbar = () => {
                                 )}
                             </div>
 
-                            <div className="flex flex-1 min-w-0 items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1.5">
+                            <div className="flex items-center gap-1 overflow-x-auto max-w-[min(100%,42rem)] [&::-webkit-scrollbar]:h-1.5">
                                 <NavLink to="/services" label="Services" active={isActive('/services')} />
                                 <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
                                 <NavLink to="/tally-erp" label="Tally ERP" active={isActive('/tally-erp')} />
@@ -389,8 +389,7 @@ const Navbar = () => {
                             </div>
                         </nav>
 
-                        {/* Right side: Points + Notifications */}
-                        <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                        <div className="flex justify-end items-center gap-3 flex-shrink-0 min-w-0">
                             {user && <PointsBadge points={user.walletBalance} />}
 
                             <Link to="/wishlist" className="text-text-secondary hover:text-trust transition-colors">
