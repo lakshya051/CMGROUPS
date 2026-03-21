@@ -201,67 +201,67 @@ const Navbar = () => {
 
             {/* ═══════════ DESKTOP ═══════════ */}
             <div className="hidden md:block">
-                {/* Row 1: Main Bar */}
+                {/* Row 1: Logo + deliver (left), search centered, account cluster (right) */}
                 <div className="bg-background/80 backdrop-blur-lg border-b border-border-default">
-                    <div className="container mx-auto px-4 h-16 flex items-center gap-4">
-                        {/* Logo */}
-                        <Link to="/" className="text-2xl font-heading font-bold text-text-primary flex-shrink-0">
-                            CM<span className="text-trust">GROUPS</span>
-                        </Link>
-
-                        {/* Deliver To */}
-                        <div className="hidden lg:flex items-center gap-1.5 text-text-secondary hover:text-text-primary cursor-pointer flex-shrink-0 px-2 py-1 rounded-md hover:bg-surface-hover transition-colors">
-                            <MapPin size={16} className="text-text-secondary" />
-                            <div className="flex flex-col leading-tight">
-                                <span className="text-[10px] text-text-muted">Deliver to</span>
-                                <span className="text-xs font-semibold text-text-primary">Etah 207001</span>
+                    <div className="container mx-auto px-4 h-16 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 md:gap-4 min-w-0">
+                        <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0 min-w-0">
+                            <Link to="/" className="text-2xl font-heading font-bold text-text-primary flex-shrink-0">
+                                CM<span className="text-trust">GROUPS</span>
+                            </Link>
+                            <div className="hidden lg:flex items-center gap-1.5 text-text-secondary hover:text-text-primary cursor-pointer flex-shrink-0 px-2 py-1 rounded-md hover:bg-surface-hover transition-colors">
+                                <MapPin size={16} className="text-text-secondary" />
+                                <div className="flex flex-col leading-tight">
+                                    <span className="text-[10px] text-text-muted">Deliver to</span>
+                                    <span className="text-xs font-semibold text-text-primary">Etah 207001</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Search Bar */}
-                        <form onSubmit={handleSearch} className="flex-1 flex max-w-2xl">
-                            <div className="relative flex w-full rounded-lg overflow-hidden border-2 border-trust focus-within:border-trust shadow-sm">
-                                <select
-                                    value={searchCategory}
-                                    onChange={(e) => setSearchCategory(e.target.value)}
-                                    className="bg-page-bg border-r border-border-default px-2 py-2 text-xs text-text-secondary focus:outline-none cursor-pointer hover:bg-surface-hover"
-                                >
-                                    {SEARCH_CATEGORIES.map(cat => (
-                                        <option key={cat.value} value={cat.value}>{cat.label}</option>
-                                    ))}
-                                </select>
-                                <input
-                                    type="text"
-                                    placeholder={currentSearchContext.placeholder}
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="flex-1 min-w-0 px-3 py-2 bg-white text-sm text-text-primary focus:outline-none"
-                                />
-                                {hasSearchQuery && (
-                                    <button
-                                        type="button"
-                                        onClick={handleClearSearch}
-                                        className="px-2 text-text-muted hover:text-text-primary transition-colors"
+                        <div className="min-w-0 px-1">
+                            <form onSubmit={handleSearch} className="mx-auto w-full max-w-2xl">
+                                <div className="relative flex w-full rounded-lg overflow-hidden border-2 border-trust focus-within:border-trust shadow-sm">
+                                    <select
+                                        value={searchCategory}
+                                        onChange={(e) => setSearchCategory(e.target.value)}
+                                        className="bg-page-bg border-r border-border-default px-2 py-2 text-xs text-text-secondary focus:outline-none cursor-pointer hover:bg-surface-hover"
                                     >
-                                        <X size={16} />
+                                        {SEARCH_CATEGORIES.map(cat => (
+                                            <option key={cat.value} value={cat.value}>{cat.label}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="text"
+                                        placeholder={currentSearchContext.placeholder}
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="flex-1 min-w-0 px-3 py-2 bg-white text-sm text-text-primary focus:outline-none"
+                                    />
+                                    {hasSearchQuery && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearSearch}
+                                            className="px-2 text-text-muted hover:text-text-primary transition-colors"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        className="px-3 bg-trust hover:bg-trust/90 text-white transition-colors"
+                                    >
+                                        <Search size={18} />
                                     </button>
-                                )}
-                                <button
-                                    type="submit"
-                                    className="px-3 bg-trust hover:bg-trust/90 text-white transition-colors"
-                                >
-                                    <Search size={18} />
-                                </button>
-                            </div>
-                        </form>
+                                </div>
+                            </form>
+                        </div>
 
-                        {/* Account & Lists */}
-                        <div
-                            ref={accountRef}
-                            className="relative flex-shrink-0"
-                            onMouseEnter={handleAccountEnter}
-                            onMouseLeave={handleAccountLeave}
-                        >
+                        <div className="flex items-center justify-end gap-1 sm:gap-2 flex-shrink-0 min-w-0">
+                            <div
+                                ref={accountRef}
+                                className="relative flex-shrink-0"
+                                onMouseEnter={handleAccountEnter}
+                                onMouseLeave={handleAccountLeave}
+                            >
                             {user ? (
                                 <button className="flex flex-col leading-tight text-left px-2 py-1 rounded-md hover:bg-surface-hover transition-colors">
                                     <span className="text-[10px] text-text-muted">Hello, {user.name?.split(' ')[0] || 'User'}</span>
@@ -340,18 +340,14 @@ const Navbar = () => {
                             </div>
                             <span className="text-xs font-semibold text-text-primary hidden xl:inline">Cart</span>
                         </Link>
+                        </div>
                     </div>
                 </div>
 
-                {/* Row 2: Sub-Navigation — centered links, utilities on the right */}
+                {/* Row 2: Sub-Navigation (left-aligned links; overflow-x only on trailing items so flyout isn’t clipped) */}
                 <div className="bg-surface border-b border-border-default">
-                    <div className="container mx-auto px-4 h-10 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 min-w-0">
-                        <div className="min-w-0" aria-hidden="true" />
-
-                        {/*
-                          Products flyout: keep All + Products outside overflow-x so the menu is not clipped.
-                        */}
-                        <nav className="flex items-center justify-center gap-1 min-w-0 max-w-full">
+                    <div className="container mx-auto px-4 h-10 flex items-center justify-between gap-3 min-w-0">
+                        <nav className="flex items-center gap-1 min-w-0 flex-1">
                             <NavLink to="/" label="All" icon={<Menu size={14} />} active={isActive('/')} />
 
                             <div
@@ -381,7 +377,7 @@ const Navbar = () => {
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-1 overflow-x-auto max-w-[min(100%,42rem)] [&::-webkit-scrollbar]:h-1.5">
+                            <div className="flex flex-1 min-w-0 items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1.5">
                                 <NavLink to="/services" label="Services" active={isActive('/services')} />
                                 <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
                                 <NavLink to="/tally-erp" label="Tally ERP" active={isActive('/tally-erp')} />
@@ -389,7 +385,7 @@ const Navbar = () => {
                             </div>
                         </nav>
 
-                        <div className="flex justify-end items-center gap-3 flex-shrink-0 min-w-0">
+                        <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                             {user && <PointsBadge points={user.walletBalance} />}
 
                             <Link to="/wishlist" className="text-text-secondary hover:text-trust transition-colors">
