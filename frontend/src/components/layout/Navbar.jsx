@@ -2,7 +2,7 @@ import React, { memo, useState, useEffect, useCallback, useMemo, useRef } from '
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Menu, X, ShoppingCart, Heart, User, LayoutDashboard, LogOut, Bell,
-    Search, MapPin, RefreshCw, ChevronDown, ShoppingBag, Settings, Package
+    Search, MapPin, ChevronDown, ShoppingBag, Settings, Package
 } from 'lucide-react';
 import Button from '../ui/Button';
 import PointsBadge from '../ui/PointsBadge';
@@ -345,52 +345,48 @@ const Navbar = () => {
 
                 {/* Row 2: Sub-Navigation */}
                 <div className="bg-surface border-b border-border-default">
-                    <div className="container mx-auto px-4 h-10 flex items-center justify-between">
-                        <nav className="flex items-center gap-1 overflow-x-auto">
+                    <div className="container mx-auto px-4 h-10 flex items-center justify-between gap-3 min-w-0">
+                        {/*
+                          Products flyout uses position:absolute. A parent with overflow-x-auto forces overflow-y
+                          to clip (per CSS), which hides the menu — keep All + Products outside the scroll strip.
+                        */}
+                        <nav className="flex items-center gap-1 min-w-0 flex-1">
                             <NavLink to="/" label="All" icon={<Menu size={14} />} active={isActive('/')} />
 
-                            {/* Products with flyout */}
+                            {/* Products with category flyout on hover */}
                             <div
-                                className="relative"
+                                className="relative shrink-0"
                                 onMouseEnter={() => setShowCatMenu(true)}
                                 onMouseLeave={() => setShowCatMenu(false)}
                             >
                                 <NavLink to="/products" label="Products" active={isActive('/products')} hasArrow />
                                 {showCatMenu && (
-                                    <div className="absolute top-full left-0 w-52 bg-surface border border-border-default shadow-card rounded-lg py-1.5 z-50 animate-in fade-in slide-in-from-top-2">
-                                        <Link to="/products" className="block px-4 py-2 text-sm font-semibold text-text-primary hover:bg-surface-hover transition-colors">
-                                            All Products
-                                        </Link>
-                                        <div className="h-px bg-border-default mx-2" />
-                                        {categories.map(cat => (
-                                            <Link
-                                                key={cat.id}
-                                                to={`/products?category=${cat.name}`}
-                                                className="block px-4 py-2 text-sm text-text-secondary hover:text-trust hover:bg-surface-hover transition-colors"
-                                            >
-                                                {cat.name}
+                                    <div className="absolute left-0 top-full z-[60] min-w-[13rem] pt-1 animate-in fade-in slide-in-from-top-2">
+                                        <div className="w-52 bg-surface border border-border-default shadow-card rounded-lg py-1.5">
+                                            <Link to="/products" className="block px-4 py-2 text-sm font-semibold text-text-primary hover:bg-surface-hover transition-colors">
+                                                All Products
                                             </Link>
-                                        ))}
+                                            {categories.length > 0 && <div className="h-px bg-border-default mx-2" />}
+                                            {categories.map(cat => (
+                                                <Link
+                                                    key={cat.id}
+                                                    to={`/products?category=${encodeURIComponent(cat.name)}`}
+                                                    className="block px-4 py-2 text-sm text-text-secondary hover:text-trust hover:bg-surface-hover transition-colors"
+                                                >
+                                                    {cat.name}
+                                                </Link>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
 
-                            <Link
-                                to="/refurbished"
-                                className={`flex items-center gap-1 px-3 py-1 rounded text-sm font-medium transition-colors whitespace-nowrap ${
-                                    isActive('/refurbished')
-                                        ? 'text-amber-600 font-semibold bg-amber-50'
-                                        : 'text-amber-600/80 hover:text-amber-600 hover:bg-amber-50/50'
-                                }`}
-                            >
-                                <RefreshCw size={13} />
-                                Refurbished
-                            </Link>
-
-                            <NavLink to="/services" label="Services" active={isActive('/services')} />
-                            <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
-                            <NavLink to="/tally-erp" label="Tally ERP" active={isActive('/tally-erp')} />
-                            <NavLink to="/cctv" label="CCTV" active={isActive('/cctv')} />
+                            <div className="flex flex-1 min-w-0 items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1.5">
+                                <NavLink to="/services" label="Services" active={isActive('/services')} />
+                                <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
+                                <NavLink to="/tally-erp" label="Tally ERP" active={isActive('/tally-erp')} />
+                                <NavLink to="/cctv" label="CCTV" active={isActive('/cctv')} />
+                            </div>
                         </nav>
 
                         {/* Right side: Points + Notifications */}

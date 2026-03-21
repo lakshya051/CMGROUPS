@@ -11,17 +11,10 @@ const router = express.Router();
 //   ?isSecondHand=true
 router.get('/', async (req, res) => {
     try {
-        const { category, search, sort, minPrice, maxPrice, isSecondHand, refurbished, onSale, page, limit } = req.query;
+        const { category, search, sort, minPrice, maxPrice, isSecondHand, onSale, page, limit } = req.query;
 
         // Build where clause
         let where = { isActive: true };
-
-        // Refurbished: default listings exclude refurbished; ?refurbished=true returns only refurbished
-        if (refurbished === 'true') {
-            where.isRefurbished = true;
-        } else {
-            where.isRefurbished = false;
-        }
 
         if (category) {
             const categories = category.split(',').map(c => c.trim()).filter(Boolean);
@@ -207,7 +200,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/products (Admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, price, originalPrice, stock, category, brand, image, images, description, specs, condition, isSecondHand, isRefurbished, isReturnable, returnWindowDays, referrerPoints, refereePoints, hasVariants, sellerName } = req.body;
+        const { title, price, originalPrice, stock, category, brand, image, images, description, specs, condition, isSecondHand, isReturnable, returnWindowDays, referrerPoints, refereePoints, hasVariants, sellerName } = req.body;
 
         const productImages = Array.isArray(images) ? images : (image ? [image] : []);
 
@@ -228,7 +221,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 specs: specs || null,
                 condition: condition || 'New',
                 isSecondHand: isSecondHand === true || isSecondHand === 'true',
-                isRefurbished: isRefurbished === true || isRefurbished === 'true',
+                isRefurbished: false,
                 isReturnable: isReturnable !== undefined ? (isReturnable === true || isReturnable === 'true') : true,
                 returnWindowDays: returnWindowDays !== undefined ? parseInt(returnWindowDays) : 3,
                 referrerPoints: referrerPoints !== undefined && referrerPoints !== null ? parseFloat(referrerPoints) : null,
@@ -252,7 +245,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
-        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, originalPrice, isRefurbished, hasVariants, sellerName, ...otherData } = req.body;
+        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, originalPrice, hasVariants, sellerName, ...otherData } = req.body;
+        if ('isRefurbished' in otherData) delete otherData.isRefurbished;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
 
@@ -271,7 +265,6 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         if (isReturnable !== undefined) updateData.isReturnable = isReturnable === true || isReturnable === 'true';
         if (returnWindowDays !== undefined) updateData.returnWindowDays = parseInt(returnWindowDays);
         if (originalPrice !== undefined) updateData.originalPrice = originalPrice == null || originalPrice === '' ? null : parseFloat(originalPrice);
-        if (isRefurbished !== undefined) updateData.isRefurbished = isRefurbished === true || isRefurbished === 'true';
         if (hasVariants !== undefined) updateData.hasVariants = hasVariants === true || hasVariants === 'true';
         if (sellerName !== undefined) updateData.sellerName = sellerName?.trim() || null;
 

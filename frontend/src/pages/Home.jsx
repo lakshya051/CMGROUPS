@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, ChevronRight } from 'lucide-react';
 import { useSEO } from '../hooks/useSEO';
 import { productsAPI, categoriesAPI } from '../lib/api';
 import { RECENTLY_VIEWED_KEY } from '../constants';
@@ -18,10 +17,6 @@ const Home = () => {
     const [bestSellersLoading, setBestSellersLoading] = useState(true);
     const [bestSellersError, setBestSellersError] = useState(false);
     const [pillCategories, setPillCategories] = useState([]);
-
-    // ── Refurbished Teaser ──
-    const [refurbishedProducts, setRefurbishedProducts] = useState([]);
-    const [refurbishedLoading, setRefurbishedLoading] = useState(true);
 
     // ── Recently Viewed ──
     const [recentlyViewed, setRecentlyViewed] = useState([]);
@@ -44,12 +39,6 @@ const Home = () => {
             .then(res => setBestSellers(res.data || []))
             .catch(() => setBestSellersError(true))
             .finally(() => setBestSellersLoading(false));
-
-        // Refurbished teaser: fetch up to 4 refurbished products
-        productsAPI.getAll({ refurbished: 'true', limit: 4 })
-            .then(res => setRefurbishedProducts(res.data || []))
-            .catch(() => {})
-            .finally(() => setRefurbishedLoading(false));
 
         // Recently viewed from localStorage
         try {
@@ -107,27 +96,10 @@ const Home = () => {
                 )}
             </div>
 
-            {/* 5. Refurbished Teaser */}
-            {!refurbishedLoading && refurbishedProducts.length > 0 && (
-                <div className="bg-page-bg border-t border-border-default">
-                    <ProductRow
-                        title={
-                            <span className="flex items-center gap-2">
-                                <RefreshCw size={22} className="text-amber-500" />
-                                Refurbished Deals
-                            </span>
-                        }
-                        subtitle="Certified pre-owned tech at up to 50% off"
-                        products={refurbishedProducts}
-                        viewAllLink="/refurbished"
-                    />
-                </div>
-            )}
-
-            {/* 6. Brand Spotlight */}
+            {/* 5. Brand Spotlight */}
             <BrandStrip />
 
-            {/* 7. Recently Viewed (conditional) */}
+            {/* 6. Recently Viewed (conditional) */}
             {recentlyViewed.length > 0 && (
                 <div className="bg-page-bg border-t border-border-default">
                     <ProductRow

@@ -121,12 +121,7 @@ const ProductCard = ({ product }) => {
                         </span>
                     ) : null}
 
-                    {product.isRefurbished && (
-                        <span className="bg-amber-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-md">
-                            REFURBISHED
-                        </span>
-                    )}
-                    {!product.isRefurbished && product.isSecondHand && (
+                    {product.isSecondHand && (
                         <span className="bg-amber-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-md">
                             Pre-Owned ({product.condition})
                         </span>
