@@ -91,6 +91,17 @@ router.get('/', async (req, res) => {
         const outOfStockSkip = Math.max(0, skip - inStockCount);
         const outOfStockTake = take - inStockTake;
 
+        const variantInclude = {
+            variantOptions: {
+                include: { values: { orderBy: { position: 'asc' } } },
+                orderBy: { position: 'asc' }
+            },
+            variants: {
+                where: { isActive: true },
+                orderBy: { price: 'asc' }
+            }
+        };
+
         const [inStockProducts, outOfStockProducts] = await Promise.all([
             inStockTake > 0
                 ? prisma.product.findMany({
@@ -98,7 +109,7 @@ router.get('/', async (req, res) => {
                     orderBy,
                     skip: inStockSkip,
                     take: inStockTake,
-                    include: { variants: true },
+                    include: variantInclude,
                 })
                 : [],
             outOfStockTake > 0
@@ -107,12 +118,38 @@ router.get('/', async (req, res) => {
                     orderBy,
                     skip: outOfStockSkip,
                     take: outOfStockTake,
-                    include: { variants: true },
+                    include: variantInclude,
                 })
                 : [],
         ]);
 
-        const products = [...inStockProducts, ...outOfStockProducts];
+        const allFetched = [...inStockProducts, ...outOfStockProducts].map(p => {
+            const variantStock = p.hasVariants && p.variants.length > 0
+                ? p.variants.reduce((sum, v) => sum + v.stock, 0)
+                : null;
+            const effectiveStock = variantStock !== null ? variantStock : p.stock;
+
+            if (p.hasVariants && p.variants.length > 0) {
+                const cheapest = p.variants[0];
+                return {
+                    ...p,
+                    displayPrice: cheapest.price,
+                    displayMrp: cheapest.originalPrice != null && cheapest.originalPrice > cheapest.price ? cheapest.originalPrice : null,
+                    totalStock: effectiveStock,
+                };
+            }
+            return {
+                ...p,
+                displayPrice: p.price,
+                displayMrp: p.originalPrice != null && p.originalPrice > p.price ? p.originalPrice : null,
+                totalStock: effectiveStock,
+            };
+        });
+
+        // Re-sort: variable products with variant stock > 0 should appear with in-stock items
+        const inStock = allFetched.filter(p => p.totalStock > 0);
+        const outOfStock = allFetched.filter(p => p.totalStock <= 0);
+        const products = [...inStock, ...outOfStock];
 
         const result = {
             data: products,
@@ -143,7 +180,13 @@ router.get('/:id', async (req, res) => {
         const product = await prisma.product.findFirst({
             where: { id: parseInt(req.params.id), isActive: true },
             include: {
-                variants: true,
+                variantOptions: {
+                    include: { values: { orderBy: { position: 'asc' } } },
+                    orderBy: { position: 'asc' }
+                },
+                variants: {
+                    where: { isActive: true }
+                },
                 reviews: {
                     include: { user: { select: { name: true } } },
                     orderBy: { createdAt: 'desc' }
@@ -164,7 +207,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/products (Admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, price, originalPrice, stock, category, brand, image, images, description, specs, condition, isSecondHand, isRefurbished, isReturnable, returnWindowDays, referrerPoints, refereePoints } = req.body;
+        const { title, price, originalPrice, stock, category, brand, image, images, description, specs, condition, isSecondHand, isRefurbished, isReturnable, returnWindowDays, referrerPoints, refereePoints, hasVariants, sellerName } = req.body;
 
         const productImages = Array.isArray(images) ? images : (image ? [image] : []);
 
@@ -189,7 +232,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 isReturnable: isReturnable !== undefined ? (isReturnable === true || isReturnable === 'true') : true,
                 returnWindowDays: returnWindowDays !== undefined ? parseInt(returnWindowDays) : 3,
                 referrerPoints: referrerPoints !== undefined && referrerPoints !== null ? parseFloat(referrerPoints) : null,
-                refereePoints: refereePoints !== undefined && refereePoints !== null ? parseFloat(refereePoints) : null
+                refereePoints: refereePoints !== undefined && refereePoints !== null ? parseFloat(refereePoints) : null,
+                hasVariants: hasVariants === true || hasVariants === 'true',
+                sellerName: sellerName?.trim() || null
             }
         });
 
@@ -207,7 +252,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
-        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, originalPrice, isRefurbished, ...otherData } = req.body;
+        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, originalPrice, isRefurbished, hasVariants, sellerName, ...otherData } = req.body;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
 
@@ -227,6 +272,8 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         if (returnWindowDays !== undefined) updateData.returnWindowDays = parseInt(returnWindowDays);
         if (originalPrice !== undefined) updateData.originalPrice = originalPrice == null || originalPrice === '' ? null : parseFloat(originalPrice);
         if (isRefurbished !== undefined) updateData.isRefurbished = isRefurbished === true || isRefurbished === 'true';
+        if (hasVariants !== undefined) updateData.hasVariants = hasVariants === true || hasVariants === 'true';
+        if (sellerName !== undefined) updateData.sellerName = sellerName?.trim() || null;
 
         const product = await prisma.product.update({
             where: { id: productId },
@@ -330,7 +377,7 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
 router.get('/:id/variants', async (req, res) => {
     try {
         const variants = await prisma.productVariant.findMany({
-            where: { productId: parseInt(req.params.id) },
+            where: { productId: parseInt(req.params.id), isActive: true },
             orderBy: { price: 'asc' }
         });
         res.json(variants);
@@ -343,22 +390,25 @@ router.get('/:id/variants', async (req, res) => {
 // POST /api/products/:id/variants (Admin only)
 router.post('/:id/variants', protect, adminOnly, async (req, res) => {
     try {
-        const { name, price, originalPrice, stock, sku } = req.body;
+        const { name, price, originalPrice, stock, sku, combination, isActive, image } = req.body;
         const productId = parseInt(req.params.id);
 
         const variantData = {
             productId,
-            name,
+            name: name || null,
             price: parseFloat(price),
-            stock: parseInt(stock),
-            sku: sku || null
+            stock: parseInt(stock || 0),
+            sku: sku || null,
+            combination: combination || null,
+            isActive: isActive !== undefined ? isActive : true,
+            image: image || null
         };
         if (originalPrice != null && originalPrice !== '' && !isNaN(parseFloat(originalPrice))) {
             variantData.originalPrice = parseFloat(originalPrice);
         }
         const variant = await prisma.productVariant.create({ data: variantData });
 
-        cache.delByPrefix('products:'); // full cache flush for simplicity
+        cache.delByPrefix('products:');
         res.status(201).json(variant);
     } catch (error) {
         console.error('Create variant error:', error);
@@ -369,7 +419,7 @@ router.post('/:id/variants', protect, adminOnly, async (req, res) => {
 // PUT /api/products/:id/variants/:variantId (Admin only)
 router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
     try {
-        const { name, price, originalPrice, stock, sku } = req.body;
+        const { name, price, originalPrice, stock, sku, combination, isActive, image } = req.body;
 
         const updateData = {};
         if (name !== undefined) updateData.name = name;
@@ -377,6 +427,9 @@ router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
         if (originalPrice !== undefined) updateData.originalPrice = originalPrice != null && originalPrice !== '' ? parseFloat(originalPrice) : null;
         if (stock !== undefined) updateData.stock = parseInt(stock);
         if (sku !== undefined) updateData.sku = sku || null;
+        if (combination !== undefined) updateData.combination = combination;
+        if (isActive !== undefined) updateData.isActive = isActive;
+        if (image !== undefined) updateData.image = image || null;
 
         const variant = await prisma.productVariant.update({
             where: { id: parseInt(req.params.variantId) },
@@ -402,6 +455,241 @@ router.delete('/:id/variants/:variantId', protect, adminOnly, async (req, res) =
         res.json({ message: 'Variant deleted' });
     } catch (error) {
         console.error('Delete variant error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/products/:id/variants/bulk — save all variants in one call
+router.post('/:id/variants/bulk', protect, adminOnly, async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        const { variants } = req.body;
+        if (!Array.isArray(variants)) return res.status(400).json({ error: 'variants array is required' });
+
+        const results = [];
+        for (const v of variants) {
+            const data = {
+                productId,
+                name: v.name || null,
+                combination: v.combination || null,
+                price: parseFloat(v.price),
+                originalPrice: v.originalPrice != null && v.originalPrice !== '' ? parseFloat(v.originalPrice) : null,
+                stock: parseInt(v.stock || 0),
+                sku: v.sku || null,
+                isActive: v.isActive !== undefined ? v.isActive : true,
+                image: v.image || null
+            };
+            if (v.id && typeof v.id === 'number') {
+                const updated = await prisma.productVariant.update({ where: { id: v.id }, data });
+                results.push(updated);
+            } else {
+                const created = await prisma.productVariant.create({ data });
+                results.push(created);
+            }
+        }
+
+        cache.delByPrefix('products:');
+        res.json({ variants: results });
+    } catch (error) {
+        console.error('Bulk save variants error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────
+// VARIANT OPTIONS (Admin)
+// ─────────────────────────────────────────────
+
+// POST /api/products/:id/options — add a new option with values
+router.post('/:id/options', protect, adminOnly, async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        const { name, values } = req.body;
+        if (!name || !Array.isArray(values) || values.length === 0) {
+            return res.status(400).json({ error: 'name and values array are required' });
+        }
+
+        const existingCount = await prisma.variantOption.count({ where: { productId } });
+
+        const option = await prisma.variantOption.create({
+            data: {
+                productId,
+                name: name.trim(),
+                position: existingCount,
+                values: {
+                    create: values.map((val, idx) => ({ value: String(val).trim(), position: idx }))
+                }
+            },
+            include: { values: { orderBy: { position: 'asc' } } }
+        });
+
+        cache.delByPrefix('products:');
+        res.status(201).json(option);
+    } catch (error) {
+        console.error('Create option error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/products/:id/options/:optionId — update option name and/or values
+router.put('/:id/options/:optionId', protect, adminOnly, async (req, res) => {
+    try {
+        const optionId = parseInt(req.params.optionId);
+        const { name, values } = req.body;
+
+        const updateData = {};
+        if (name !== undefined) updateData.name = name.trim();
+
+        const option = await prisma.variantOption.update({
+            where: { id: optionId },
+            data: updateData,
+        });
+
+        if (Array.isArray(values)) {
+            await prisma.variantOptionValue.deleteMany({ where: { optionId } });
+            await prisma.variantOptionValue.createMany({
+                data: values.map((val, idx) => ({
+                    optionId,
+                    value: String(val).trim(),
+                    position: idx
+                }))
+            });
+        }
+
+        const updated = await prisma.variantOption.findUnique({
+            where: { id: optionId },
+            include: { values: { orderBy: { position: 'asc' } } }
+        });
+
+        cache.delByPrefix('products:');
+        res.json(updated);
+    } catch (error) {
+        console.error('Update option error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/products/:id/options/:optionId — delete option and its values
+router.delete('/:id/options/:optionId', protect, adminOnly, async (req, res) => {
+    try {
+        await prisma.variantOption.delete({ where: { id: parseInt(req.params.optionId) } });
+        cache.delByPrefix('products:');
+        res.json({ message: 'Option deleted' });
+    } catch (error) {
+        console.error('Delete option error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/products/:id/options — get all options with values for a product
+router.get('/:id/options', async (req, res) => {
+    try {
+        const options = await prisma.variantOption.findMany({
+            where: { productId: parseInt(req.params.id) },
+            include: { values: { orderBy: { position: 'asc' } } },
+            orderBy: { position: 'asc' }
+        });
+        res.json(options);
+    } catch (error) {
+        console.error('Get options error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/products/:id/variants/generate — auto-generate all combinations
+router.post('/:id/variants/generate', protect, adminOnly, async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        const product = await prisma.product.findUnique({ where: { id: productId } });
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        const options = await prisma.variantOption.findMany({
+            where: { productId },
+            include: { values: { orderBy: { position: 'asc' } } },
+            orderBy: { position: 'asc' }
+        });
+
+        if (options.length === 0) return res.status(400).json({ error: 'No options defined. Add options first.' });
+
+        const cartesian = (arrays) => {
+            return arrays.reduce((acc, curr) => {
+                const result = [];
+                for (const a of acc) {
+                    for (const b of curr) {
+                        result.push([...a, b]);
+                    }
+                }
+                return result;
+            }, [[]]);
+        };
+
+        const optionArrays = options.map(opt => opt.values.map(v => ({ optionName: opt.name, value: v.value })));
+        const combinations = cartesian(optionArrays);
+
+        const existingVariants = await prisma.productVariant.findMany({ where: { productId } });
+
+        const combToKey = (comb) => JSON.stringify(
+            Object.fromEntries(comb.map(c => [c.optionName, c.value]).sort((a, b) => a[0].localeCompare(b[0])))
+        );
+
+        const existingKeys = new Set(
+            existingVariants
+                .filter(v => v.combination)
+                .map(v => JSON.stringify(
+                    Object.fromEntries(Object.entries(v.combination).sort((a, b) => a[0].localeCompare(b[0])))
+                ))
+        );
+
+        let created = 0;
+        for (const combo of combinations) {
+            const key = combToKey(combo);
+            if (existingKeys.has(key)) continue;
+
+            const combination = Object.fromEntries(combo.map(c => [c.optionName, c.value]));
+            const comboName = combo.map(c => c.value).join(' / ');
+
+            await prisma.productVariant.create({
+                data: {
+                    productId,
+                    name: comboName,
+                    combination,
+                    price: product.price || 0,
+                    originalPrice: product.originalPrice || null,
+                    stock: 0,
+                    isActive: true
+                }
+            });
+            created++;
+        }
+
+        const allVariants = await prisma.productVariant.findMany({
+            where: { productId },
+            orderBy: { price: 'asc' }
+        });
+
+        cache.delByPrefix('products:');
+        res.json({ created, total: allVariants.length, variants: allVariants });
+    } catch (error) {
+        console.error('Generate variants error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/products/:id/toggle-variants — toggle hasVariants on/off
+router.patch('/:id/toggle-variants', protect, adminOnly, async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        const { hasVariants } = req.body;
+
+        const product = await prisma.product.update({
+            where: { id: productId },
+            data: { hasVariants: hasVariants === true || hasVariants === 'true' }
+        });
+
+        cache.delByPrefix('products:');
+        res.json(product);
+    } catch (error) {
+        console.error('Toggle variants error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

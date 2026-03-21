@@ -61,6 +61,7 @@ model Course {
   isPublished    Boolean  @default(true)
   referrerPoints Float?
   refereePoints  Float?
+  sellerName     String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -200,6 +201,7 @@ model Product {
   stock            Int
   category         String
   brand            String?
+  sellerName       String?
   images           String[] @default([])
   description      String?
   specs            Json?
@@ -214,12 +216,15 @@ model Product {
   refereePoints    Float?
   isActive         Boolean  @default(true)
 
-  orderItems OrderItem[]
-  reviews    Review[]
-  alerts     ProductAlert[]
-  wishlists  Wishlist[]
-  variants   ProductVariant[]
-  cartItems  CartItem[]
+  hasVariants Boolean  @default(false)
+
+  orderItems     OrderItem[]
+  reviews        Review[]
+  alerts         ProductAlert[]
+  wishlists      Wishlist[]
+  variants       ProductVariant[]
+  variantOptions VariantOption[]
+  cartItems      CartItem[]
 
   @@index([category])
   @@index([isSecondHand])
@@ -482,28 +487,54 @@ model ServiceType {
   active         Boolean  @default(true)
   referrerPoints Float?
   refereePoints  Float?
+  sellerName     String?
   createdAt      DateTime @default(now())
 
   @@index([active])
+}
+
+model VariantOption {
+  id        Int                  @id @default(autoincrement())
+  productId Int
+  name      String
+  position  Int                  @default(0)
+  product   Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values    VariantOptionValue[]
+
+  @@index([productId])
+}
+
+model VariantOptionValue {
+  id       Int           @id @default(autoincrement())
+  optionId Int
+  value    String
+  position Int           @default(0)
+  option   VariantOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@index([optionId])
 }
 
 model ProductVariant {
   id            Int      @id @default(autoincrement())
   productId     Int
   product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name          String // e.g. "64GB", "Red", "512GB SSD"
-  price         Float // variant specific selling price
-  originalPrice Float? // optional compare-at / MRP for discount display
+  name          String?
+  combination   Json?
+  price         Float
+  originalPrice Float?
   stock         Int      @default(0)
-  sku           String? // optional stock keeping unit code
+  sku           String?  @unique
+  isActive      Boolean  @default(true)
+  image         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  orderItems OrderItem[] // so order items can reference a variant
+  orderItems OrderItem[]
   cartItems  CartItem[]
 
   @@index([productId])
   @@index([productId, price])
+  @@index([sku])
 }
 
 model ProductAlert {
@@ -592,6 +623,7 @@ model TallyEnquiry {
   city         String
   licenseType  String
   message      String?
+  sellerName   String?
   status       String   @default("new") // "new" | "contacted" | "converted"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -607,6 +639,7 @@ model CCTVEnquiry {
   propertyType  String
   camerasNeeded String
   message       String?
+  sellerName    String?
   status        String   @default("new") // "new" | "contacted" | "converted"
   adminNotes    String?
   createdAt     DateTime @default(now())

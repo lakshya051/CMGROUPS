@@ -42,20 +42,21 @@ const AdminTallyEnquiries = () => {
 
     useEffect(() => { load(filter); }, [filter]);
 
-    const updateStatus = async (id, status) => {
+    const updateEnquiry = async (id, payload, successMsg) => {
         setUpdating(id);
         try {
             const headers = await getAuthHeaders();
             const res = await fetch(`${API_BASE}/tally/admin/enquiries/${id}`, {
                 method: 'PUT',
                 headers,
-                body: JSON.stringify({ status })
+                body: JSON.stringify(payload)
             });
-            if (res.ok) {
-                setEnquiries(prev => prev.map(e => e.id === id ? { ...e, status } : e));
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setEnquiries(prev => prev.map(e => e.id === id ? data.enquiry : e));
             }
         } catch (err) {
-            console.error('Failed to update status:', err);
+            console.error('Failed to update enquiry:', err);
         } finally {
             setUpdating(null);
         }
@@ -129,6 +130,7 @@ const AdminTallyEnquiries = () => {
                                     <th className="px-5 py-4">Status</th>
                                     <th className="px-5 py-4">Date</th>
                                     <th className="px-5 py-4">Message</th>
+                                    <th className="px-5 py-4">Seller</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border-default">
@@ -152,7 +154,7 @@ const AdminTallyEnquiries = () => {
                                             <select
                                                 value={enq.status}
                                                 disabled={updating === enq.id}
-                                                onChange={e => updateStatus(enq.id, e.target.value)}
+                                                onChange={e => updateEnquiry(enq.id, { status: e.target.value })}
                                                 className={`text-xs font-black px-3 py-1.5 rounded-full border cursor-pointer ${STATUS_STYLES[enq.status]} bg-transparent focus:outline-none`}
                                             >
                                                 {STATUS_OPTIONS.map(s => (
@@ -167,6 +169,20 @@ const AdminTallyEnquiries = () => {
                                         </td>
                                         <td className="px-5 py-4 text-xs text-text-muted max-w-[200px] truncate">
                                             {enq.message || <span className="italic opacity-50">No message</span>}
+                                        </td>
+                                        <td className="px-5 py-4 min-w-40">
+                                            <input
+                                                type="text"
+                                                className="input-field py-1.5 text-sm"
+                                                placeholder="Seller name..."
+                                                defaultValue={enq.sellerName || ''}
+                                                onBlur={(e) => {
+                                                    const val = e.target.value.trim();
+                                                    if (val !== (enq.sellerName || '')) {
+                                                        updateEnquiry(enq.id, { sellerName: val || null });
+                                                    }
+                                                }}
+                                            />
                                         </td>
                                     </tr>
                                 ))}

@@ -32,11 +32,15 @@ const parseQuantity = (value, { allowZero = false } = {}) => {
 const getStockTarget = async (db, productId, variantId = null) => {
     const product = await db.product.findUnique({
         where: { id: productId },
-        select: { id: true, title: true, stock: true },
+        select: { id: true, title: true, stock: true, hasVariants: true },
     });
 
     if (!product) {
         throw createHttpError(404, 'Product not found');
+    }
+
+    if (product.hasVariants && variantId == null) {
+        throw createHttpError(400, 'Please select a variant');
     }
 
     if (variantId == null) {
@@ -48,15 +52,19 @@ const getStockTarget = async (db, productId, variantId = null) => {
 
     const variant = await db.productVariant.findUnique({
         where: { id: variantId },
-        select: { id: true, productId: true, name: true, stock: true },
+        select: { id: true, productId: true, name: true, stock: true, isActive: true },
     });
 
     if (!variant || variant.productId !== productId) {
         throw createHttpError(404, 'Product variant not found');
     }
 
+    if (!variant.isActive) {
+        throw createHttpError(400, 'This variant is no longer available');
+    }
+
     return {
-        label: variant.name,
+        label: variant.name || 'Variant',
         stock: variant.stock,
     };
 };
@@ -82,7 +90,10 @@ const formatCartItem = (item) => {
         uniqueId: variantId ? `${base.id}-${variantId}` : `${base.id}`,
         variantId,
         variantName: variant ? variant.name : null,
+        variantCombination: variant ? variant.combination : null,
+        variantSku: variant ? variant.sku : null,
         price: variant ? variant.price : base.price,
+        originalPrice: variant ? (variant.originalPrice || base.originalPrice) : base.originalPrice,
         stock: variant ? variant.stock : base.stock,
         quantity: item.quantity,
         cartItemId: item.id,
@@ -322,7 +333,7 @@ router.post('/sync', async (req, res) => {
                         if (!variant || variant.productId !== incoming.productId) {
                             throw createHttpError(404, 'Product variant not found');
                         }
-                        target = { label: variant.name, stock: variant.stock };
+                        target = { label: variant.name || 'Variant', stock: variant.stock };
                     }
 
                     const desiredQuantity = existing

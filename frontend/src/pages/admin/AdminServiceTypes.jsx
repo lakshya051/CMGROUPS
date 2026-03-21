@@ -36,7 +36,8 @@ const AdminServiceTypes = () => {
         features: '',
         enableReferral: false,
         referrerPoints: '',
-        refereePoints: ''
+        refereePoints: '',
+        sellerName: ''
     });
 
     useEffect(() => {
@@ -55,7 +56,7 @@ const AdminServiceTypes = () => {
     };
 
     const handleOpenCreate = () => {
-        setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '', enableReferral: false, referrerPoints: '', refereePoints: '', active: true });
+        setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '', enableReferral: false, referrerPoints: '', refereePoints: '', sellerName: '', active: true });
         setEditingId(null);
         setError('');
         setShowModal(true);
@@ -71,6 +72,7 @@ const AdminServiceTypes = () => {
             enableReferral: !!(st.referrerPoints || st.refereePoints),
             referrerPoints: st.referrerPoints || '',
             refereePoints: st.refereePoints || '',
+            sellerName: st.sellerName || '',
             active: st.active
         });
         setEditingId(st.id);
@@ -96,6 +98,7 @@ const AdminServiceTypes = () => {
                 features: featuresArray,
                 referrerPoints: form.enableReferral && form.referrerPoints ? parseFloat(form.referrerPoints) : null,
                 refereePoints: form.enableReferral && form.refereePoints ? parseFloat(form.refereePoints) : null,
+                sellerName: form.sellerName?.trim() || null,
                 active: form.active !== undefined ? form.active : true
             };
 
@@ -299,6 +302,16 @@ const AdminServiceTypes = () => {
                                         </div>
                                     </div>
                                 )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Seller Name</label>
+                                <input
+                                    className="input-field"
+                                    placeholder="e.g. Manav Infocom"
+                                    value={form.sellerName}
+                                    onChange={e => setForm({ ...form, sellerName: e.target.value })}
+                                />
                             </div>
 
                             <div>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Package, Search, Plus, Trash2, Edit, X, Save, Image, Upload } from 'lucide-react';
+import { Package, Search, Plus, Trash2, Edit, X, Save, Image, Upload, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { productsAPI, categoriesAPI, uploadAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
 import { useFormik } from 'formik';
 import { addProductSchema } from '../../utils/validationSchemas';
 import { handleImageError } from '../../utils/image';
+import toast from 'react-hot-toast';
 
 const emptyProductValues = {
     title: '',
@@ -23,7 +24,8 @@ const emptyProductValues = {
     enableReferral: false,
     referrerPoints: '',
     refereePoints: '',
-    sku: ''
+    sku: '',
+    sellerName: ''
 };
 
 const AdminProducts = () => {
@@ -43,8 +45,14 @@ const AdminProducts = () => {
     const [editingProduct, setEditingProduct] = useState(null);
     const [specs, setSpecs] = useState({});
 
-    // Variant state (editable rows)
+    // Variant state
     const [variants, setVariants] = useState([]);
+    const [isVariableProduct, setIsVariableProduct] = useState(false);
+    const [variantOptions, setVariantOptions] = useState([]);
+    const [generatingVariants, setGeneratingVariants] = useState(false);
+    const [savingVariants, setSavingVariants] = useState(false);
+    const [bulkMrp, setBulkMrp] = useState('');
+    const [bulkPrice, setBulkPrice] = useState('');
 
     // Multi-image state
     const [productImages, setProductImages] = useState([]);
@@ -72,9 +80,9 @@ const AdminProducts = () => {
 
             const productData = {
                 title: values.title,
-                price: parseFloat(values.price),
-                originalPrice: values.originalPrice ? parseFloat(values.originalPrice) : null,
-                stock: parseInt(values.stock),
+                price: isVariableProduct ? 0 : parseFloat(values.price),
+                originalPrice: isVariableProduct ? null : (values.originalPrice ? parseFloat(values.originalPrice) : null),
+                stock: isVariableProduct ? 0 : parseInt(values.stock),
                 category: values.category,
                 brand: values.brand || null,
                 images: finalImages,
@@ -86,7 +94,9 @@ const AdminProducts = () => {
                 returnWindowDays: parseInt(values.returnWindowDays || 3),
                 referrerPoints: values.enableReferral && values.referrerPoints ? parseInt(values.referrerPoints) : null,
                 refereePoints: values.enableReferral && values.refereePoints ? parseInt(values.refereePoints) : null,
-                sku: values.sku || null
+                sku: values.sku || null,
+                hasVariants: isVariableProduct,
+                sellerName: values.sellerName?.trim() || null
             };
             try {
                 let savedProduct;
@@ -98,26 +108,68 @@ const AdminProducts = () => {
                     setProducts(prev => [savedProduct, ...prev]);
                 }
 
-                // Handle Variants
-                // For simplicity, if editing, we recreate variants based on the current state.
-                const completeVariants = variants
-                    .filter(v => String(v.name || '').trim() && v.price !== '' && v.stock !== '')
-                    .map(v => ({
-                        name: String(v.name).trim(),
-                        price: parseFloat(v.price),
-                        originalPrice: v.originalPrice != null && v.originalPrice !== '' && !isNaN(parseFloat(v.originalPrice)) ? parseFloat(v.originalPrice) : null,
-                        stock: parseInt(v.stock, 10),
-                        sku: String(v.sku || '').trim() || null
-                    }));
+                if (isVariableProduct) {
+                    // Save variant options
+                    if (editingProduct) {
+                        const existingOpts = editingProduct.variantOptions || [];
+                        for (const opt of existingOpts) {
+                            await productsAPI.deleteOption(savedProduct.id, opt.id);
+                        }
+                    }
+                    for (const opt of variantOptions) {
+                        if (opt.name.trim() && opt.values.length > 0) {
+                            await productsAPI.addOption(savedProduct.id, {
+                                name: opt.name.trim(),
+                                values: opt.values.filter(v => v.trim())
+                            });
+                        }
+                    }
 
-                const finalVariants = completeVariants.length > 0 ? completeVariants : [{
-                    name: 'Standard',
-                    price: parseFloat(values.price),
-                    stock: parseInt(values.stock),
-                    sku: values.sku || null
-                }];
+                    // Save variants via bulk
+                    const variantsToSave = variants
+                        .filter(v => v.price !== '' && v.price !== undefined)
+                        .map(v => ({
+                            id: typeof v.id === 'number' ? v.id : undefined,
+                            name: v.name || null,
+                            combination: v.combination || null,
+                            price: parseFloat(v.price),
+                            originalPrice: v.originalPrice != null && v.originalPrice !== '' ? parseFloat(v.originalPrice) : null,
+                            stock: parseInt(v.stock || 0),
+                            sku: v.sku || null,
+                            isActive: v.isActive !== undefined ? v.isActive : true,
+                            image: v.image || null
+                        }));
 
-                if (finalVariants.length > 0) {
+                    if (variantsToSave.length > 0) {
+                        if (editingProduct && editingProduct.variants) {
+                            const existingIds = new Set(variantsToSave.filter(v => v.id).map(v => v.id));
+                            for (const v of editingProduct.variants) {
+                                if (!existingIds.has(v.id)) {
+                                    await productsAPI.deleteVariant(savedProduct.id, v.id);
+                                }
+                            }
+                        }
+                        await productsAPI.bulkSaveVariants(savedProduct.id, variantsToSave);
+                    }
+                } else {
+                    // Simple product — handle flat variants like before
+                    const completeVariants = variants
+                        .filter(v => String(v.name || '').trim() && v.price !== '' && v.stock !== '')
+                        .map(v => ({
+                            name: String(v.name).trim(),
+                            price: parseFloat(v.price),
+                            originalPrice: v.originalPrice != null && v.originalPrice !== '' && !isNaN(parseFloat(v.originalPrice)) ? parseFloat(v.originalPrice) : null,
+                            stock: parseInt(v.stock, 10),
+                            sku: String(v.sku || '').trim() || null
+                        }));
+
+                    const finalVariants = completeVariants.length > 0 ? completeVariants : [{
+                        name: 'Standard',
+                        price: parseFloat(values.price),
+                        stock: parseInt(values.stock),
+                        sku: values.sku || null
+                    }];
+
                     if (editingProduct && editingProduct.variants) {
                         for (let v of editingProduct.variants) {
                             await productsAPI.deleteVariant(savedProduct.id, v.id);
@@ -126,17 +178,18 @@ const AdminProducts = () => {
                     for (let variant of finalVariants) {
                         await productsAPI.addVariant(savedProduct.id, variant);
                     }
-                    // Force refresh product list to get updated variants
-                    const updatedRes = await productsAPI.getAll({ page, limit: 12, search: debouncedSearch || undefined });
-                    if (updatedRes && updatedRes.data) {
-                        setProducts(updatedRes.data);
-                        setTotalPages(updatedRes.pagination?.totalPages || 1);
-                        setTotalProducts(updatedRes.pagination?.total || updatedRes.data.length);
-                    } else if (Array.isArray(updatedRes)) {
-                        setProducts(updatedRes);
-                        setTotalPages(1);
-                        setTotalProducts(updatedRes.length);
-                    }
+                }
+
+                // Force refresh product list
+                const updatedRes = await productsAPI.getAll({ page, limit: 12, search: debouncedSearch || undefined });
+                if (updatedRes && updatedRes.data) {
+                    setProducts(updatedRes.data);
+                    setTotalPages(updatedRes.pagination?.totalPages || 1);
+                    setTotalProducts(updatedRes.pagination?.total || updatedRes.data.length);
+                } else if (Array.isArray(updatedRes)) {
+                    setProducts(updatedRes);
+                    setTotalPages(1);
+                    setTotalProducts(updatedRes.length);
                 }
 
                 closeModal();
@@ -205,6 +258,11 @@ const AdminProducts = () => {
         setSpecs({});
         setProductImages([]);
         setImageUrlInput('');
+        setIsVariableProduct(false);
+        setVariantOptions([]);
+        setVariants([]);
+        setBulkMrp('');
+        setBulkPrice('');
         formik.resetForm();
         setShowModal(true);
     };
@@ -216,12 +274,27 @@ const AdminProducts = () => {
         setVariants(product.variants || []);
         setProductImages(product.images || (product.image ? [product.image] : []));
         setImageUrlInput('');
+        setIsVariableProduct(product.hasVariants || false);
+        setBulkMrp('');
+        setBulkPrice('');
+
+        if (product.variantOptions && product.variantOptions.length > 0) {
+            setVariantOptions(product.variantOptions.map(opt => ({
+                id: opt.id,
+                name: opt.name,
+                values: opt.values.map(v => v.value)
+            })));
+        } else {
+            setVariantOptions([]);
+        }
+
+        const isVar = product.hasVariants || false;
         formik.resetForm({
             values: {
                 title: product.title || '',
-                price: product.price || '',
+                price: isVar ? '1' : (product.price || ''),
                 originalPrice: product.originalPrice != null ? product.originalPrice : '',
-                stock: product.stock !== undefined ? product.stock : '',
+                stock: isVar ? '0' : (product.stock !== undefined ? product.stock : ''),
                 category: product.category || '',
                 brand: product.brand || '',
                 image: '',
@@ -234,7 +307,8 @@ const AdminProducts = () => {
                 enableReferral: product.referrerPoints !== null && product.referrerPoints !== undefined,
                 referrerPoints: product.referrerPoints !== null ? product.referrerPoints : '',
                 refereePoints: product.refereePoints !== null ? product.refereePoints : '',
-                sku: product.sku || ''
+                sku: product.sku || '',
+                sellerName: product.sellerName || ''
             }
         });
         setShowModal(true);
@@ -247,6 +321,10 @@ const AdminProducts = () => {
         setSpecKey('');
         setSpecValue('');
         setVariants([]);
+        setIsVariableProduct(false);
+        setVariantOptions([]);
+        setBulkMrp('');
+        setBulkPrice('');
         formik.resetForm();
     };
 
@@ -279,6 +357,109 @@ const AdminProducts = () => {
 
     const removeVariant = (id) => {
         setVariants(prev => prev.filter(v => v.id !== id));
+    };
+
+    // Variant Options Builder
+    const addVariantOption = () => {
+        if (variantOptions.length >= 3) {
+            toast.error('Maximum 3 options allowed');
+            return;
+        }
+        setVariantOptions(prev => [...prev, { id: `new-${Date.now()}`, name: '', values: [] }]);
+    };
+
+    const updateVariantOption = (index, field, value) => {
+        setVariantOptions(prev => prev.map((opt, i) => i === index ? { ...opt, [field]: value } : opt));
+    };
+
+    const removeVariantOption = (index) => {
+        setVariantOptions(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const addOptionValue = (optIndex, value) => {
+        if (!value.trim()) return;
+        setVariantOptions(prev => prev.map((opt, i) =>
+            i === optIndex ? { ...opt, values: [...opt.values, value.trim()] } : opt
+        ));
+    };
+
+    const removeOptionValue = (optIndex, valIndex) => {
+        setVariantOptions(prev => prev.map((opt, i) =>
+            i === optIndex ? { ...opt, values: opt.values.filter((_, vi) => vi !== valIndex) } : opt
+        ));
+    };
+
+    const handleGenerateVariants = () => {
+        const validOpts = variantOptions.filter(o => o.name.trim() && o.values.length > 0);
+        if (validOpts.length === 0) { toast.error('Add at least one option with values first'); return; }
+
+        const cartesian = (arrays) => arrays.reduce((acc, curr) => {
+            const result = [];
+            for (const a of acc) for (const b of curr) result.push([...a, b]);
+            return result;
+        }, [[]]);
+
+        const arrays = validOpts.map(opt => opt.values.map(v => ({ optName: opt.name, value: v })));
+        const combos = cartesian(arrays);
+
+        const existingByKey = new Map();
+        for (const v of variants) {
+            if (v.combination) {
+                const key = JSON.stringify(
+                    Object.fromEntries(Object.entries(v.combination).sort((a, b) => a[0].localeCompare(b[0])))
+                );
+                existingByKey.set(key, v);
+            }
+        }
+
+        const merged = [];
+        let created = 0;
+        for (const combo of combos) {
+            const combination = Object.fromEntries(combo.map(c => [c.optName, c.value]));
+            const key = JSON.stringify(
+                Object.fromEntries(Object.entries(combination).sort((a, b) => a[0].localeCompare(b[0])))
+            );
+            const existing = existingByKey.get(key);
+            if (existing) {
+                merged.push(existing);
+            } else {
+                created++;
+                merged.push({
+                    id: `gen-${Date.now()}-${created}`,
+                    name: combo.map(c => c.value).join(' / '),
+                    combination,
+                    price: formik.values.price || '',
+                    originalPrice: formik.values.originalPrice || '',
+                    stock: '0',
+                    sku: '',
+                    isActive: true
+                });
+            }
+        }
+
+        setVariants(merged);
+        toast.success(`${created} new combination${created !== 1 ? 's' : ''} generated (${merged.length} total)`);
+    };
+
+    const handleBulkFill = () => {
+        setVariants(prev => prev.map(v => ({
+            ...v,
+            originalPrice: bulkMrp && (v.originalPrice === '' || v.originalPrice == null) ? bulkMrp : v.originalPrice,
+            price: bulkPrice && (v.price === '' || v.price == null) ? bulkPrice : v.price,
+        })));
+        toast.success('Applied to empty cells');
+    };
+
+    const handleToggleProductType = () => {
+        if (isVariableProduct && editingProduct) {
+            if (!window.confirm('This will hide all variant prices. Product will use the MRP and Selling Price fields instead. Variants are not deleted.')) return;
+        }
+        const next = !isVariableProduct;
+        setIsVariableProduct(next);
+        if (next) {
+            formik.setFieldValue('price', '1');
+            formik.setFieldValue('stock', '0');
+        }
     };
 
     const handleDelete = async (id) => {
@@ -369,26 +550,41 @@ const AdminProducts = () => {
                                                     )}
                                                 </div>
                                                 {product.brand && <p className="text-xs text-text-secondary">{product.brand}</p>}
-                                                {product.variants && product.variants.length > 1 ? (
+                                                {product.hasVariants ? (
+                                                    <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-primary/10 text-primary rounded border border-primary/30 font-bold tracking-wider">
+                                                        Variable · {product.variants?.length || 0} combinations
+                                                    </span>
+                                                ) : product.variants && product.variants.length > 1 ? (
                                                     <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-trust/10 text-trust rounded border border-trust font-bold tracking-wider">
                                                         {product.variants.length} Variants
                                                     </span>
                                                 ) : (
                                                     <span className="mt-1 inline-block px-2 py-0.5 text-[10px] bg-page-bg text-text-secondary rounded-full border border-border-default font-bold tracking-wider">
-                                                        Single
+                                                        Simple
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
                                     </td>
                                     <td className="p-4 text-text-muted">{product.category}</td>
-                                    <td className="p-4 font-bold">₹{product.price.toLocaleString()}</td>
+                                    <td className="p-4 font-bold">
+                                        {product.hasVariants && product.variants?.length > 0
+                                            ? `From ₹${Math.min(...product.variants.map(v => v.price)).toLocaleString()}`
+                                            : `₹${product.price.toLocaleString()}`}
+                                    </td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${product.stock > 10 ? 'bg-success/10 text-success' :
-                                            product.stock > 0 ? 'bg-orange-500/10 text-orange-500' :
-                                                'bg-error/10 text-error'}`}>
-                                            {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                                        </span>
+                                        {(() => {
+                                            const totalStock = product.hasVariants && product.variants?.length > 0
+                                                ? product.variants.reduce((sum, v) => sum + v.stock, 0)
+                                                : product.stock;
+                                            return (
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${totalStock > 10 ? 'bg-success/10 text-success' :
+                                                    totalStock > 0 ? 'bg-orange-500/10 text-orange-500' :
+                                                        'bg-error/10 text-error'}`}>
+                                                    {totalStock > 0 ? `${totalStock} in stock` : 'Out of stock'}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="p-4 text-right">
                                         <div className="flex items-center justify-end gap-xs">
@@ -507,46 +703,103 @@ const AdminProducts = () => {
                                         onBlur={formik.handleBlur}
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-muted mb-1">Seller Name</label>
+                                    <input
+                                        type="text"
+                                        name="sellerName"
+                                        className="input-field"
+                                        placeholder="e.g. Advance Computer Empire"
+                                        value={formik.values.sellerName}
+                                        onChange={formik.handleChange}
+                                        onBlur={formik.handleBlur}
+                                    />
+                                </div>
                             </div>
 
-                            {/* Price, Original Price, Stock, Category */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-1">
-                                        Selling Price (₹) <span className="text-error">*</span>
-                                    </label>
-                                    <input type="number" name="price" className={`input-field ${formik.touched.price && formik.errors.price ? 'border-red-500' : ''}`} placeholder="32000" value={formik.values.price} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
-                                    {formik.touched.price && formik.errors.price && <p className="text-red-400 text-sm mt-1">{formik.errors.price}</p>}
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-1">
-                                        Original / MRP Price (₹)
-                                    </label>
-                                    <input type="number" name="originalPrice" className="input-field" placeholder="45000 (leave empty if no discount)" value={formik.values.originalPrice} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
-                                    <p className="text-xs text-text-muted mt-1">If set higher than selling price, a strikethrough + discount badge will appear</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-1">
-                                        Stock <span className="text-error">*</span>
-                                    </label>
-                                    <input type="number" name="stock" className={`input-field ${formik.touched.stock && formik.errors.stock ? 'border-red-500' : ''}`} placeholder="15" value={formik.values.stock} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
-                                    {formik.touched.stock && formik.errors.stock && <p className="text-red-400 text-sm mt-1">{formik.errors.stock}</p>}
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-1">
-                                        Category <span className="text-error">*</span>
-                                    </label>
-                                    <select name="category" className={`input-field ${formik.touched.category && formik.errors.category ? 'border-red-500' : ''}`} value={formik.values.category} onChange={formik.handleChange} onBlur={formik.handleBlur}>
-                                        <option value="">Select category</option>
-                                        {categoriesList.map(cat => (
-                                            <option key={cat.id} value={cat.name}>{cat.name}</option>
-                                        ))}
-                                    </select>
-                                    {formik.touched.category && formik.errors.category && <p className="text-red-400 text-sm mt-1">{formik.errors.category}</p>}
+                            {/* Product Type Toggle */}
+                            <div className="bg-page-bg rounded-lg border border-border-default p-4">
+                                <label className="block text-sm font-bold text-text-primary mb-3">Product Type</label>
+                                <div className="flex gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => { if (isVariableProduct) handleToggleProductType(); }}
+                                        className={`flex-1 p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${!isVariableProduct ? 'border-primary bg-primary/10 text-primary' : 'border-border-default text-text-secondary hover:border-primary/50'}`}
+                                    >
+                                        <span className="block font-bold">Simple Product</span>
+                                        <span className="text-xs opacity-75">One price, no options</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { if (!isVariableProduct) handleToggleProductType(); }}
+                                        className={`flex-1 p-3 rounded-lg border-2 text-sm font-medium transition-all text-left ${isVariableProduct ? 'border-primary bg-primary/10 text-primary' : 'border-border-default text-text-secondary hover:border-primary/50'}`}
+                                    >
+                                        <span className="block font-bold">Variable Product</span>
+                                        <span className="text-xs opacity-75">Multiple sizes, colors, etc.</span>
+                                    </button>
                                 </div>
                             </div>
+
+                            {/* Price, Original Price, Stock — only for Simple products */}
+                            {!isVariableProduct && (
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Selling Price (₹) <span className="text-error">*</span>
+                                            </label>
+                                            <input type="number" name="price" className={`input-field ${formik.touched.price && formik.errors.price ? 'border-red-500' : ''}`} placeholder="32000" value={formik.values.price} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
+                                            {formik.touched.price && formik.errors.price && <p className="text-red-400 text-sm mt-1">{formik.errors.price}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Original / MRP Price (₹)
+                                            </label>
+                                            <input type="number" name="originalPrice" className="input-field" placeholder="45000 (leave empty if no discount)" value={formik.values.originalPrice} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
+                                            <p className="text-xs text-text-muted mt-1">If set higher than selling price, a strikethrough + discount badge will appear</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Stock <span className="text-error">*</span>
+                                            </label>
+                                            <input type="number" name="stock" className={`input-field ${formik.touched.stock && formik.errors.stock ? 'border-red-500' : ''}`} placeholder="15" value={formik.values.stock} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
+                                            {formik.touched.stock && formik.errors.stock && <p className="text-red-400 text-sm mt-1">{formik.errors.stock}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-text-muted mb-1">
+                                                Category <span className="text-error">*</span>
+                                            </label>
+                                            <select name="category" className={`input-field ${formik.touched.category && formik.errors.category ? 'border-red-500' : ''}`} value={formik.values.category} onChange={formik.handleChange} onBlur={formik.handleBlur}>
+                                                <option value="">Select category</option>
+                                                {categoriesList.map(cat => (
+                                                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                                ))}
+                                            </select>
+                                            {formik.touched.category && formik.errors.category && <p className="text-red-400 text-sm mt-1">{formik.errors.category}</p>}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Category — for Variable product (price/stock hidden) */}
+                            {isVariableProduct && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-muted mb-1">
+                                            Category <span className="text-error">*</span>
+                                        </label>
+                                        <select name="category" className={`input-field ${formik.touched.category && formik.errors.category ? 'border-red-500' : ''}`} value={formik.values.category} onChange={formik.handleChange} onBlur={formik.handleBlur}>
+                                            <option value="">Select category</option>
+                                            {categoriesList.map(cat => (
+                                                <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                        {formik.touched.category && formik.errors.category && <p className="text-red-400 text-sm mt-1">{formik.errors.category}</p>}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Condition and Second Hand */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -805,80 +1058,188 @@ const AdminProducts = () => {
                                 </div>
                             </div>
 
-                            {/* Variants — editable table (options like Size, Storage, Color) */}
-                            <div className="pt-4 border-t border-border-default">
-                                <label className="block text-sm font-medium text-text-muted mb-1">Product options (variants)</label>
-                                <p className="text-xs text-text-muted mb-3">
-                                    Add options like Size, Storage, or Color. Each row = one option with its own price and stock. Customers pick one before adding to cart. Leave all rows empty to use a single &quot;Standard&quot; option from the base price above.
-                                </p>
+                            {/* Variable Product: Options Builder + Variants Table */}
+                            {isVariableProduct && (
+                                <div className="pt-4 border-t border-border-default space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-text-primary mb-1">Product Options</label>
+                                        <p className="text-xs text-text-muted mb-3">
+                                            Define option types (e.g. Storage, Material) and their values. Then generate all combinations.
+                                        </p>
+                                    </div>
 
-                                <div className="overflow-x-auto border border-border-default rounded-lg">
-                                    <table className="w-full text-left text-sm">
-                                        <thead className="bg-page-bg text-text-secondary">
-                                            <tr>
-                                                <th className="p-2 font-medium">Option name</th>
-                                                <th className="p-2 font-medium w-24">Price (₹)</th>
-                                                <th className="p-2 font-medium w-20">Stock</th>
-                                                <th className="p-2 font-medium w-24">SKU</th>
-                                                <th className="p-2 w-10 text-right"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-border-default">
-                                            {variants.map((variant, index) => (
-                                                <tr key={variant.id} className="bg-surface">
-                                                    <td className="p-2">
-                                                        <input
-                                                            type="text"
-                                                            className="input-field py-1.5 text-sm"
-                                                            placeholder="e.g. 128GB, Red, Large"
-                                                            value={variant.name ?? ''}
-                                                            onChange={(e) => updateVariant(index, 'name', e.target.value)}
-                                                        />
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <input
-                                                            type="number"
-                                                            className="input-field py-1.5 text-sm w-full"
-                                                            placeholder="0"
-                                                            min="0"
-                                                            step="0.01"
-                                                            value={variant.price ?? ''}
-                                                            onChange={(e) => updateVariant(index, 'price', e.target.value)}
-                                                        />
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <input
-                                                            type="number"
-                                                            className="input-field py-1.5 text-sm w-full"
-                                                            placeholder="0"
-                                                            min="0"
-                                                            value={variant.stock ?? ''}
-                                                            onChange={(e) => updateVariant(index, 'stock', e.target.value)}
-                                                        />
-                                                    </td>
-                                                    <td className="p-2">
-                                                        <input
-                                                            type="text"
-                                                            className="input-field py-1.5 text-sm w-full font-mono"
-                                                            placeholder="Optional"
-                                                            value={variant.sku ?? ''}
-                                                            onChange={(e) => updateVariant(index, 'sku', e.target.value)}
-                                                        />
-                                                    </td>
-                                                    <td className="p-2 text-right">
-                                                        <button type="button" onClick={() => removeVariant(variant.id)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors" title="Remove option">
-                                                            <Trash2 size={16} />
+                                    {variantOptions.map((opt, optIdx) => (
+                                        <div key={opt.id || optIdx} className="bg-page-bg rounded-lg border border-border-default p-3 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-text-muted uppercase">Option {optIdx + 1}</span>
+                                                <input
+                                                    type="text"
+                                                    className="input-field py-1.5 text-sm flex-1"
+                                                    placeholder="e.g. Storage, Material, Color"
+                                                    value={opt.name}
+                                                    onChange={(e) => updateVariantOption(optIdx, 'name', e.target.value)}
+                                                />
+                                                <button type="button" onClick={() => removeVariantOption(optIdx)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors">
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {opt.values.map((val, valIdx) => (
+                                                    <span key={valIdx} className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-border-default rounded-full text-sm text-text-primary">
+                                                        {val}
+                                                        <button type="button" onClick={() => removeOptionValue(optIdx, valIdx)} className="text-text-muted hover:text-error">
+                                                            <X size={12} />
                                                         </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                    </span>
+                                                ))}
+                                                <OptionValueInput onAdd={(val) => addOptionValue(optIdx, val)} />
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    <div className="flex gap-2">
+                                        {variantOptions.length < 3 && (
+                                            <Button type="button" variant="outline" size="sm" className="gap-1" onClick={addVariantOption}>
+                                                <Plus size={14} /> Add Another Option
+                                            </Button>
+                                        )}
+                                        {variantOptions.some(o => o.name.trim() && o.values.length > 0) && (
+                                            <Button
+                                                type="button"
+                                                variant="primary"
+                                                size="sm"
+                                                className="gap-1"
+                                                onClick={handleGenerateVariants}
+                                                disabled={generatingVariants}
+                                            >
+                                                <Zap size={14} /> {generatingVariants ? 'Generating...' : 'Generate All Combinations'}
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {/* Variants Table */}
+                                    {variants.length > 0 && (
+                                        <div className="space-y-3">
+                                            <label className="block text-sm font-bold text-text-primary">
+                                                Variants ({variants.length})
+                                            </label>
+
+                                            {/* Bulk fill */}
+                                            <div className="flex flex-wrap items-center gap-2 bg-surface border border-border-default rounded-lg p-2">
+                                                <span className="text-xs font-medium text-text-muted">Fill all:</span>
+                                                <input type="number" className="input-field py-1 text-xs w-24" placeholder="MRP" value={bulkMrp} onChange={e => setBulkMrp(e.target.value)} min="0" step="0.01" />
+                                                <input type="number" className="input-field py-1 text-xs w-24" placeholder="Price" value={bulkPrice} onChange={e => setBulkPrice(e.target.value)} min="0" step="0.01" />
+                                                <Button type="button" variant="outline" size="sm" className="text-xs py-1" onClick={handleBulkFill}>
+                                                    Apply to empty
+                                                </Button>
+                                            </div>
+
+                                            <div className="overflow-x-auto border border-border-default rounded-lg">
+                                                <table className="w-full text-left text-sm">
+                                                    <thead className="bg-page-bg text-text-secondary">
+                                                        <tr>
+                                                            <th className="p-2 font-medium">Combination</th>
+                                                            <th className="p-2 font-medium w-24">SKU</th>
+                                                            <th className="p-2 font-medium w-24">MRP (₹)</th>
+                                                            <th className="p-2 font-medium w-24">Price (₹)</th>
+                                                            <th className="p-2 font-medium w-20">Stock</th>
+                                                            <th className="p-2 font-medium w-16 text-center">Active</th>
+                                                            <th className="p-2 w-10"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-border-default">
+                                                        {variants.map((variant, index) => (
+                                                            <tr key={variant.id} className="bg-surface">
+                                                                <td className="p-2">
+                                                                    <span className="text-sm text-text-primary font-medium">
+                                                                        {variant.combination
+                                                                            ? Object.values(variant.combination).join(' / ')
+                                                                            : variant.name || `Variant ${index + 1}`}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-2">
+                                                                    <input type="text" className="input-field py-1.5 text-xs w-full font-mono" placeholder="Optional" value={variant.sku ?? ''} onChange={(e) => updateVariant(index, 'sku', e.target.value)} />
+                                                                </td>
+                                                                <td className="p-2">
+                                                                    <input type="number" className="input-field py-1.5 text-xs w-full" placeholder="0" min="0" step="0.01" value={variant.originalPrice ?? ''} onChange={(e) => updateVariant(index, 'originalPrice', e.target.value)} />
+                                                                </td>
+                                                                <td className="p-2">
+                                                                    <input type="number" className="input-field py-1.5 text-xs w-full" placeholder="0" min="0" step="0.01" value={variant.price ?? ''} onChange={(e) => updateVariant(index, 'price', e.target.value)} />
+                                                                </td>
+                                                                <td className="p-2">
+                                                                    <input type="number" className="input-field py-1.5 text-xs w-full" placeholder="0" min="0" value={variant.stock ?? ''} onChange={(e) => updateVariant(index, 'stock', e.target.value)} />
+                                                                </td>
+                                                                <td className="p-2 text-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={variant.isActive !== false}
+                                                                        onChange={(e) => updateVariant(index, 'isActive', e.target.checked)}
+                                                                        className="w-4 h-4 accent-primary"
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2 text-right">
+                                                                    <button type="button" onClick={() => removeVariant(variant.id)} className="p-1 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors">
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <Button type="button" variant="outline" size="sm" className="mt-2 gap-1" onClick={addVariant}>
-                                    <Plus size={14} /> Add another option
-                                </Button>
-                            </div>
+                            )}
+
+                            {/* Simple Product: flat variants table */}
+                            {!isVariableProduct && (
+                                <div className="pt-4 border-t border-border-default">
+                                    <label className="block text-sm font-medium text-text-muted mb-1">Product options (variants)</label>
+                                    <p className="text-xs text-text-muted mb-3">
+                                        Add options like Size, Storage, or Color. Each row = one option with its own price and stock. Leave all rows empty to use a single &quot;Standard&quot; option.
+                                    </p>
+                                    <div className="overflow-x-auto border border-border-default rounded-lg">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-page-bg text-text-secondary">
+                                                <tr>
+                                                    <th className="p-2 font-medium">Option name</th>
+                                                    <th className="p-2 font-medium w-24">Price (₹)</th>
+                                                    <th className="p-2 font-medium w-20">Stock</th>
+                                                    <th className="p-2 font-medium w-24">SKU</th>
+                                                    <th className="p-2 w-10 text-right"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border-default">
+                                                {variants.map((variant, index) => (
+                                                    <tr key={variant.id} className="bg-surface">
+                                                        <td className="p-2">
+                                                            <input type="text" className="input-field py-1.5 text-sm" placeholder="e.g. 128GB, Red, Large" value={variant.name ?? ''} onChange={(e) => updateVariant(index, 'name', e.target.value)} />
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <input type="number" className="input-field py-1.5 text-sm w-full" placeholder="0" min="0" step="0.01" value={variant.price ?? ''} onChange={(e) => updateVariant(index, 'price', e.target.value)} />
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <input type="number" className="input-field py-1.5 text-sm w-full" placeholder="0" min="0" value={variant.stock ?? ''} onChange={(e) => updateVariant(index, 'stock', e.target.value)} />
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <input type="text" className="input-field py-1.5 text-sm w-full font-mono" placeholder="Optional" value={variant.sku ?? ''} onChange={(e) => updateVariant(index, 'sku', e.target.value)} />
+                                                        </td>
+                                                        <td className="p-2 text-right">
+                                                            <button type="button" onClick={() => removeVariant(variant.id)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors">
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <Button type="button" variant="outline" size="sm" className="mt-2 gap-1" onClick={addVariant}>
+                                        <Plus size={14} /> Add another option
+                                    </Button>
+                                </div>
+                            )}
 
                             {/* Actions */}
                             <div className="flex gap-sm pt-md border-t border-border-default mt-md">
@@ -895,5 +1256,30 @@ const AdminProducts = () => {
         </div>
     );
 };
+
+function OptionValueInput({ onAdd }) {
+    const [value, setValue] = useState('');
+    const handleAdd = () => {
+        if (value.trim()) {
+            onAdd(value.trim());
+            setValue('');
+        }
+    };
+    return (
+        <div className="inline-flex items-center gap-1">
+            <input
+                type="text"
+                className="input-field py-1 px-2 text-sm w-24"
+                placeholder="Add value"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+            />
+            <button type="button" onClick={handleAdd} className="p-1 text-primary hover:bg-primary/10 rounded transition-colors" disabled={!value.trim()}>
+                <Plus size={14} />
+            </button>
+        </div>
+    );
+}
 
 export default AdminProducts;

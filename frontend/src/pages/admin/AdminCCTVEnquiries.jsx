@@ -127,6 +127,7 @@ const AdminCCTVEnquiries = () => {
                                     <th className="px-5 py-4">Status</th>
                                     <th className="px-5 py-4">Date</th>
                                     <th className="px-5 py-4">Message</th>
+                                    <th className="px-5 py-4">Seller</th>
                                     <th className="px-5 py-4">Admin Notes</th>
                                 </tr>
                             </thead>
@@ -159,6 +160,20 @@ const AdminCCTVEnquiries = () => {
                                             {new Date(enquiry.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                                         </td>
                                         <td className="px-5 py-4 text-xs text-text-muted max-w-56">{enquiry.message || <span className="italic opacity-50">No message</span>}</td>
+                                        <td className="px-5 py-4 min-w-40">
+                                            <input
+                                                type="text"
+                                                className="input-field py-1.5 text-sm"
+                                                placeholder="Seller name..."
+                                                defaultValue={enquiry.sellerName || ''}
+                                                onBlur={(e) => {
+                                                    const val = e.target.value.trim();
+                                                    if (val !== (enquiry.sellerName || '')) {
+                                                        updateEnquiry(enquiry.id, { sellerName: val || null }, 'Seller updated');
+                                                    }
+                                                }}
+                                            />
+                                        </td>
                                         <td className="px-5 py-4 min-w-64">
                                             <div className="space-y-2">
                                                 <textarea

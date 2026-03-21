@@ -421,7 +421,7 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
 // ─────────────────────────────────────────────
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, instructor, category, thumbnail, hasCertificate, referrerPoints, refereePoints } = req.body;
+        const { title, description, instructor, category, thumbnail, hasCertificate, referrerPoints, refereePoints, sellerName } = req.body;
         const course = await prisma.course.create({
             data: {
                 title,
@@ -431,7 +431,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 thumbnail: thumbnail || '',
                 hasCertificate: hasCertificate !== false,
                 referrerPoints: referrerPoints !== undefined && referrerPoints !== null ? parseFloat(referrerPoints) : null,
-                refereePoints: refereePoints !== undefined && refereePoints !== null ? parseFloat(refereePoints) : null
+                refereePoints: refereePoints !== undefined && refereePoints !== null ? parseFloat(refereePoints) : null,
+                sellerName: sellerName?.trim() || null
             }
         });
         cache.delByPrefix('courses:');
@@ -444,7 +445,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, instructor, category, thumbnail, hasCertificate, isPublished, referrerPoints, refereePoints } = req.body;
+        const { title, description, instructor, category, thumbnail, hasCertificate, isPublished, referrerPoints, refereePoints, sellerName } = req.body;
         const course = await prisma.course.update({
             where: { id: parseInt(req.params.id) },
             data: {
@@ -456,7 +457,8 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
                 hasCertificate,
                 isPublished,
                 referrerPoints: referrerPoints !== undefined ? (referrerPoints === null ? null : parseFloat(referrerPoints)) : undefined,
-                refereePoints: refereePoints !== undefined ? (refereePoints === null ? null : parseFloat(refereePoints)) : undefined
+                refereePoints: refereePoints !== undefined ? (refereePoints === null ? null : parseFloat(refereePoints)) : undefined,
+                sellerName: sellerName !== undefined ? (sellerName?.trim() || null) : undefined
             }
         });
         cache.delByPrefix('courses:');

@@ -462,8 +462,12 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                     }
                 });
 
+                // Look up the seller name from the service type
+                const serviceTypeRecord = await prisma.serviceType.findFirst({ where: { title: booking.serviceType } });
+                const invoiceSellerName = serviceTypeRecord?.sellerName || null;
+
                 // Generate PDF buffer and convert to base64 data URL
-                const pdfBuffer = await generateServiceInvoicePdf(booking, serviceInvoice);
+                const pdfBuffer = await generateServiceInvoicePdf(booking, serviceInvoice, invoiceSellerName);
                 const pdfDataUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
 
                 // Store PDF URL in both ServiceInvoice and ServiceBooking

@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useFormik } from 'formik';
 import { addCourseSchema } from '../../utils/validationSchemas';
 
-const emptyForm = { title: '', description: '', instructor: '', category: 'Computer', thumbnail: '', hasCertificate: true, isPublished: true, enableReferral: false, referrerPoints: '', refereePoints: '' };
+const emptyForm = { title: '', description: '', instructor: '', category: 'Computer', thumbnail: '', hasCertificate: true, isPublished: true, enableReferral: false, referrerPoints: '', refereePoints: '', sellerName: '' };
 const emptyDuration = { label: '', totalFee: '', fullPayDiscount: '0', installments: '3' };
 const emptyBatch = { name: '', timing: '', seatLimit: '20' };
 
@@ -46,7 +46,8 @@ const AdminCourses = () => {
                 const payload = {
                     ...values,
                     referrerPoints: values.enableReferral && values.referrerPoints ? parseInt(values.referrerPoints) : null,
-                    refereePoints: values.enableReferral && values.refereePoints ? parseInt(values.refereePoints) : null
+                    refereePoints: values.enableReferral && values.refereePoints ? parseInt(values.refereePoints) : null,
+                    sellerName: values.sellerName?.trim() || null
                 };
                 if (courseModal === 'create') await coursesAPI.create(payload);
                 else await coursesAPI.update(courseModal.id, payload);
@@ -71,7 +72,7 @@ const AdminCourses = () => {
     // Course CRUD
     const openCourseCreate = () => { courseFormik.resetForm(); setCourseModal('create'); };
     const openCourseEdit = (c) => {
-        courseFormik.resetForm({ values: { title: c.title, description: c.description, instructor: c.instructor, category: c.category, thumbnail: c.thumbnail || '', hasCertificate: c.hasCertificate, isPublished: c.isPublished, enableReferral: c.referrerPoints !== null && c.referrerPoints !== undefined, referrerPoints: c.referrerPoints !== null ? c.referrerPoints : '', refereePoints: c.refereePoints !== null ? c.refereePoints : '' } });
+        courseFormik.resetForm({ values: { title: c.title, description: c.description, instructor: c.instructor, category: c.category, thumbnail: c.thumbnail || '', hasCertificate: c.hasCertificate, isPublished: c.isPublished, enableReferral: c.referrerPoints !== null && c.referrerPoints !== undefined, referrerPoints: c.referrerPoints !== null ? c.referrerPoints : '', refereePoints: c.refereePoints !== null ? c.refereePoints : '', sellerName: c.sellerName || '' } });
         setCourseModal(c);
     };
     const deleteCourse = async (id) => {
@@ -229,6 +230,10 @@ const AdminCourses = () => {
                         <div>
                             <label className="block text-sm font-bold mb-1">Thumbnail URL</label>
                             <input name="thumbnail" value={courseFormik.values.thumbnail} onChange={courseFormik.handleChange} onBlur={courseFormik.handleBlur} className="input-field" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold mb-1">Seller Name</label>
+                            <input name="sellerName" value={courseFormik.values.sellerName} onChange={courseFormik.handleChange} onBlur={courseFormik.handleBlur} className="input-field" placeholder="e.g. AICT Computer Education" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">Description *</label>

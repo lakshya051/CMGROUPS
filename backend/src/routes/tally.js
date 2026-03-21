@@ -130,15 +130,19 @@ router.get('/admin/enquiries', protect, adminOnly, async (req, res) => {
 // ─────────────────────────────────────────────
 router.put('/admin/enquiries/:id', protect, adminOnly, async (req, res) => {
     try {
-        const { status } = req.body;
+        const { status, sellerName } = req.body;
         const validStatuses = ['new', 'contacted', 'converted'];
-        if (!validStatuses.includes(status)) {
+        if (status !== undefined && !validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Invalid status. Must be: new, contacted, or converted' });
         }
 
+        const updateData = {};
+        if (status !== undefined) updateData.status = status;
+        if (sellerName !== undefined) updateData.sellerName = sellerName?.trim() || null;
+
         const enquiry = await prisma.tallyEnquiry.update({
             where: { id: parseInt(req.params.id) },
-            data: { status }
+            data: updateData
         });
 
         res.json({ success: true, enquiry });
