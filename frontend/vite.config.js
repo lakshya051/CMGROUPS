@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => ({
             srcDir: 'src',
             filename: 'sw.js',
             registerType: 'autoUpdate',
+            // Register from main.jsx (immediate) so push can run before window "load" on mobile PWAs.
+            injectRegister: null,
             includeAssets: [
                 'icons/*.png',
                 'icon.svg',

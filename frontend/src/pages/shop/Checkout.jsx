@@ -288,7 +288,7 @@ const Checkout = () => {
 
     // ── Empty cart guard ──────────────────────────────────────────────────────
     useEffect(() => {
-        if (cart.length === 0 && step !== 3 && !orderId) {
+        if (cart.length === 0 && step !== 3 && !orderId && !placingOrderRef.current && !orderSuccessRef.current) {
             navigate('/cart', { replace: true });
         }
     }, [cart.length, step, orderId, navigate]);

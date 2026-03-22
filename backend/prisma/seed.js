@@ -253,7 +253,8 @@ async function main() {
         const createdAt = new Date(Date.now() - daysAgo * 86400000);
         await prisma.order.create({
             data: {
-                userId: cust.id, total,
+                userId: cust.id,
+                total,
                 isPaid: i < 25,
                 paymentMethod: pick(['razorpay', 'cod', 'upi']),
                 status: pick(['Processing', 'Shipped', 'Delivered', 'Delivered', 'Delivered']),
