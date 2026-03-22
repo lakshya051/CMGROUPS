@@ -58,18 +58,46 @@ registerRoute(
 );
 
 self.addEventListener('push', (event) => {
-    const data = event.data?.json() ?? {};
+    let data = {};
+    try {
+        if (event.data) data = event.data.json();
+    } catch {
+        try {
+            const text = event.data?.text();
+            if (text) data = { body: text };
+        } catch {
+            /* ignore */
+        }
+    }
+    let openPath = data.url || '/';
+    if (typeof openPath === 'string' && /^https?:\/\//i.test(openPath)) {
+        try {
+            const u = new URL(openPath);
+            openPath = `${u.pathname}${u.search}${u.hash}` || '/';
+        } catch {
+            openPath = '/';
+        }
+    }
     event.waitUntil(
         self.registration.showNotification(data.title || 'CMGROUPS', {
             body: data.body || '',
             icon: data.icon || '/icons/icon-192x192.png',
             badge: '/icons/icon-96x96.png',
-            data: { url: data.url || '/' },
+            data: { url: openPath },
         })
     );
 });
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    event.waitUntil(clients.openWindow(event.notification.data.url));
+    const raw = event.notification.data?.url ?? '/';
+    const targetUrl = new URL(raw, self.location.origin).href;
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if (client.url === targetUrl && 'focus' in client) return client.focus();
+            }
+            if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+        })
+    );
 });

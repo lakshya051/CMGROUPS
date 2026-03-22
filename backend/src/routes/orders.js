@@ -277,55 +277,56 @@ router.post('/', optionalProtect, async (req, res) => {
                 }
             }
 
-            // 3. Create the order (no include inside tx — keep tx fast to avoid timeout)
-            const createdOrder = await tx.order.create({
-                data: {
-                    userId: req.user ? req.user.id : null,
-                    total: parsedTotal,
-                    walletUsed: parsedWalletUsed,
-                    status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
-                    paymentMethod: normalizedPaymentMethod,
-                    paymentOtp,
-                    isPaid: isFullyPaidWithWallet,
-                    shippingAddress: shippingAddress || null,
-                    guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
-                    referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
-                    couponCode: couponCode ? String(couponCode).trim().toUpperCase() : null,
-                    discountAmount: discountAmount ? parseFloat(discountAmount) : null,
-                    latitude: latitude ? parseFloat(latitude) : null,
-                    longitude: longitude ? parseFloat(longitude) : null,
-                    googleMapLink: googleMapLink || null,
-                    items: {
-                        create: items.map(item => {
-                            const pId = parseInt(item.productId, 10);
-                            const vId = item.variantId ? parseInt(item.variantId, 10) : null;
-                            const qty = parseInt(item.quantity, 10);
+            // 3. Create the order, then bulk-insert items separately to avoid
+            //    Prisma XOR ambiguity between OrderCreateInput / OrderUncheckedCreateInput.
+            const orderData = {
+                total: parsedTotal,
+                walletUsed: parsedWalletUsed,
+                status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
+                paymentMethod: normalizedPaymentMethod,
+                paymentOtp,
+                isPaid: isFullyPaidWithWallet,
+                shippingAddress: shippingAddress || null,
+                guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
+                referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
+                couponCode: couponCode ? String(couponCode).trim().toUpperCase() : null,
+                discountAmount: discountAmount ? parseFloat(discountAmount) : 0,
+                latitude: latitude ? parseFloat(latitude) : null,
+                longitude: longitude ? parseFloat(longitude) : null,
+                googleMapLink: googleMapLink || null,
+            };
+            if (req.user) {
+                orderData.user = { connect: { id: req.user.id } };
+            }
 
-                            // SECURE: Always use the price from the database, never trust the client
-                            let actualPrice;
-                            if (vId !== null) {
-                                actualPrice = variantMap.get(vId)?.price;
-                            } else {
-                                actualPrice = productMap.get(pId)?.price;
-                            }
+            const createdOrder = await tx.order.create({ data: orderData });
 
-                            if (isNaN(pId) || isNaN(qty) || actualPrice === undefined || actualPrice === null) {
-                                throw new Error('Invalid item data in cart');
-                            }
+            const orderItemsData = items.map(item => {
+                const pId = parseInt(item.productId, 10);
+                const vId = item.variantId ? parseInt(item.variantId, 10) : null;
+                const qty = parseInt(item.quantity, 10);
 
-                            return {
-                                productId: pId,
-                                variantId: vId,
-                                quantity: qty,
-                                price: actualPrice // SECURE: Price enforced from DB
-                            };
-                        })
-                    }
+                let actualPrice;
+                if (vId !== null) {
+                    actualPrice = variantMap.get(vId)?.price;
+                } else {
+                    actualPrice = productMap.get(pId)?.price;
                 }
-                // ⚠️  No `include` here — fetching relations inside an interactive
-                // transaction inflates round-trips and caused the 15 s timeout.
-                // We do a single follow-up query after the tx commits instead.
+
+                if (isNaN(pId) || isNaN(qty) || actualPrice === undefined || actualPrice === null) {
+                    throw new Error('Invalid item data in cart');
+                }
+
+                return {
+                    orderId: createdOrder.id,
+                    productId: pId,
+                    variantId: vId,
+                    quantity: qty,
+                    price: actualPrice
+                };
             });
+
+            await tx.orderItem.createMany({ data: orderItemsData });
 
             // 4. Record wallet debit transaction (after order creation so orderId is available)
             if (useWallet && parsedWalletUsed > 0 && req.user) {

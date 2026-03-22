@@ -33,6 +33,32 @@ export function usePushNotifications() {
         setPermission(Notification.permission);
     }, [isSupported]);
 
+    // Align localStorage with the real PushSubscription (common after PWA updates / iOS reinstall).
+    useEffect(() => {
+        if (!isSupported) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (cancelled) return;
+                const lsSays = localStorage.getItem(LS_KEY) === 'true';
+                if (lsSays && !sub) {
+                    localStorage.removeItem(LS_KEY);
+                    setIsSubscribed(false);
+                } else if (!lsSays && sub) {
+                    localStorage.setItem(LS_KEY, 'true');
+                    setIsSubscribed(true);
+                }
+            } catch {
+                /* ignore */
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isSupported]);
+
     const subscribe = useCallback(async () => {
         if (!isSupported) return false;
 
@@ -92,18 +118,23 @@ export function usePushNotifications() {
         try {
             const reg = await navigator.serviceWorker.ready;
             const existing = await reg.pushManager.getSubscription();
-            if (existing) {
-                const json = existing.toJSON();
-                const headers = await getAuthHeaders();
-                await fetch(`${API_BASE}/push/subscribe`, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        endpoint: json.endpoint,
-                        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-                    }),
-                });
+            if (!existing) {
+                if (localStorage.getItem(LS_KEY) === 'true') {
+                    localStorage.removeItem(LS_KEY);
+                    setIsSubscribed(false);
+                }
+                return;
             }
+            const json = existing.toJSON();
+            const headers = await getAuthHeaders();
+            await fetch(`${API_BASE}/push/subscribe`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    endpoint: json.endpoint,
+                    keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+                }),
+            });
         } catch (err) {
             console.warn('Push refresh failed silently:', err);
         }
