@@ -1,15 +1,26 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../lib/api';
+import { needsPhoneCapture } from '../lib/authProfile';
 
 export default function OnboardingPage() {
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { refreshUser } = useAuth();
+    const { refreshUser, isSignedIn, user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
+
+    if (authLoading) {
+        return <div className="min-h-screen bg-page-bg" />;
+    }
+    if (!isSignedIn) {
+        return <Navigate to="/sign-in" replace />;
+    }
+    if (user && !needsPhoneCapture(user)) {
+        return <Navigate to="/" replace />;
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
