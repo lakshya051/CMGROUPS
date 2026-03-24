@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }) => {
             throw new Error(data.error || `Server error (${res.status})`);
         }
         setUser(data.user);
-        return cred;
+        return { cred, user: data.user };
     }, []);
 
     const logout = useCallback(async () => {
@@ -149,18 +149,20 @@ export const AuthProvider = ({ children }) => {
                     const idToken = await cred.user.getIdToken();
                     tokenRef.current = idToken;
                     setTokenGetter(() => Promise.resolve(tokenRef.current));
+                    let dbUser = null;
                     try {
                         const res = await fetch(`${API_BASE}/auth/me`, {
                             headers: { Authorization: `Bearer ${idToken}` },
                         });
                         if (res.ok) {
                             const data = await res.json();
+                            dbUser = data.user;
                             setUser(data.user);
                         }
                     } catch (err) {
                         console.error('Failed to fetch DB user after email login:', err);
                     }
-                    return cred;
+                    return { cred, user: dbUser };
                 },
                 registerWithEmail,
                 loginWithGoogle,

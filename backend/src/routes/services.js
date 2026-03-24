@@ -491,38 +491,6 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
-        // ── SEND STATUS NOTIFICATION ─────────────────────────────────────
-        if (status) {
-            // Re-fetch with OTP for notification sending (won't be in response)
-            const bookingWithOtp = await prisma.serviceBooking.findUnique({
-                where: { id: booking.id },
-                include: {
-                    user: { select: { id: true, name: true, email: true, phone: true } },
-                    technician: { select: { id: true, name: true, phone: true } }
-                }
-            });
-
-            // Send email notification (has OTP access, never sends it in response)
-            await sendServiceNotification(bookingWithOtp, status);
-
-            // In-app notification
-            try {
-                await createUserNotification({
-                    userId: booking.user.id,
-                    title: 'Service Status Updated',
-                    message: `Your service request SRV-${booking.id} is now ${status}.`,
-                    type: 'service',
-                    link: '/dashboard/services',
-                    push: {
-                        enabled: true,
-                        body: `Your service request SRV-${booking.id} is now ${status}.`,
-                    },
-                });
-            } catch (notifErr) {
-                console.error('In-app notification error:', notifErr);
-            }
-        }
-
         // ── REFERRAL & TIER UPDATE ON DELIVERY ──────────────────────────
         if (status === 'Delivered') {
             const fullBooking = await prisma.serviceBooking.findUnique({
@@ -619,6 +587,28 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
         // Admin gets full booking including OTP for pickup verification
         res.json(booking);
+
+        // Email + in-app notify after response — do not block admin UI on SMTP latency
+        if (status) {
+            setImmediate(() => {
+                void sendServiceNotification(booking, status);
+                if (booking.user?.id) {
+                    createUserNotification({
+                        userId: booking.user.id,
+                        title: 'Service Status Updated',
+                        message: `Your service request SRV-${booking.id} is now ${status}.`,
+                        type: 'service',
+                        link: '/dashboard/services',
+                        push: {
+                            enabled: true,
+                            body: `Your service request SRV-${booking.id} is now ${status}.`,
+                        },
+                    }).catch((notifErr) => {
+                        console.error('In-app notification error (deferred):', notifErr);
+                    });
+                }
+            });
+        }
     } catch (error) {
         console.error('Update booking error:', error);
         if (isDbUnavailableError(error)) {
@@ -676,13 +666,12 @@ router.post('/:id/verify-otp', protect, async (req, res) => {
             select: BOOKING_SAFE_SELECT
         });
 
-        // Send notification
-        const notifyBooking = { ...updated, user: booking.user };
-        await sendServiceNotification(notifyBooking, 'In Progress');
+        res.json({ success: true, message: 'OTP verified. Booking is now In Progress.', booking: updated });
 
-        // In-app notification
-        try {
-            await createUserNotification({
+        const notifyBooking = { ...updated, user: booking.user };
+        setImmediate(() => {
+            void sendServiceNotification(notifyBooking, 'In Progress');
+            createUserNotification({
                 userId: booking.userId,
                 title: 'Device Picked Up',
                 message: `Your device for SRV-${bookingId} has been picked up. Repair has started.`,
@@ -692,10 +681,8 @@ router.post('/:id/verify-otp', protect, async (req, res) => {
                     enabled: true,
                     body: `Repair work has started for SRV-${bookingId}.`,
                 },
-            });
-        } catch (_notifErr) { /* non-blocking */ }
-
-        res.json({ success: true, message: 'OTP verified. Booking is now In Progress.', booking: updated });
+            }).catch(() => { /* non-blocking */ });
+        });
     } catch (error) {
         console.error('Verify OTP error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -734,11 +721,13 @@ router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
             }
         });
 
-        // Send notification with new OTP (notification fn reads from booking.pickupOtp)
-        await sendServiceNotification(updated, 'Confirmed');
+        // Return safe response (no OTP)
+        const { pickupOtp: _otp, ...safeBooking } = updated;
+        res.json({ success: true, message: 'New OTP generated and sent to customer.', booking: safeBooking });
 
-        try {
-            await createUserNotification({
+        setImmediate(() => {
+            void sendServiceNotification(updated, 'Confirmed');
+            createUserNotification({
                 userId: updated.userId,
                 title: 'Pickup OTP Updated',
                 message: `A new pickup OTP has been generated for SRV-${bookingId}. Check CMGROUPS before technician pickup.`,
@@ -748,14 +737,10 @@ router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
                     enabled: true,
                     body: `A new pickup OTP is available in CMGROUPS for SRV-${bookingId}.`,
                 },
+            }).catch((notifErr) => {
+                console.error('Pickup OTP notification error (deferred):', notifErr);
             });
-        } catch (notifErr) {
-            console.error('Pickup OTP notification error:', notifErr);
-        }
-
-        // Return safe response (no OTP)
-        const { pickupOtp: _otp, ...safeBooking } = updated;
-        res.json({ success: true, message: 'New OTP generated and sent to customer.', booking: safeBooking });
+        });
     } catch (error) {
         console.error('Regenerate OTP error:', error);
         res.status(500).json({ error: 'Server error' });
