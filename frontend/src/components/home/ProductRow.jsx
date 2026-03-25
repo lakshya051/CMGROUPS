@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductCard from '../shop/ProductCard';
 import { SkeletonCard } from '../ui';
 
-const ProductRow = ({ title, products = [], viewAllLink, loading = false, badge }) => {
+const ProductRow = ({ title, products = [], viewAllLink, loading = false, gridOnDesktop = false }) => {
     const scrollRef = useRef(null);
 
     const scroll = (dir) => {
@@ -17,9 +17,8 @@ const ProductRow = ({ title, products = [], viewAllLink, loading = false, badge 
     return (
         <section className="py-xl sm:py-2xl">
             <div className="container mx-auto px-4">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-6 sm:mb-8">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-heading font-bold text-text-primary">
+                    <h2 className="text-xl sm:text-2xl font-heading font-bold text-text-primary">
                         {title}
                     </h2>
                     {viewAllLink && (
@@ -32,33 +31,52 @@ const ProductRow = ({ title, products = [], viewAllLink, loading = false, badge 
                     )}
                 </div>
 
-                {/* Scrollable row */}
                 {loading ? (
-                    <div className="flex gap-4 overflow-hidden">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="flex-shrink-0 w-[260px] sm:w-[280px]">
+                    <div className={gridOnDesktop
+                        ? 'grid grid-cols-2 md:grid-cols-4 gap-4'
+                        : 'flex gap-4 overflow-hidden'
+                    }>
+                        {Array.from({ length: gridOnDesktop ? 4 : 5 }).map((_, i) => (
+                            <div key={i} className={gridOnDesktop ? '' : 'flex-shrink-0 w-[260px] sm:w-[280px]'}>
                                 <SkeletonCard />
                             </div>
                         ))}
                     </div>
+                ) : gridOnDesktop ? (
+                    <>
+                        {/* Desktop: grid layout */}
+                        <div className="hidden md:grid md:grid-cols-4 gap-4">
+                            {products.slice(0, 8).map(p => (
+                                <ProductCard key={p.id} product={p} />
+                            ))}
+                        </div>
+                        {/* Mobile: horizontal scroll */}
+                        <div className="md:hidden relative group/row">
+                            <div
+                                ref={scrollRef}
+                            className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide"
+                        >
+                                {products.map(p => (
+                                    <div key={p.id} className="flex-shrink-0 w-[260px] sm:w-[280px] snap-start">
+                                        <ProductCard product={p} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
                 ) : (
                     <div className="relative group/row">
                         <div
                             ref={scrollRef}
-                            className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
-                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 scrollbar-hide"
                         >
                             {products.map(p => (
-                                <div
-                                    key={p.id}
-                                    className="flex-shrink-0 w-[260px] sm:w-[280px] snap-start"
-                                >
+                                <div key={p.id} className="flex-shrink-0 w-[260px] sm:w-[280px] snap-start">
                                     <ProductCard product={p} />
                                 </div>
                             ))}
                         </div>
 
-                        {/* Desktop arrows */}
                         {products.length > 4 && (
                             <>
                                 <button

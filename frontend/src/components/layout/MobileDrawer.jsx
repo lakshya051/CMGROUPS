@@ -68,7 +68,7 @@ const MobileDrawer = ({ isOpen, onClose }) => {
         {
             label: 'BUSINESS',
             links: [
-                { name: 'Tally ERP', path: '/tally-erp', icon: FileText },
+                { name: 'Tally Prime', path: '/tally-erp', icon: FileText },
                 { name: 'CCTV Security', path: '/cctv', icon: Shield },
             ]
         },

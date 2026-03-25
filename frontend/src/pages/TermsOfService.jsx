@@ -27,7 +27,7 @@ export default function TermsOfService() {
                         <ul className="list-disc pl-5 text-text-secondary space-y-1">
                             <li><strong>E-Commerce:</strong> Purchase of computers, components, and accessories.</li>
                             <li><strong>Repair & Maintenance:</strong> Booking of computer repair, AMC, and installation services.</li>
-                            <li><strong>Education:</strong> Enrollment in Tally ERP, computer courses, and other educational programs.</li>
+                            <li><strong>Education:</strong> Enrollment in Tally Prime, computer courses, and other educational programs.</li>
                         </ul>
                     </section>
 

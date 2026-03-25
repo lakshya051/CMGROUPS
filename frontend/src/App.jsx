@@ -119,6 +119,7 @@ function App() {
                                     <ProtectedRoute><CoursePlayer /></ProtectedRoute>
                                 } />
                                 <Route path="tally-erp" element={<TallyERP />} />
+                                <Route path="tally-prime" element={<TallyERP />} />
                                 <Route path="cctv" element={<CCTVSecurity />} />
                                 <Route path="privacy-policy" element={<PrivacyPolicy />} />
                                 <Route path="terms-of-service" element={<TermsOfService />} />

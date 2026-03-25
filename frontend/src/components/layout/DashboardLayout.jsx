@@ -75,7 +75,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
         { name: 'Referral Settings', path: '/admin/referral-settings', icon: <Settings size={20} /> },
         { name: 'Courses', path: '/admin/courses', icon: <GraduationCap size={20} /> },
         { name: 'Enrollments', path: '/admin/enrollments', icon: <ClipboardList size={20} /> },
-        { name: 'Tally Enquiries', path: '/admin/tally-enquiries', icon: <FileText size={20} /> },
+        { name: 'Tally Prime Enquiries', path: '/admin/tally-enquiries', icon: <FileText size={20} /> },
         { name: 'CCTV Enquiries', path: '/admin/cctv-enquiries', icon: <FileText size={20} /> },
     ];
 

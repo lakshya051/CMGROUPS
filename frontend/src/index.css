@@ -36,6 +36,16 @@
     }
 }
 
+@layer utilities {
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+}
+
 @layer components {
     .btn {
         @apply px-4 py-2 rounded-lg font-medium transition-colors duration-base;
