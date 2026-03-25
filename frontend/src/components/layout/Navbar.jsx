@@ -380,7 +380,7 @@ const Navbar = () => {
                             <div className="flex flex-1 min-w-0 items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1.5">
                                 <NavLink to="/services" label="Services" active={isActive('/services')} />
                                 <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
-                                <NavLink to="/tally-erp" label="Tally ERP" active={isActive('/tally-erp')} />
+                                <NavLink to="/tally-erp" label="Tally Prime" active={isActive('/tally-erp')} />
                                 <NavLink to="/cctv" label="CCTV" active={isActive('/cctv')} />
                             </div>
                         </nav>

@@ -68,10 +68,10 @@ router.post('/enquiry', enquiryLimiter, async (req, res) => {
             transporter.sendMail({
                 from: process.env.EMAIL_USER,
                 to: adminEmail,
-                subject: `New Tally ERP Enquiry - ${name} - ${businessName}`,
+                subject: `New Tally Prime Enquiry - ${name} - ${businessName}`,
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-                        <h2 style="color: #111827; margin-bottom: 4px;">New Tally ERP Enquiry</h2>
+                        <h2 style="color: #111827; margin-bottom: 4px;">New Tally Prime Enquiry</h2>
                         <p style="color: #6b7280; font-size: 13px; margin-top: 0;">Submitted at: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
                         <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
                             <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280; width: 40%;">Name</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${name}</td></tr>
@@ -89,7 +89,7 @@ router.post('/enquiry', enquiryLimiter, async (req, res) => {
             }).catch(err => console.error('Tally enquiry admin email failed (non-blocking):', err));
         } else {
             // Local dev mock
-            console.log('\n[TALLY ENQUIRY — EMAIL MOCK]');
+            console.log('\n[TALLY PRIME ENQUIRY — EMAIL MOCK]');
             console.log(`To: ${adminEmail}`);
             console.log(`Name: ${name} | Business: ${businessName} | Phone: ${cleanPhone} | City: ${city} | License: ${licenseType}`);
             console.log('---\n');

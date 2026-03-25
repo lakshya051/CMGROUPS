@@ -12,7 +12,7 @@ const Courses = () => {
     const [loading, setLoading] = useState(true);
     const [category, setCategory] = useState('All');
     const [searchParams] = useSearchParams();
-    useSEO({ title: 'Computer Courses in Etah — CMGROUPS Academy', description: 'Learn Tally, computer basics, web development and more with expert instructors in Etah.' });
+    useSEO({ title: 'Computer Courses in Etah — CMGROUPS Academy', description: 'Learn Tally Prime, computer basics, web development and more with expert instructors in Etah.' });
 
     useEffect(() => {
         coursesAPI.getAll()

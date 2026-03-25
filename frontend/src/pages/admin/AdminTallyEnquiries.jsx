@@ -73,8 +73,8 @@ const AdminTallyEnquiries = () => {
         <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 className="text-3xl font-heading font-black">Tally ERP Enquiries</h1>
-                    <p className="text-text-muted">Manage leads from the Tally ERP landing page.</p>
+                    <h1 className="text-3xl font-heading font-black">Tally Prime Enquiries</h1>
+                    <p className="text-text-muted">Manage leads from the Tally Prime landing page.</p>
                 </div>
                 <button onClick={() => load(filter)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold border border-border-default rounded-lg hover:bg-surface-hover transition-colors">
                     <RefreshCw size={15} /> Refresh

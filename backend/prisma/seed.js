@@ -384,7 +384,7 @@ async function main() {
         { title: 'Mega GPU Sale — Up to 20% Off!', subtitle: 'Shop the best graphics cards at unbeatable prices.', image: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=1200', ctaLabel: 'Shop GPUs', ctaLink: '/products?category=Graphics+Cards', active: true, displayOrder: 1 },
         { title: 'Doorstep Repair Service', subtitle: 'Certified technicians at your home. Starts at ₹499.', image: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=1200', ctaLabel: 'Book Service', ctaLink: '/services', active: true, displayOrder: 2 },
         { title: 'Custom PC Build — Starting ₹60,000', subtitle: 'We source, assemble, and test your dream machine.', image: 'https://images.unsplash.com/photo-1555418341-9c96abdc8aa4?w=1200', ctaLabel: 'Get a Quote', ctaLink: '/services', active: true, displayOrder: 3 },
-        { title: 'IT Courses — Enroll Now', subtitle: 'CCC, DCA, O-Level, Tally and more. Morning & evening batches.', image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200', ctaLabel: 'Explore Courses', ctaLink: '/courses', active: true, displayOrder: 4 },
+        { title: 'IT Courses — Enroll Now', subtitle: 'CCC, DCA, O-Level, Tally Prime and more. Morning & evening batches.', image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200', ctaLabel: 'Explore Courses', ctaLink: '/courses', active: true, displayOrder: 4 },
     ];
     for (const b of BANNERS) {
         const ex = await prisma.banner.findFirst({ where: { title: b.title } });

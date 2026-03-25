@@ -16,7 +16,7 @@ const CITY = 'Etah';
 const WA_NUMBER = '918171838388'; // TODO: Replace with actual CMGROUPS WhatsApp business number
 // ──────────────────────────────────────────────────────────────────────
 
-const WA_MSG = encodeURIComponent('Hi, I am interested in Tally ERP software. Please share details and pricing.');
+const WA_MSG = encodeURIComponent('Hi, I am interested in Tally Prime software. Please share details and pricing.');
 const WA_LINK = `https://wa.me/${WA_NUMBER}?text=${WA_MSG}`;
 
 const LICENSE_OPTIONS = [
@@ -36,14 +36,15 @@ const WhatsAppIcon = ({ size = 20 }) => (
 
 // FAQ data
 const FAQS = [
-    { q: 'Is this a genuine Tally license?', a: `Yes, we are an authorized Tally dealer. All licenses we sell are 100% genuine and registered directly with Tally Solutions Pvt. Ltd.` },
-    { q: 'Do you provide installation support?', a: `Yes, our technician will install and configure Tally at your location completely free of charge with every license purchase.` },
-    { q: 'Is training included?', a: `Basic training on how to use Tally for your business type is included free with every purchase. Advanced training is available separately.` },
-    { q: 'Can I upgrade from Single User to Multi User later?', a: `Yes, Tally allows you to upgrade your license at any time. You only pay the difference in price.` },
-    { q: 'Does it support GST filing?', a: `Yes, Tally Prime is fully GST compliant and supports GSTR-1, GSTR-3B, and e-invoicing.` },
-    { q: 'What is the annual renewal cost?', a: `Tally requires an annual subscription called TallyNet. Contact us for current pricing as it may vary.` },
+    { q: 'Is this a genuine Tally Prime license?', a: `Yes, we are an authorized Tally Prime dealer. All licenses we sell are 100% genuine and registered directly with Tally Solutions Pvt. Ltd.` },
+    { q: 'Do you provide installation support?', a: `Yes, our technician will install and configure Tally Prime at your location completely free of charge with every license purchase.` },
+    { q: 'Is training included?', a: `Basic training on how to use Tally Prime for your business type is included free with every purchase. Advanced training is available separately.` },
+    { q: 'Can I upgrade from Single User to Multi User later?', a: `Yes, Tally Prime allows you to upgrade your license at any time. You only pay the difference in price.` },
+    { q: 'Does it support GST filing?', a: `Yes, Tally Prime is fully GST compliant and supports GSTR-1, GSTR-3B, and e-invoicing out of the box.` },
+    { q: 'What is the annual renewal cost?', a: `Tally Prime requires an annual subscription called TSS (Tally Software Services). Contact us for current pricing as it may vary.` },
     { q: 'Do you provide support after purchase?', a: `Yes, we provide local support in ${CITY}. You can call, WhatsApp, or visit our store for any help.` },
-    { q: 'Can I use Tally on multiple computers?', a: `Single User license works on one computer. For multiple computers you need the Multi User license.` },
+    { q: 'Can I use Tally Prime on multiple computers?', a: `Single User license works on one computer. For multiple computers you need the Multi User license.` },
+    { q: 'What happened to Tally ERP 9?', a: `Tally ERP 9 has been discontinued by Tally Solutions. Tally Prime is its successor with a completely redesigned interface, better reports, and modern features. All new licenses are Tally Prime only.` },
 ];
 
 const FEATURES = [
@@ -56,12 +57,12 @@ const FEATURES = [
 ];
 
 const WHY_US = [
-    { icon: <Shield size={20} />, text: '100% Genuine Tally License' },
+    { icon: <Shield size={20} />, text: '100% Genuine Tally Prime License' },
     { icon: <Wrench size={20} />, text: 'Free Installation at Your Location' },
     { icon: <GraduationCap size={20} />, text: 'Basic Training Included' },
     { icon: <FileText size={20} />, text: 'GST Setup Assistance' },
     { icon: <CheckCircle size={20} />, text: `Local Support in ${CITY}` },
-    { icon: <Settings size={20} />, text: 'Annual Maintenance Available' },
+    { icon: <Settings size={20} />, text: 'TSS (Annual Subscription) Support' },
 ];
 
 const WHO_USES = [
@@ -129,7 +130,7 @@ const FAQItem = ({ q, a }) => {
 // Main Page
 // ─────────────────────────────────────────────
 const TallyERP = () => {
-    useSEO({ title: 'Tally ERP Solutions in Etah — CMGROUPS', description: 'Tally Prime, Tally ERP 9 licensing, training and support in Etah.' });
+    useSEO({ title: 'Tally Prime Dealer in Etah — CMGROUPS', description: 'Authorized Tally Prime dealer in Etah. Buy genuine licenses with free installation, training and local support.' });
     const formRef = useRef(null);
     const [licensePreset, setLicensePreset] = useState('');
     const [form, setForm] = useState({ name: '', businessName: '', phone: '', city: '', licenseType: '', message: '' });
@@ -172,20 +173,20 @@ const TallyERP = () => {
     return (
         <>
             {/* SEO meta (basic head injection) */}
-            <title>{`Tally ERP Software Dealer in ${CITY} | Genuine License with Free Installation`}</title>
+            <title>{`Tally Prime Software Dealer in ${CITY} | Genuine License with Free Installation`}</title>
 
             <div className="min-h-screen">
 
                 {/* ── SECTION 1: Hero ──────────────────────────────── */}
                 <section className="relative overflow-hidden bg-page-bg py-xl sm:py-2xl px-lg">
                     <div className="container mx-auto max-w-4xl text-center relative z-10">
-                        <span className="inline-block bg-trust/10 text-trust text-xs font-bold px-3 py-1 rounded mb-4 tracking-wider uppercase">Authorized Tally Dealer</span>
+                        <span className="inline-block bg-trust/10 text-trust text-xs font-bold px-3 py-1 rounded mb-4 tracking-wider uppercase">Authorized Tally Prime Dealer</span>
                         <h1 className="text-2xl md:text-3xl font-bold leading-tight mb-4 text-text-primary">
-                            Authorized Tally ERP Dealer<br />
+                            Authorized Tally Prime Dealer<br />
                             <span className="text-trust">in {CITY}</span>
                         </h1>
                         <p className="text-sm text-text-secondary max-w-2xl mx-auto mb-8 leading-relaxed">
-                            We sell, install, train and support Tally ERP for businesses of all sizes — with free installation and local support.
+                            We sell, install, train and support Tally Prime for businesses of all sizes — with free installation and local support.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <button
@@ -206,13 +207,13 @@ const TallyERP = () => {
                     </div>
                 </section>
 
-                {/* ── SECTION 2: What is Tally ERP ─────────────────── */}
+                {/* ── SECTION 2: What is Tally Prime ────────────────── */}
                 <section className="py-xl px-lg bg-surface">
                     <div className="container mx-auto max-w-5xl">
                         <div className="text-center mb-lg">
-                            <h2 className="text-xl font-bold text-text-primary mb-2">What is Tally ERP?</h2>
+                            <h2 className="text-xl font-bold text-text-primary mb-2">What is Tally Prime?</h2>
                             <p className="text-text-secondary max-w-2xl mx-auto text-sm leading-relaxed">
-                                Tally ERP (now Tally Prime) is India's most trusted business accounting software, used by millions of businesses. It simplifies GST filing, inventory tracking, payroll, invoicing, and financial reporting — all in one place. No prior accounting knowledge needed.
+                                Tally Prime is India's most trusted business accounting software, used by millions of businesses. The successor to Tally ERP 9, it features a completely redesigned interface, powerful reporting, and seamless GST compliance. It simplifies GST filing, inventory tracking, payroll, invoicing, and financial reporting — all in one place. No prior accounting knowledge needed.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
@@ -232,7 +233,7 @@ const TallyERP = () => {
                 <section className="py-xl px-lg bg-page-bg">
                     <div className="container mx-auto max-w-6xl">
                         <div className="text-center mb-xl">
-                            <h2 className="text-xl font-bold text-text-primary mb-2">Choose Your Tally License</h2>
+                            <h2 className="text-xl font-bold text-text-primary mb-2">Choose Your Tally Prime License</h2>
                             <p className="text-sm text-text-secondary">All licenses are 100% genuine. Contact us for exact pricing and offers.</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
@@ -273,7 +274,7 @@ const TallyERP = () => {
                     <div className="container mx-auto max-w-5xl">
                         <div className="text-center mb-xl">
                             <h2 className="text-xl font-bold text-text-primary mb-2">Why Buy From Us?</h2>
-                            <p className="text-sm text-text-secondary">Your trusted authorized Tally dealer in {CITY}</p>
+                            <p className="text-sm text-text-secondary">Your trusted authorized Tally Prime dealer in {CITY}</p>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-md">
                             {WHY_US.map((item, i) => (
@@ -292,8 +293,8 @@ const TallyERP = () => {
                 <section className="py-xl px-lg bg-page-bg">
                     <div className="container mx-auto max-w-5xl">
                         <div className="text-center mb-xl">
-                            <h2 className="text-xl font-bold text-text-primary mb-2">Who Uses Tally?</h2>
-                            <p className="text-sm text-text-secondary">Tally works for businesses of every kind and size</p>
+                            <h2 className="text-xl font-bold text-text-primary mb-2">Who Uses Tally Prime?</h2>
+                            <p className="text-sm text-text-secondary">Tally Prime works for businesses of every kind and size</p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-md">
                             {WHO_USES.map((item, i) => (
@@ -461,7 +462,7 @@ const TallyERP = () => {
                     <div className="container mx-auto max-w-3xl">
                         <div className="text-center mb-xl">
                             <h2 className="text-xl font-bold text-text-primary mb-xs">Frequently Asked Questions</h2>
-                            <p className="text-sm text-text-secondary">Everything you need to know before buying Tally</p>
+                            <p className="text-sm text-text-secondary">Everything you need to know before buying Tally Prime</p>
                         </div>
                         <div className="space-y-sm">
                             {FAQS.map((faq, i) => (
