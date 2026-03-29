@@ -21,7 +21,7 @@ export default function InstallPromptBanner() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="font-heading font-bold text-sm text-text-primary">
-                                Install CMGROUPS App
+                                Install Shoptify App
                             </p>
                             <p className="text-xs text-text-muted mt-0.5">
                                 Quick access, offline browsing, and more

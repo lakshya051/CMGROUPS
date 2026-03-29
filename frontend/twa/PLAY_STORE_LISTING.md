@@ -2,7 +2,7 @@
 
 ## App Information
 
-- **App name:** CMGROUPS
+- **App name:** Shoptify
 - **Package name:** com.cmgroups.shopnow
 - **Category:** Shopping
 - **Content rating:** Everyone (complete IARC questionnaire in Play Console)
@@ -15,7 +15,7 @@ Shop computers, book tech services, and learn with expert courses — all in one
 
 ## Full Description (4000 chars max)
 
-CMGROUPS brings technology, services, and education together in one powerful app.
+Shoptify brings technology, services, and education together in one powerful app — a CMGroups venture.
 
 🛒 SHOP
 Browse a curated selection of computers, laptops, components, and accessories. Compare products side-by-side, read reviews, add to your wishlist, and check out securely — all from your phone.
@@ -63,7 +63,7 @@ Capture on a Pixel 7 (or similar) in portrait mode at 1080x2400 or similar:
 
 Design specs:
 - Size: 1024x500 PNG or JPG
-- Content: CMGROUPS logo + tagline "Technology, Services & Education"
+- Content: Shoptify logo + tagline "Technology, Services & Education"
 - Background: Gradient using brand colors (#e91e63 → #7c3aed)
 - Include device mockup showing the app if possible
 

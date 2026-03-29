@@ -1,6 +1,6 @@
 {
 	"appId": "com.cmgroups.shopnow",
-	"appName": "technova",
+	"appName": "Shoptify",
 	"webDir": "dist",
 	"server": {
 		"url": "https://cmgroups.vercel.app/",

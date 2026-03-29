@@ -44,7 +44,7 @@ const CompareWidget = () => {
                                 className="w-8 h-8 object-contain bg-surface rounded flex-shrink-0"
                             />
                             <span className="text-xs font-medium truncate flex-1">{p.title}</span>
-                            <button onClick={() => removeFromCompare(p.id)} className="text-text-muted hover:text-error p-1">
+                            <button onClick={() => removeFromCompare(p.id)} className="text-text-muted hover:text-error p-1" aria-label="Remove">
                                 <X size={14} />
                             </button>
                         </div>

@@ -363,14 +363,26 @@ router.get('/referral-settings', protect, adminOnly, async (req, res) => {
 router.put('/referral-settings', protect, adminOnly, async (req, res) => {
     try {
         const { pointsPerProductPurchase, pointsPerServiceBooking, pointsPerCourseEnrollment, pointToRupeeRate, pointExpiryDays, tierSystemEnabled } = req.body;
-        const data = {
-            pointsPerProductPurchase,
-            pointsPerServiceBooking,
-            pointsPerCourseEnrollment,
-            pointToRupeeRate,
-            pointExpiryDays,
-            tierSystemEnabled
+
+        const safeNum = (val, min = 0, max = 100000) => {
+            if (val === undefined || val === null) return undefined;
+            const n = Number(val);
+            if (!Number.isFinite(n)) return undefined;
+            return Math.max(min, Math.min(max, n));
         };
+
+        const data = {};
+        const ppp = safeNum(pointsPerProductPurchase);
+        if (ppp !== undefined) data.pointsPerProductPurchase = ppp;
+        const psb = safeNum(pointsPerServiceBooking);
+        if (psb !== undefined) data.pointsPerServiceBooking = psb;
+        const pce = safeNum(pointsPerCourseEnrollment);
+        if (pce !== undefined) data.pointsPerCourseEnrollment = pce;
+        const ptr = safeNum(pointToRupeeRate, 0, 1000);
+        if (ptr !== undefined) data.pointToRupeeRate = ptr;
+        const ped = safeNum(pointExpiryDays, 0, 3650);
+        if (ped !== undefined) data.pointExpiryDays = Math.round(ped);
+        if (typeof tierSystemEnabled === 'boolean') data.tierSystemEnabled = tierSystemEnabled;
 
         let settings = await prisma.referralSettings.findFirst();
         if (settings) {
@@ -526,7 +538,10 @@ router.patch('/banners/:id', protect, adminOnly, async (req, res) => {
         if (ctaLink !== undefined) data.ctaLink = ctaLink;
         if (image !== undefined) data.image = image || null;
         if (gradient !== undefined) data.gradient = gradient || null;
-        if (displayOrder !== undefined) data.displayOrder = parseInt(displayOrder);
+        if (displayOrder !== undefined) {
+            const parsed = parseInt(displayOrder);
+            if (Number.isFinite(parsed)) data.displayOrder = parsed;
+        }
         if (active !== undefined) data.active = active;
 
         const banner = await prisma.banner.update({

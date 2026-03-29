@@ -214,13 +214,14 @@ const DashboardLayout = ({ role = 'customer' }) => {
             </aside>
 
             {/* ── Main content ── */}
-            <div className="flex-1 flex flex-col md:ml-64 min-w-0">
+            <div className="flex-1 flex flex-col md:ml-64 min-w-0 min-h-0">
 
                 {/* Mobile top bar */}
-                <div className="md:hidden sticky safe-top-offset top-0 z-20 bg-surface border-b border-border-default flex items-center gap-3 px-4 h-14">
+                <div className="md:hidden sticky safe-top-offset top-0 z-20 bg-surface border-b border-border-default flex items-center gap-3 px-4 h-14 shrink-0">
                     <button
                         onClick={() => setSidebarOpen(true)}
                         className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted"
+                        aria-label="Open sidebar menu"
                     >
                         <Menu size={22} />
                     </button>
@@ -231,8 +232,8 @@ const DashboardLayout = ({ role = 'customer' }) => {
                     {user && <PointsBadge points={user.walletBalance} compact className="ml-auto" />}
                 </div>
 
-                <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
+                <main className="flex-1 min-h-0 p-4 sm:p-6 md:p-8 overflow-y-auto overscroll-contain scrollable">
+                    <div className="max-w-7xl mx-auto animate-in fade-in duration-500 min-w-0">
                         <Outlet />
                     </div>
                 </main>

@@ -16,7 +16,7 @@ const PWAInstallSection = () => {
                     </div>
                     <div className="flex-1 text-center sm:text-left">
                         <h3 className="text-lg font-heading font-bold text-text-primary mb-1">
-                            Get the CMGROUPS App
+                            Get the Shoptify App
                         </h3>
                         <p className="text-sm text-text-secondary">
                             Install for faster access, offline browsing & notifications

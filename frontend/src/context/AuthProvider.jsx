@@ -40,9 +40,13 @@ export const AuthProvider = ({ children }) => {
                     if (res.ok) {
                         const data = await res.json();
                         setUser(data.user);
+                    } else {
+                        console.warn('DB user not found, signing out of Firebase');
+                        setUser(null);
                     }
                 } catch (err) {
                     console.error('Failed to fetch DB user:', err);
+                    setUser(null);
                 }
             } else {
                 setFirebaseUser(null);
@@ -66,7 +70,7 @@ export const AuthProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [firebaseUser]);
 
-    const registerWithEmail = useCallback(async (email, password, name) => {
+    const registerWithEmail = useCallback(async (email, password, name, referredByCode) => {
         if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const idToken = await cred.user.getIdToken();
@@ -76,16 +80,18 @@ export const AuthProvider = ({ children }) => {
         const res = await fetch(`${API_BASE}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-            body: JSON.stringify({ name }),
+            body: JSON.stringify({ name, referredByCode }),
         });
-        if (res.ok) {
-            const data = await res.json();
-            setUser(data.user);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error || `Registration failed (${res.status})`);
         }
+        setUser(data.user);
+        localStorage.removeItem('referralCode');
         return cred;
     }, []);
 
-    const loginWithGoogle = useCallback(async () => {
+    const loginWithGoogle = useCallback(async (referredByCode) => {
         if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
         const provider = new GoogleAuthProvider();
         const cred = await signInWithPopup(auth, provider);
@@ -96,13 +102,14 @@ export const AuthProvider = ({ children }) => {
         const res = await fetch(`${API_BASE}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-            body: JSON.stringify({ name: cred.user.displayName }),
+            body: JSON.stringify({ name: cred.user.displayName, referredByCode }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             throw new Error(data.error || `Server error (${res.status})`);
         }
         setUser(data.user);
+        localStorage.removeItem('referralCode');
         return { cred, user: data.user };
     }, []);
 

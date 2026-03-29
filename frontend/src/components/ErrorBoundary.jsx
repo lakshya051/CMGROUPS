@@ -11,8 +11,10 @@ class ErrorBoundary extends React.Component {
     }
 
     componentDidCatch(error, errorInfo) {
-        this.setState({ error, errorInfo });
-        console.error("Uncaught error:", error, errorInfo);
+        if (import.meta.env.DEV) {
+            this.setState({ error, errorInfo });
+            console.error("Uncaught error:", error, errorInfo);
+        }
     }
 
     render() {
@@ -21,10 +23,16 @@ class ErrorBoundary extends React.Component {
                 <div className="min-h-screen bg-page-bg text-text-primary p-12 font-mono">
                     <h1 className="text-3xl text-error font-bold mb-4">Something went wrong.</h1>
                     <div className="bg-black/50 p-6 rounded-lg border border-error/30">
-                        <h2 className="text-xl font-bold mb-2">{this.state.error && this.state.error.toString()}</h2>
-                        <details className="whitespace-pre-wrap text-sm text-text-secondary">
-                            {this.state.errorInfo && this.state.errorInfo.componentStack}
-                        </details>
+                        {import.meta.env.DEV ? (
+                            <>
+                                <h2 className="text-xl font-bold mb-2">{this.state.error && this.state.error.toString()}</h2>
+                                <details className="whitespace-pre-wrap text-sm text-text-secondary">
+                                    {this.state.errorInfo && this.state.errorInfo.componentStack}
+                                </details>
+                            </>
+                        ) : (
+                            <p className="text-base">An unexpected error occurred. Please refresh the page or contact support if the problem persists.</p>
+                        )}
                     </div>
                 </div>
             );

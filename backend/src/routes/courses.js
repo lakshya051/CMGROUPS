@@ -46,6 +46,71 @@ router.get('/my-enrollments', protect, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// STUDENT — Apply for a course
+// (registered above /:id to prevent route shadowing)
+// ─────────────────────────────────────────────
+router.post('/apply', protect, async (req, res) => {
+    try {
+        const { courseId, durationId, batchId, name, email, phone, message, paymentMode, referralCode } = req.body;
+
+        const normalizedName = String(name || '').trim() || String(req.user?.name || '').trim();
+        const normalizedEmail = String(email || '').trim() || String(req.user?.email || '').trim();
+        const normalizedPhone = String(phone || '').trim() || String(req.user?.phone || '').trim();
+        const normalizedPaymentMode = String(paymentMode || '').trim();
+
+        if (!courseId || !durationId || !batchId || !normalizedName || !normalizedEmail || !normalizedPhone || !normalizedPaymentMode) {
+            return res.status(400).json({ error: 'courseId, durationId, batchId, name, email, phone, and paymentMode are required' });
+        }
+
+        const approvedCount = await prisma.courseApplication.count({
+            where: { batchId: parseInt(batchId), status: { in: ['Approved', 'Enrolled', 'Completed'] } }
+        });
+        const batch = await prisma.courseBatch.findUnique({ where: { id: parseInt(batchId) } });
+        if (!batch) return res.status(404).json({ error: 'Batch not found' });
+        if (approvedCount >= batch.seatLimit) {
+            return res.status(400).json({ error: 'This batch is full. Please select another batch.' });
+        }
+
+        const existing = await prisma.courseApplication.findFirst({
+            where: { userId: req.user.id, courseId: parseInt(courseId), status: { notIn: ['Rejected'] } }
+        });
+        if (existing) return res.status(400).json({ error: 'You have already applied for this course.' });
+
+        const application = await prisma.courseApplication.create({
+            data: {
+                userId: req.user.id,
+                courseId: parseInt(courseId),
+                durationId: parseInt(durationId),
+                batchId: parseInt(batchId),
+                name: normalizedName,
+                email: normalizedEmail,
+                phone: normalizedPhone,
+                message: typeof message === 'string' && message.trim() ? message.trim() : null,
+                paymentMode: normalizedPaymentMode,
+                referralCode: typeof referralCode === 'string' && referralCode.trim() ? referralCode.trim().toUpperCase() : null,
+                status: 'Pending'
+            },
+            include: { course: true, duration: true, batch: true }
+        });
+
+        await prisma.notification.create({
+            data: {
+                userId: req.user.id,
+                title: 'Application Submitted',
+                message: `Your application for ${application.course.title} has been received and is pending review.`,
+                type: 'course',
+                link: '/dashboard/courses'
+            }
+        }).catch(() => { });
+
+        res.status(201).json(application);
+    } catch (error) {
+        console.error('Apply course error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────
 // PUBLIC — Get all published courses
 // Supports: ?page=1&limit=12 (optional; omit for full list)
 // ─────────────────────────────────────────────
@@ -104,8 +169,8 @@ router.get('/', async (req, res) => {
 // PUBLIC — Get single course detail
 router.get('/:id', async (req, res) => {
     try {
-        const course = await prisma.course.findUnique({
-            where: { id: parseInt(req.params.id) },
+        const course = await prisma.course.findFirst({
+            where: { id: parseInt(req.params.id), isPublished: true },
             include: {
                 durations: {
                     include: {
@@ -122,73 +187,6 @@ router.get('/:id', async (req, res) => {
         res.json(course);
     } catch (error) {
         console.error('Get course error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// ─────────────────────────────────────────────
-// STUDENT — Apply for a course
-// ─────────────────────────────────────────────
-router.post('/apply', protect, async (req, res) => {
-    try {
-        const { courseId, durationId, batchId, name, email, phone, message, paymentMode, referralCode } = req.body;
-
-        const normalizedName = String(name || '').trim() || String(req.user?.name || '').trim();
-        const normalizedEmail = String(email || '').trim() || String(req.user?.email || '').trim();
-        const normalizedPhone = String(phone || '').trim() || String(req.user?.phone || '').trim();
-        const normalizedPaymentMode = String(paymentMode || '').trim();
-
-        if (!courseId || !durationId || !batchId || !normalizedName || !normalizedEmail || !normalizedPhone || !normalizedPaymentMode) {
-            return res.status(400).json({ error: 'courseId, durationId, batchId, name, email, phone, and paymentMode are required' });
-        }
-
-        // Check seat availability
-        const approvedCount = await prisma.courseApplication.count({
-            where: { batchId: parseInt(batchId), status: { in: ['Approved', 'Enrolled', 'Completed'] } }
-        });
-        const batch = await prisma.courseBatch.findUnique({ where: { id: parseInt(batchId) } });
-        if (!batch) return res.status(404).json({ error: 'Batch not found' });
-        if (approvedCount >= batch.seatLimit) {
-            return res.status(400).json({ error: 'This batch is full. Please select another batch.' });
-        }
-
-        // Check duplicate application
-        const existing = await prisma.courseApplication.findFirst({
-            where: { userId: req.user.id, courseId: parseInt(courseId), status: { notIn: ['Rejected'] } }
-        });
-        if (existing) return res.status(400).json({ error: 'You have already applied for this course.' });
-
-        const application = await prisma.courseApplication.create({
-            data: {
-                userId: req.user.id,
-                courseId: parseInt(courseId),
-                durationId: parseInt(durationId),
-                batchId: parseInt(batchId),
-                name: normalizedName,
-                email: normalizedEmail,
-                phone: normalizedPhone,
-                message: typeof message === 'string' && message.trim() ? message.trim() : null,
-                paymentMode: normalizedPaymentMode,
-                referralCode: typeof referralCode === 'string' && referralCode.trim() ? referralCode.trim() : null,
-                status: 'Pending'
-            },
-            include: { course: true, duration: true, batch: true }
-        });
-
-        // In-app notification
-        await prisma.notification.create({
-            data: {
-                userId: req.user.id,
-                title: 'Application Submitted',
-                message: `Your application for ${application.course.title} has been received and is pending review.`,
-                type: 'course',
-                link: '/dashboard/courses'
-            }
-        }).catch(() => { });
-
-        res.status(201).json(application);
-    } catch (error) {
-        console.error('Apply course error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -361,9 +359,15 @@ router.post('/applications/:id/fee', protect, adminOnly, async (req, res) => {
                     });
 
                     if (!existingReferral) {
-                        const { referrerPoints, refereePoints } = await calculateReferralReward({
+                        const settings = await tx.referralSettings.findFirst();
+                        const globalReferrer = settings?.pointsPerCourseEnrollment ?? 0;
+                        const globalReferee = globalReferrer ? Math.round(globalReferrer / 2) : 0;
+
+                        const { referrerPoints, refereePoints } = calculateReferralReward({
                             referrerPoints: application.course?.referrerPoints,
-                            refereePoints: application.course?.refereePoints
+                            refereePoints: application.course?.refereePoints,
+                            fallback: globalReferrer,
+                            fallbackReferee: globalReferee
                         });
 
                         if (referrerPoints > 0) {
@@ -465,7 +469,8 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         res.json(course);
     } catch (error) {
         console.error('Update course error:', error);
-        res.status(404).json({ error: 'Course not found' });
+        if (error.code === 'P2025') return res.status(404).json({ error: 'Course not found' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 

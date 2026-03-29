@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AuthPageLayout from '../components/auth/AuthPageLayout';
 import { needsPhoneCapture } from '../lib/authProfile';
@@ -17,8 +18,18 @@ export default function SignUp() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const { registerWithEmail, loginWithGoogle, firebaseConfigured } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        const ref = searchParams.get('ref');
+        if (ref) {
+            localStorage.setItem('referralCode', ref.trim().toUpperCase());
+        }
+    }, [searchParams]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -34,7 +45,8 @@ export default function SignUp() {
 
         setLoading(true);
         try {
-            await registerWithEmail(email, password, name.trim());
+            const refCode = localStorage.getItem('referralCode') || undefined;
+            await registerWithEmail(email, password, name.trim(), refCode);
             toast.success('Account created successfully!');
             navigate('/onboarding', { replace: true });
         } catch (err) {
@@ -53,7 +65,8 @@ export default function SignUp() {
 
     const handleGoogle = async () => {
         try {
-            const { user: dbUser } = await loginWithGoogle();
+            const refCode = localStorage.getItem('referralCode') || undefined;
+            const { user: dbUser } = await loginWithGoogle(refCode);
             navigate(needsPhoneCapture(dbUser) ? '/onboarding' : '/', { replace: true });
         } catch (err) {
             if (err.code === 'auth/popup-closed-by-user') return;
@@ -68,7 +81,7 @@ export default function SignUp() {
     return (
         <AuthPageLayout
             headline="Join the community"
-            subheadline="Create one account for shopping, learning, and booking tech services—tailored for how you actually use CMGROUPS."
+            subheadline="Create one account for shopping, learning, and booking tech services—tailored for how you actually use Shoptify."
         >
             <div className="mb-8">
                 <h1 className="font-heading text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
@@ -126,33 +139,53 @@ export default function SignUp() {
                     <label htmlFor="password" className={`${labelClass} mb-2 block`}>
                         Password
                     </label>
-                    <input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="At least 6 characters"
-                        required
-                        minLength={6}
-                        autoComplete="new-password"
-                        className={inputClass}
-                    />
+                    <div className="relative">
+                        <input
+                            id="password"
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="At least 6 characters"
+                            required
+                            minLength={6}
+                            autoComplete="new-password"
+                            className={`${inputClass} pr-11`}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
                 </div>
 
                 <div>
                     <label htmlFor="confirmPassword" className={`${labelClass} mb-2 block`}>
                         Confirm password
                     </label>
-                    <input
-                        id="confirmPassword"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Repeat password"
-                        required
-                        autoComplete="new-password"
-                        className={inputClass}
-                    />
+                    <div className="relative">
+                        <input
+                            id="confirmPassword"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Repeat password"
+                            required
+                            autoComplete="new-password"
+                            className={`${inputClass} pr-11`}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                        >
+                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
                 </div>
 
                 <button

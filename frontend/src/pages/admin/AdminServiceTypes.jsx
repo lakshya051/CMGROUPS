@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Plus, Trash2, X, Monitor, Cpu, Printer, HardDrive, Settings, CheckCircle, Edit2 } from 'lucide-react';
+import { Wrench, Plus, Trash2, X, Monitor, Cpu, Printer, HardDrive, Settings, CheckCircle, Edit2, ChevronDown, ChevronUp, ListPlus } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { serviceTypesAPI } from '../../lib/api';
 
 const ICON_OPTIONS = [
@@ -21,6 +22,172 @@ const iconMap = {
     Settings: <Settings size={28} />,
 };
 
+const PRESET_FIELDS = [
+    { name: 'deviceType', label: 'Device Type', type: 'select', required: false, options: ['Laptop', 'Desktop', 'Printer', 'Monitor', 'Other'] },
+    { name: 'deviceBrand', label: 'Brand', type: 'select', required: false, options: ['HP', 'Dell', 'Lenovo', 'Asus', 'Acer', 'Apple', 'Samsung', 'MSI', 'Other'] },
+    { name: 'modelNumber', label: 'Model Number', type: 'text', required: false, options: [] },
+    { name: 'serialNumber', label: 'Serial Number', type: 'text', required: false, options: [] },
+    { name: 'issueDescription', label: 'Describe Your Issue', type: 'textarea', required: false, options: [] },
+    { name: 'quantity', label: 'Quantity', type: 'number', required: false, options: [] },
+];
+
+const FIELD_TYPES = [
+    { value: 'text', label: 'Text' },
+    { value: 'textarea', label: 'Text Area' },
+    { value: 'number', label: 'Number' },
+    { value: 'select', label: 'Dropdown' },
+];
+
+const FormFieldBuilder = ({ fields, onChange }) => {
+    const [showPresets, setShowPresets] = useState(false);
+
+    const addField = (field) => {
+        const existing = fields.find(f => f.name === field.name);
+        if (existing) return;
+        onChange([...fields, { ...field }]);
+    };
+
+    const addCustomField = () => {
+        const id = `custom_${Date.now()}`;
+        onChange([...fields, { name: id, label: '', type: 'text', required: false, options: [] }]);
+    };
+
+    const updateField = (index, updates) => {
+        const updated = fields.map((f, i) => i === index ? { ...f, ...updates } : f);
+        onChange(updated);
+    };
+
+    const removeField = (index) => {
+        onChange(fields.filter((_, i) => i !== index));
+    };
+
+    const moveField = (index, dir) => {
+        const newFields = [...fields];
+        const target = index + dir;
+        if (target < 0 || target >= newFields.length) return;
+        [newFields[index], newFields[target]] = [newFields[target], newFields[index]];
+        onChange(newFields);
+    };
+
+    const usedNames = new Set(fields.map(f => f.name));
+    const availablePresets = PRESET_FIELDS.filter(p => !usedNames.has(p.name));
+
+    return (
+        <div className="space-y-4">
+            <div className="space-y-1">
+                <p className="text-sm font-bold text-text-primary">Booking form fields</p>
+                <p className="text-xs text-text-muted leading-relaxed">
+                    Choose what customers must fill for this service (besides name, phone, address, and time slot).
+                </p>
+            </div>
+
+            {fields.length === 0 && (
+                <div className="bg-page-bg border border-dashed border-border-default rounded-xl p-4 text-center">
+                    <p className="text-sm text-text-muted mb-1">No extra fields yet.</p>
+                    <p className="text-xs text-text-muted">Customers will only see booking basics until you add fields below.</p>
+                </div>
+            )}
+
+            {fields.map((field, idx) => (
+                <div key={field.name} className="bg-surface border border-border-default rounded-xl p-4 shadow-sm">
+                    <div className="flex gap-3">
+                        <div className="flex flex-col items-center justify-start gap-0.5 shrink-0 pt-1 border-r border-border-default pr-2">
+                            <button type="button" aria-label="Move up" onClick={() => moveField(idx, -1)} disabled={idx === 0} className="rounded-md p-1 text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-25 disabled:pointer-events-none">
+                                <ChevronUp size={16} />
+                            </button>
+                            <button type="button" aria-label="Move down" onClick={() => moveField(idx, 1)} disabled={idx === fields.length - 1} className="rounded-md p-1 text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-25 disabled:pointer-events-none">
+                                <ChevronDown size={16} />
+                            </button>
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-text-secondary mb-1.5">Label shown to customer</label>
+                                <input
+                                    type="text"
+                                    className="input-field text-sm bg-page-bg w-full"
+                                    placeholder="e.g. Printer model, Wi‑Fi issue"
+                                    value={field.label}
+                                    onChange={e => updateField(idx, { label: e.target.value })}
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                                <div>
+                                    <label className="block text-xs font-semibold text-text-secondary mb-1.5">Field type</label>
+                                    <select
+                                        className="input-field text-sm bg-page-bg w-full"
+                                        value={field.type}
+                                        onChange={e => updateField(idx, { type: e.target.value })}
+                                    >
+                                        {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                    </select>
+                                </div>
+                                <label className="flex items-center gap-2.5 pb-2.5 sm:pb-0 cursor-pointer select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={field.required}
+                                        onChange={e => updateField(idx, { required: e.target.checked })}
+                                        className="w-4 h-4 shrink-0 rounded border-border-default text-primary focus:ring-primary"
+                                    />
+                                    <span className="text-sm text-text-secondary">Required field</span>
+                                </label>
+                            </div>
+                            {field.type === 'select' && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-text-secondary mb-1.5">Dropdown options</label>
+                                    <input
+                                        type="text"
+                                        className="input-field text-sm bg-page-bg w-full"
+                                        placeholder="Comma-separated, e.g. HP, Canon, Epson, Other"
+                                        value={(field.options || []).join(', ')}
+                                        onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            aria-label="Remove"
+                            onClick={() => removeField(idx)}
+                            className="shrink-0 self-start rounded-lg p-2 text-text-muted hover:bg-red-50 hover:text-red-600 transition-colors"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
+                </div>
+            ))}
+
+            <div className="flex flex-wrap gap-2 pt-1">
+                <button type="button" onClick={addCustomField} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-trust border border-trust/30 hover:bg-trust/10 rounded-lg transition-colors">
+                    <Plus size={14} />Add custom field
+                </button>
+                {availablePresets.length > 0 && (
+                    <div className="relative">
+                        <button type="button" onClick={() => setShowPresets(!showPresets)} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-text-secondary border border-border-default hover:bg-surface-hover rounded-lg transition-colors">
+                            <ListPlus size={14} />Add preset field
+                            <ChevronDown size={14} className="opacity-60" />
+                        </button>
+                        {showPresets && (
+                            <div className="absolute top-full left-0 z-30 mt-1 max-h-56 overflow-y-auto bg-surface border border-border-default rounded-xl shadow-xl min-w-[min(100vw-2rem,240px)] py-1">
+                                {availablePresets.map(preset => (
+                                    <button
+                                        key={preset.name}
+                                        type="button"
+                                        onClick={() => { addField({ ...preset }); setShowPresets(false); }}
+                                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-surface-hover transition-colors flex items-center justify-between gap-2"
+                                    >
+                                        <span className="font-medium">{preset.label}</span>
+                                        <span className="text-[10px] uppercase tracking-wide text-text-muted shrink-0">{preset.type}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const AdminServiceTypes = () => {
     const [serviceTypes, setServiceTypes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -28,12 +195,14 @@ const AdminServiceTypes = () => {
     const [editingId, setEditingId] = useState(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
     const [form, setForm] = useState({
         title: '',
         description: '',
         icon: 'Wrench',
         price: '',
         features: '',
+        formFields: [],
         enableReferral: false,
         referrerPoints: '',
         refereePoints: '',
@@ -56,7 +225,7 @@ const AdminServiceTypes = () => {
     };
 
     const handleOpenCreate = () => {
-        setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '', enableReferral: false, referrerPoints: '', refereePoints: '', sellerName: '', active: true });
+        setForm({ title: '', description: '', icon: 'Wrench', price: '', features: '', formFields: [], enableReferral: false, referrerPoints: '', refereePoints: '', sellerName: '', active: true });
         setEditingId(null);
         setError('');
         setShowModal(true);
@@ -69,6 +238,7 @@ const AdminServiceTypes = () => {
             icon: st.icon || 'Wrench',
             price: st.price || '',
             features: st.features ? st.features.join('\n') : '',
+            formFields: Array.isArray(st.formFields) ? st.formFields : [],
             enableReferral: !!(st.referrerPoints || st.refereePoints),
             referrerPoints: st.referrerPoints || '',
             refereePoints: st.refereePoints || '',
@@ -90,12 +260,23 @@ const AdminServiceTypes = () => {
                 .map(f => f.trim())
                 .filter(f => f.length > 0);
 
+            const cleanedFields = (form.formFields || [])
+                .filter(f => f.label && f.label.trim())
+                .map(f => ({
+                    name: f.name || `field_${f.label.trim().toLowerCase().replace(/\s+/g, '_')}_${Math.random().toString(36).slice(2, 7)}`,
+                    label: f.label.trim(),
+                    type: f.type || 'text',
+                    required: !!f.required,
+                    options: f.type === 'select' ? (f.options || []) : []
+                }));
+
             const payload = {
                 title: form.title,
                 description: form.description || null,
                 icon: form.icon,
                 price: form.price || null,
                 features: featuresArray,
+                formFields: cleanedFields,
                 referrerPoints: form.enableReferral && form.referrerPoints ? parseFloat(form.referrerPoints) : null,
                 refereePoints: form.enableReferral && form.refereePoints ? parseFloat(form.refereePoints) : null,
                 sellerName: form.sellerName?.trim() || null,
@@ -117,14 +298,21 @@ const AdminServiceTypes = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Delete this service type?')) return;
-        try {
-            await serviceTypesAPI.delete(id);
-            setServiceTypes(prev => prev.filter(s => s.id !== id));
-        } catch (err) {
-            console.error('Failed to delete:', err);
-        }
+    const handleDelete = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete service type?',
+            message: 'Delete this service type?',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await serviceTypesAPI.delete(id);
+                    setServiceTypes(prev => prev.filter(s => s.id !== id));
+                } catch (err) {
+                    console.error('Failed to delete:', err);
+                }
+            },
+        });
     };
 
     if (loading) return <div className="p-8 text-center text-text-muted">Loading Service Types...</div>;
@@ -181,10 +369,15 @@ const AdminServiceTypes = () => {
                             </ul>
                         )}
 
-                        <div className="mt-4 pt-3 border-t border-border-default">
+                        <div className="mt-4 pt-3 border-t border-border-default flex items-center gap-2 flex-wrap">
                             <span className={`text-xs px-2 py-1 rounded ${st.active ? 'bg-success/10 text-success' : 'bg-page-bg text-text-muted border border-border-default'}`}>
                                 {st.active ? 'Active' : 'Inactive'}
                             </span>
+                            {Array.isArray(st.formFields) && st.formFields.length > 0 && (
+                                <span className="text-xs px-2 py-1 rounded bg-trust/10 text-trust border border-trust/20">
+                                    {st.formFields.length} custom field{st.formFields.length !== 1 ? 's' : ''}
+                                </span>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -201,13 +394,14 @@ const AdminServiceTypes = () => {
 
             {/* Create Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="glass-panel w-full max-w-lg relative animate-in zoom-in duration-300">
-                        <div className="p-6 border-b border-border-default flex items-center justify-between">
-                            <h2 className="text-xl font-bold">{editingId ? 'Edit Service Type' : 'Create Service Type'}</h2>
-                            <button onClick={() => setShowModal(false)}><X size={20} /></button>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 overflow-y-auto">
+                    <div className="glass-panel w-full max-w-lg max-h-[min(90vh,900px)] min-h-0 flex flex-col overflow-hidden my-auto relative animate-in zoom-in duration-300 shadow-2xl">
+                        <div className="p-5 sm:p-6 border-b border-border-default flex items-center justify-between gap-3 shrink-0">
+                            <h2 className="text-xl font-bold pr-2">{editingId ? 'Edit Service Type' : 'Create Service Type'}</h2>
+                            <button type="button" onClick={() => setShowModal(false)} className="p-1 rounded-lg hover:bg-surface-hover shrink-0" aria-label="Close"><X size={20} /></button>
                         </div>
-                        <form onSubmit={handleSave} className="p-6 space-y-4">
+                        <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                            <div className="overflow-y-auto overscroll-contain px-5 sm:px-6 py-4 space-y-4 flex-1 min-h-0">
                             {error && <div className="text-red-500 text-sm bg-red-50 p-2 rounded">{error}</div>}
 
                             <div>
@@ -324,13 +518,30 @@ const AdminServiceTypes = () => {
                                 />
                             </div>
 
-                            <Button type="submit" className="w-full" disabled={saving}>
-                                {saving ? 'Creating...' : 'Create Service Type'}
-                            </Button>
+                            <div className="border-t border-border-default pt-5 mt-1">
+                                <FormFieldBuilder
+                                    fields={form.formFields || []}
+                                    onChange={(fields) => setForm({ ...form, formFields: fields })}
+                                />
+                            </div>
+                            </div>
+
+                            <div className="shrink-0 border-t border-border-default bg-surface/80 backdrop-blur-sm px-5 sm:px-6 py-4 rounded-b-xl">
+                                <Button type="submit" className="w-full" disabled={saving}>
+                                    {saving ? (editingId ? 'Saving...' : 'Creating...') : (editingId ? 'Save Changes' : 'Create Service Type')}
+                                </Button>
+                            </div>
                         </form>
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };

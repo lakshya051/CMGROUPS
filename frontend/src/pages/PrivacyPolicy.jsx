@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useSEO } from '../hooks/useSEO';
 
 export default function PrivacyPolicy() {
-    useSEO({ title: 'Privacy Policy — CMGROUPS', description: 'How CMGROUPS collects, uses and protects your personal information.' });
+    useSEO({ title: 'Privacy Policy — Shoptify', description: 'How Shoptify collects, uses and protects your personal information.' });
     useEffect(() => { window.scrollTo(0, 0); }, []);
 
     return (
@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
                     <section>
                         <h2 className="text-xl font-heading font-bold mt-0">1. Introduction</h2>
                         <p className="text-text-secondary leading-relaxed">
-                            CMGROUPS ("we", "our", or "us") operates the CMGROUPS application and website
+                            CMGroups ("we", "our", or "us") operates the Shoptify application and website
                             (collectively, the "Service"). This Privacy Policy explains how we collect, use,
                             disclose, and safeguard your information when you use our Service.
                         </p>

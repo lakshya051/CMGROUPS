@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Search, Shield, ShieldOff, ShoppingBag, Star, Wrench, Gift, Wallet, Copy, CheckCircle, Eye, X } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
@@ -25,6 +26,7 @@ const AdminUsers = () => {
     const [userDetails, setUserDetails] = useState(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [activeTab, setActiveTab] = useState('overview'); // overview, orders, referrals, wallet, services
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
@@ -61,16 +63,23 @@ const AdminUsers = () => {
         fetchUsers();
     }, [page, debouncedSearch]);
 
-    const handleRoleToggle = async (user) => {
+    const handleRoleToggle = (user) => {
         const newRole = user.role === 'admin' ? 'customer' : 'admin';
-        if (!window.confirm(`Change ${user.name || user.email || 'this user'}'s role to ${newRole}?`)) return;
-
-        try {
-            await adminAPI.updateUserRole(user.id, newRole);
-            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
-        } catch (err) {
-            alert(err.message);
-        }
+        const label = user.name || user.email || 'this user';
+        setConfirmState({
+            isOpen: true,
+            title: 'Change user role?',
+            message: `Change ${label}'s role to ${newRole}?`,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await adminAPI.updateUserRole(user.id, newRole);
+                    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
+                } catch (err) {
+                    alert(err.message);
+                }
+            },
+        });
     };
 
     const copyCode = (code) => {
@@ -500,6 +509,13 @@ const AdminUsers = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };

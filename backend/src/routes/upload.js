@@ -3,9 +3,11 @@ import { protect, adminOnly } from '../middleware/auth.js';
 import { uploadImage, deleteImage, getPublicIdFromUrl } from '../utils/cloudinary.js';
 
 const router = express.Router();
+const UPLOAD_JSON_LIMIT = express.json({ limit: '10mb' });
+const VALID_FOLDER_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 // POST /api/upload — upload a single image (base64)
-router.post('/', protect, adminOnly, async (req, res) => {
+router.post('/', UPLOAD_JSON_LIMIT, protect, adminOnly, async (req, res) => {
     try {
         const { image, folder } = req.body;
 
@@ -13,7 +15,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'image (base64 data URI) is required' });
         }
 
-        const url = await uploadImage(image, folder || 'products');
+        const safeFolder = (folder && VALID_FOLDER_PATTERN.test(folder)) ? folder : 'products';
+        const url = await uploadImage(image, safeFolder);
         res.json({ url });
     } catch (error) {
         console.error('Upload error:', error);
@@ -23,7 +26,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 });
 
 // POST /api/upload/multiple — upload multiple images
-router.post('/multiple', protect, adminOnly, async (req, res) => {
+router.post('/multiple', UPLOAD_JSON_LIMIT, protect, adminOnly, async (req, res) => {
     try {
         const { images, folder } = req.body;
 
@@ -35,8 +38,9 @@ router.post('/multiple', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Maximum 10 images allowed per upload' });
         }
 
+        const safeFolder = (folder && VALID_FOLDER_PATTERN.test(folder)) ? folder : 'products';
         const urls = await Promise.all(
-            images.map(img => uploadImage(img, folder || 'products'))
+            images.map(img => uploadImage(img, safeFolder))
         );
 
         res.json({ urls });

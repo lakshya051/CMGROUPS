@@ -29,20 +29,23 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
           npm install
+          npm audit --audit-level=high || true
           npm run build
 
       - name: Sync Capacitor
         working-directory: ./frontend
         run: npx cap sync android
 
-      - name: Build APK (Gradle)
+      - name: Build Release APK (Gradle)
         working-directory: ./frontend/android
-        # This command actually builds the Android app file
-        run: ./gradlew assembleDebug 
+        env:
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+        run: ./gradlew assembleRelease
 
       - name: Upload APK to GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: TechNova-App
-          # This tells GitHub where to find the generated file and make it downloadable
-          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          name: Shoptify-App
+          path: frontend/android/app/build/outputs/apk/release/app-release.apk

@@ -13,11 +13,12 @@ import ProductRow from '../components/home/ProductRow';
 import ServicesShowcase from '../components/home/ServicesShowcase';
 import AcademyTeaser from '../components/home/AcademyTeaser';
 import BrandStrip from '../components/home/BrandStrip';
+import OurBusinesses from '../components/home/OurBusinesses';
 import B2BStrip from '../components/home/B2BStrip';
 import PWAInstallSection from '../components/home/PWAInstallSection';
 
 const Home = () => {
-    useSEO({ title: 'CMGROUPS — Shop, Services & Courses in Etah', description: 'Your one-stop destination for computers, tech services, CCTV, Tally Prime and professional courses in Etah.' });
+    useSEO({ title: 'Shoptify — Shop, Services & Courses in Etah', description: 'Your one-stop destination for computers, tech services, CCTV, Tally Prime and professional courses in Etah.' });
     const [bestSellers, setBestSellers] = useState([]);
     const [bestSellersLoading, setBestSellersLoading] = useState(true);
     const [bestSellersError, setBestSellersError] = useState(false);
@@ -79,6 +80,9 @@ const Home = () => {
 
             {/* 4. What We Offer — 4 verticals */}
             <WhatWeOffer />
+
+            {/* 4.5. Our Businesses */}
+            <OurBusinesses />
 
             {/* 5. Shop by Category */}
             <CategoryGrid />

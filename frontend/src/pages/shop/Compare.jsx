@@ -74,6 +74,7 @@ const Compare = () => {
                                     <button
                                         onClick={() => removeFromCompare(p.id)}
                                         className="absolute top-2 right-2 p-1.5 bg-page-bg hover:bg-error hover:text-white rounded-full transition-colors z-20 border border-border-default"
+                                        aria-label="Remove"
                                     >
                                         <X size={14} />
                                     </button>
@@ -93,16 +94,26 @@ const Compare = () => {
                                             {p.title}
                                         </Link>
                                         <div className="text-xl font-bold text-text-primary mb-4">
-                                            ₹{p.price.toLocaleString()}
+                                            ₹{(p.displayPrice || p.price).toLocaleString()}
                                         </div>
                                         <Button
                                             size="sm"
                                             className="w-full gap-2"
-                                            disabled={p.stock === 0}
-                                            onClick={() => addToCart(p)}
+                                            disabled={(p.totalStock ?? p.stock) === 0 || (p.hasVariants && p.variants?.length > 1)}
+                                            onClick={() => {
+                                                if (p.hasVariants && p.variants?.length === 1) {
+                                                    addToCart(p, 1, p.variants[0]);
+                                                } else if (!p.hasVariants) {
+                                                    addToCart(p);
+                                                }
+                                            }}
                                         >
                                             <ShoppingCart size={16} />
-                                            {p.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                                            {(p.totalStock ?? p.stock) === 0
+                                                ? 'Out of Stock'
+                                                : p.hasVariants && p.variants?.length > 1
+                                                    ? 'View Options'
+                                                    : 'Add to Cart'}
                                         </Button>
                                     </div>
                                 </th>

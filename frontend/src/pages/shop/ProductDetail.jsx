@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { alertsAPI, productsAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import PriceDisplay from '../../components/common/PriceDisplay';
-import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight } from 'lucide-react';
+import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight, Award, Zap, Truck, ShieldCheck } from 'lucide-react';
 import ReviewSection from '../../components/shop/ReviewSection';
 import { RECENTLY_VIEWED_KEY } from '../../constants';
 import { handleImageError } from '../../utils/image';
@@ -350,6 +350,21 @@ const ProductDetail = () => {
                         </Button>
                     </div>
 
+                    {(product.referrerPoints > 0 || product.refereePoints > 0) && (
+                        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                            <Award size={18} className="text-amber-600 flex-shrink-0" />
+                            <div className="text-sm">
+                                {product.referrerPoints > 0 && (
+                                    <span className="font-semibold text-amber-700">Earn {product.referrerPoints} points</span>
+                                )}
+                                {product.referrerPoints > 0 && product.refereePoints > 0 && <span className="text-amber-600"> · </span>}
+                                {product.refereePoints > 0 && (
+                                    <span className="text-amber-600">Referred buyer gets {product.refereePoints} points</span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <p className="text-text-secondary leading-relaxed text-lg">
                         {product.description}
                     </p>
@@ -530,7 +545,7 @@ const ProductDetail = () => {
                             size="lg"
                             onClick={() => toggleWishlist(product.id)}
                             className={isWishlisted ? "border-trust text-trust" : ""}
-                            title="Wishlist"
+                            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
                         >
                             <Heart size={20} fill={isWishlisted ? "currentColor" : "none"} />
                         </Button>
@@ -538,7 +553,7 @@ const ProductDetail = () => {
                             variant="outline"
                             size="lg"
                             onClick={() => addToCompare(product.id)}
-                            title="Compare"
+                            aria-label="Compare"
                         >
                             <ArrowLeftRight size={20} />
                         </Button>
@@ -561,12 +576,21 @@ const ProductDetail = () => {
 
                     {/* Benefits */}
                     <div className="pt-6 space-y-3">
-                        <div className="flex items-center gap-3 text-sm text-text-muted">
-                            <CheckCircle size={16} className="text-success" />
-                            <span>Free Priority Shipping</span>
+                        <div className="flex items-center gap-3 bg-trust/5 border border-trust/20 rounded-xl px-4 py-3">
+                            <div className="w-9 h-9 rounded-full bg-trust/10 flex items-center justify-center flex-shrink-0">
+                                <Zap size={18} className="text-trust" />
+                            </div>
+                            <div>
+                                <span className="text-sm font-bold text-trust">1-Day Express Delivery</span>
+                                <p className="text-xs text-text-muted">Order now, get it by tomorrow</p>
+                            </div>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-text-muted">
-                            <CheckCircle size={16} className="text-success" />
+                            <Truck size={16} className="text-success" />
+                            <span>Free Shipping on orders above ₹499</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-text-muted">
+                            <ShieldCheck size={16} className="text-success" />
                             <span>2 Year Replacement Warranty</span>
                         </div>
                     </div>

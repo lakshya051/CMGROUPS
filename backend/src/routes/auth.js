@@ -20,7 +20,7 @@ router.post('/register', async (req, res) => {
 
         const token = authHeader.split('Bearer ')[1];
         const decoded = await admin.auth().verifyIdToken(token);
-        const { name } = req.body;
+        const { name, referredByCode } = req.body;
 
         // 1. Already linked by firebaseUid — return existing user
         const byUid = await prisma.user.findUnique({
@@ -73,12 +73,21 @@ router.post('/register', async (req, res) => {
             if (!found) unique = true;
         }
 
+        let referredById = null;
+        if (referredByCode) {
+            const referrer = await prisma.user.findFirst({
+                where: { referralCode: referredByCode.trim().toUpperCase() },
+            });
+            if (referrer) referredById = referrer.id;
+        }
+
         const newUser = await prisma.user.create({
             data: {
                 firebaseUid: decoded.uid,
                 email: decoded.email || `firebase_${decoded.uid}@noemail.local`,
                 name: name || decoded.name || null,
                 referralCode,
+                referredById,
                 role: 'customer',
             },
         });

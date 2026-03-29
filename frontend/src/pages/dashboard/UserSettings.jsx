@@ -98,7 +98,7 @@ const UserSettings = () => {
                                 />
                             </div>
                             {formik.touched.name && formik.errors.name && (
-                                <p className="text-red-400 text-sm mt-1">{formik.errors.name}</p>
+                                <p className="text-error text-sm mt-1">{formik.errors.name}</p>
                             )}
                         </div>
 
@@ -131,7 +131,7 @@ const UserSettings = () => {
                                 />
                             </div>
                             {formik.touched.phone && formik.errors.phone && (
-                                <p className="text-red-400 text-sm mt-1">{formik.errors.phone}</p>
+                                <p className="text-error text-sm mt-1">{formik.errors.phone}</p>
                             )}
                         </div>
                     </div>
@@ -156,7 +156,7 @@ const UserSettings = () => {
                                 placeholder="••••••••"
                             />
                             {formik.touched.currentPassword && formik.errors.currentPassword && (
-                                <p className="text-red-400 text-sm mt-1">{formik.errors.currentPassword}</p>
+                                <p className="text-error text-sm mt-1">{formik.errors.currentPassword}</p>
                             )}
                         </div>
                         <div className="space-y-1">
@@ -171,7 +171,7 @@ const UserSettings = () => {
                                 placeholder="Leave blank to keep current"
                             />
                             {formik.touched.newPassword && formik.errors.newPassword && (
-                                <p className="text-red-400 text-sm mt-1">{formik.errors.newPassword}</p>
+                                <p className="text-error text-sm mt-1">{formik.errors.newPassword}</p>
                             )}
                         </div>
                     </div>

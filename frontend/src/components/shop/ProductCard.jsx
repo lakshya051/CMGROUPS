@@ -2,7 +2,7 @@ import React, { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 import PriceDisplay from '../common/PriceDisplay';
-import { Heart, ShoppingCart, Star, ArrowLeftRight, Eye, Bell } from 'lucide-react';
+import { Heart, ShoppingCart, Star, ArrowLeftRight, Eye, Bell, Zap } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { handleImageError } from '../../utils/image';
 
@@ -105,6 +105,7 @@ const ProductCard = ({ product }) => {
                 <button
                     onClick={handleWishlistToggle}
                     className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-colors z-10 ${isWishlisted ? 'bg-primary/20 text-primary' : 'bg-black/20 text-text-main hover:bg-primary hover:text-text-main'}`}
+                    aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                 >
                     <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
                 </button>
@@ -157,6 +158,20 @@ const ProductCard = ({ product }) => {
                     )}
                 </Link>
 
+                {(product.referrerPoints > 0 || product.refereePoints > 0) && (
+                    <div className="flex items-center gap-1 mt-2 text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 w-fit">
+                        <Star size={10} fill="currentColor" />
+                        Earn up to {Math.max(product.referrerPoints || 0, product.refereePoints || 0)} pts
+                    </div>
+                )}
+
+                {!isOutOfStock && (
+                    <div className="flex items-center gap-1.5 mt-2 text-[11px] text-trust font-medium">
+                        <Zap size={12} className="text-trust" />
+                        <span>1-Day Delivery</span>
+                    </div>
+                )}
+
                 <div className="flex items-end justify-between mt-4 gap-4">
                     <div className="flex flex-col">
                         {(isVariableProduct || hasMultipleVariants) && <span className="text-xs text-text-muted">From</span>}
@@ -171,7 +186,7 @@ const ProductCard = ({ product }) => {
                         <button
                             className="rounded-full h-10 w-10 p-0 flex items-center justify-center border border-border-default text-text-muted hover:text-primary hover:border-primary shrink-0 transition-colors"
                             onClick={handleCompare}
-                            title="Compare"
+                            aria-label="Compare product"
                         >
                             <ArrowLeftRight size={16} />
                         </button>
@@ -186,7 +201,7 @@ const ProductCard = ({ product }) => {
                                         : 'bg-surface-hover hover:bg-buy-primary text-text-primary hover:text-white'
                             }`}
                             onClick={handleAddToCart}
-                            title={isOutOfStock ? ((isVariableProduct || hasMultipleVariants) ? "View Options" : "Out of Stock") : (isVariableProduct || hasMultipleVariants) ? "Select Option" : "Add to Cart"}
+                            aria-label={isOutOfStock ? ((isVariableProduct || hasMultipleVariants) ? "View Options" : "Out of Stock") : (isVariableProduct || hasMultipleVariants) ? "Select Option" : "Add to Cart"}
                         >
                             {(isVariableProduct || hasMultipleVariants) ? <Eye size={18} /> : <ShoppingCart size={18} />}
                         </Button>

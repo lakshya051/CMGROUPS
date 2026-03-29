@@ -23,7 +23,14 @@ const apiFetch = async (endpoint, options = {}) => {
         headers: { ...headers, ...options.headers }
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data = {};
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch {
+        if (!response.ok) throw new Error('Something went wrong');
+        return text;
+    }
 
     if (!response.ok) {
         throw new Error(data.error || 'Something went wrong');
@@ -189,15 +196,16 @@ export const ordersAPI = {
         });
 
         if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || 'Failed to download invoice');
+            let msg = 'Failed to download invoice';
+            try { const data = await response.json(); msg = data.error || msg; } catch { /* non-JSON error body */ }
+            throw new Error(msg);
         }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `CMGROUPS_Invoice_${id}.pdf`;
+        a.download = `Shoptify_Invoice_${id}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -318,8 +326,19 @@ export const servicesAPI = {
             body: JSON.stringify({ otp })
         }),
 
+    getBooking: (id) => apiFetch(`/services/${id}`),
+
     regenerateOtp: (id) =>
         apiFetch(`/services/${id}/regenerate-otp`, { method: 'POST' }),
+
+    verifyDeliveryOtp: (id, otp) =>
+        apiFetch(`/services/${id}/verify-delivery-otp`, {
+            method: 'POST',
+            body: JSON.stringify({ otp })
+        }),
+
+    regenerateDeliveryOtp: (id) =>
+        apiFetch(`/services/${id}/regenerate-delivery-otp`, { method: 'POST' }),
 
     cancelBooking: (id, cancellationReason) =>
         apiFetch(`/services/${id}/status`, {
@@ -378,8 +397,9 @@ export const coursesAPI = {
             headers
         });
         if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || 'Failed to download certificate');
+            let msg = 'Failed to download certificate';
+            try { const data = await response.json(); msg = data.error || msg; } catch { /* non-JSON error body */ }
+            throw new Error(msg);
         }
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);

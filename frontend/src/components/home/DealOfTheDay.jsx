@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { productsAPI } from '../../lib/api';
 import { useShop } from '../../context/ShopContext';
-import { ShoppingCart, Clock, ChevronLeft, ChevronRight, Flame } from 'lucide-react';
+import { ShoppingCart, Clock, ChevronLeft, ChevronRight, Flame, Zap } from 'lucide-react';
 import PriceDisplay from '../common/PriceDisplay';
 import { handleImageError } from '../../utils/image';
 
@@ -110,6 +110,10 @@ const DealCard = ({ product }) => {
                 </h3>
                 {(isVariableProduct || hasMultipleVariants) && <span className="text-xs text-text-muted">From </span>}
                 <PriceDisplay sellingPrice={displayPrice} originalPrice={displayOriginalPrice} size="sm" showBadge={true} />
+                <div className="flex items-center gap-1 text-[11px] text-trust font-medium">
+                    <Zap size={10} />
+                    <span>1-Day Delivery</span>
+                </div>
                 <button
                     onClick={handleAdd}
                     className="w-full flex items-center justify-center gap-1.5 py-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold text-xs rounded-lg transition-colors"
@@ -167,12 +171,17 @@ const DealOfTheDay = () => {
                         </div>
                         <CountdownTimer />
                     </div>
-                    <Link
-                        to="/products?sort=price_asc"
-                        className="text-sm font-semibold text-deal hover:underline flex-shrink-0"
-                    >
-                        View All Deals →
-                    </Link>
+                    <div className="flex items-center gap-3">
+                        <span className="hidden sm:flex items-center gap-1 text-xs font-semibold text-trust bg-trust/10 px-2.5 py-1 rounded-full border border-trust/20">
+                            <Zap size={12} /> 1-Day Delivery
+                        </span>
+                        <Link
+                            to="/products?sort=price_asc"
+                            className="text-sm font-semibold text-deal hover:underline flex-shrink-0"
+                        >
+                            View All Deals →
+                        </Link>
+                    </div>
                 </div>
 
                 {loading ? (

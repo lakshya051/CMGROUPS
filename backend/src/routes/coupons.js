@@ -99,14 +99,23 @@ router.post('/validate', validateLimiter, async (req, res) => {
         const coupon = await prisma.coupon.findUnique({ where: { code: code.toUpperCase() } });
 
         if (!coupon || !coupon.active) {
-            return res.status(400).json({ error: 'Invalid or expired coupon' });
+            return res.status(400).json({ error: 'Invalid or inactive coupon' });
+        }
+
+        if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+            return res.status(400).json({ error: 'Coupon has expired' });
+        }
+
+        if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) {
+            return res.status(400).json({ error: 'Coupon usage limit reached' });
         }
 
         res.json({
             valid: true,
             discountType: coupon.discountType,
             value: coupon.value,
-            code: coupon.code
+            code: coupon.code,
+            minOrderAmount: coupon.minOrderAmount,
         });
     } catch (error) {
         console.error('Validate coupon error:', error);

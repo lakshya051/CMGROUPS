@@ -18,7 +18,7 @@ export function generateServiceInvoicePdf(booking, invoiceData, sellerName) {
             doc.on('end', () => resolve(Buffer.concat(buffers)));
             doc.on('error', reject);
 
-            const companyName = sellerName || 'CMGROUPS';
+            const companyName = sellerName || 'Shoptify';
 
             // ── Header ──────────────────────────────────────────────────────
             doc

@@ -36,6 +36,10 @@ export default {
                 'badge-choice':         '#1a1a1a',
                 'badge-choice-text':    '#C7A33A',
                 'discount-green':       '#16a34a',
+                'auth-bg':              '#07060b',
+                'whatsapp':             '#25D366',
+                'chart-blue':           '#3B82F6',
+                'chart-purple':         '#8B5CF6',
             },
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],

@@ -62,7 +62,7 @@ function FilterSidebar({
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
           fixed lg:sticky top-0 lg:top-24 left-0
-          w-[280px] lg:w-[240px] h-full lg:h-auto lg:max-h-[calc(100vh-6rem)]
+          w-[280px] lg:w-[240px] h-full lg:h-auto lg:max-h-[calc(100dvh-6rem)]
           overflow-y-auto bg-surface lg:bg-transparent
           z-50 lg:z-auto
           p-lg lg:p-0
@@ -79,6 +79,7 @@ function FilterSidebar({
                     <button
                         onClick={onCloseMobile}
                         className="p-xs rounded hover:bg-surface-hover transition-colors duration-fast"
+                        aria-label="Close filters"
                     >
                         <X size={20} className="text-text-secondary" />
                     </button>
@@ -151,6 +152,7 @@ function FilterSidebar({
                                     placeholder="Search categories..."
                                     value={categorySearch}
                                     onChange={e => setCategorySearch(e.target.value)}
+                                    aria-label="Search categories"
                                     className="w-full pl-xl pr-sm py-xs text-sm border border-border-default rounded bg-surface focus:outline-none focus:border-trust transition-colors duration-fast"
                                 />
                             </div>

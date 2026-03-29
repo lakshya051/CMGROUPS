@@ -1,8 +1,8 @@
 import React from 'react';
-import { Truck, Wrench, GraduationCap, Star } from 'lucide-react';
+import { Zap, Wrench, GraduationCap, Star } from 'lucide-react';
 
 const TRUST_ITEMS = [
-    { icon: Truck, label: 'Free Delivery', desc: 'On orders above ₹499' },
+    { icon: Zap, label: '1-Day Delivery', desc: 'Fast & free above ₹499' },
     { icon: Wrench, label: 'Expert Technicians', desc: 'Certified repairs in Etah' },
     { icon: GraduationCap, label: 'Certified Courses', desc: 'Learn with certificate' },
     { icon: Star, label: '500+ Customers', desc: 'Trusted across Etah' },

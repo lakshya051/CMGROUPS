@@ -71,7 +71,7 @@ export default function OnboardingPage() {
                     {error && <p className="text-deal text-sm">{error}</p>}
                     <button type="submit" disabled={loading}
                         className="w-full bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold py-sm rounded transition-colors duration-base disabled:opacity-50">
-                        {loading ? 'Saving...' : 'Continue to CMGROUPS →'}
+                        {loading ? 'Saving...' : 'Continue to Shoptify →'}
                     </button>
                 </form>
             </div>

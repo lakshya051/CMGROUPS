@@ -63,7 +63,7 @@ router.get('/my-stats', protect, async (req, res) => {
             serviceReferrals,
             totalEarnings: totalEarnings._sum.rewardAmount || 0,
             myReceivedEarnings: myReceivedEarnings._sum.refereeReward || 0,
-            referralLink: `${baseUrl}/signup?ref=${user.referralCode}`
+            referralLink: user.referralCode ? `${baseUrl}/sign-up?ref=${user.referralCode}` : null
         });
     } catch (error) {
         console.error('Get referral stats error:', error);

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_URL;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // ── Config — change these two values ──────────────────────────────────
 const CITY = 'Etah';
@@ -130,7 +130,7 @@ const FAQItem = ({ q, a }) => {
 // Main Page
 // ─────────────────────────────────────────────
 const TallyERP = () => {
-    useSEO({ title: 'Tally Prime Dealer in Etah — CMGROUPS', description: 'Authorized Tally Prime dealer in Etah. Buy genuine licenses with free installation, training and local support.' });
+    useSEO({ title: 'Tally Prime Dealer in Etah — Shoptify', description: 'Authorized Tally Prime dealer in Etah. Buy genuine licenses with free installation, training and local support.' });
     const formRef = useRef(null);
     const [licensePreset, setLicensePreset] = useState('');
     const [form, setForm] = useState({ name: '', businessName: '', phone: '', city: '', licenseType: '', message: '' });
@@ -171,10 +171,6 @@ const TallyERP = () => {
     };
 
     return (
-        <>
-            {/* SEO meta (basic head injection) */}
-            <title>{`Tally Prime Software Dealer in ${CITY} | Genuine License with Free Installation`}</title>
-
             <div className="min-h-screen">
 
                 {/* ── SECTION 1: Hero ──────────────────────────────── */}
@@ -436,7 +432,7 @@ const TallyERP = () => {
                 <section className="py-xl px-lg bg-page-bg">
                     <div className="container mx-auto max-w-2xl">
                         <div className="bg-surface border border-border-default rounded-lg shadow-sm p-lg text-center hover:shadow-md transition-shadow">
-                            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-md text-white" style={{ backgroundColor: '#25D366' }}>
+                            <div className="w-16 h-16 rounded-full bg-whatsapp flex items-center justify-center mx-auto mb-md text-white">
                                 <WhatsAppIcon size={32} />
                             </div>
                             <h2 className="text-xl font-bold text-text-primary mb-xs">Prefer to Talk Directly?</h2>
@@ -492,7 +488,6 @@ const TallyERP = () => {
                 </section>
 
             </div>
-        </>
     );
 };
 

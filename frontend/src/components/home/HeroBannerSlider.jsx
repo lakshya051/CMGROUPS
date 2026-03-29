@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Monitor, Wrench, GraduationCap } from 'lucid
 import { Link } from 'react-router-dom';
 import { bannersAPI } from '../../lib/api';
 import { handleImageError } from '../../utils/image';
+import { toSafeInternalPath } from '../../utils/sanitize';
 
 const FALLBACK_SLIDES = [
     {
@@ -140,7 +141,7 @@ const HeroBannerSlider = () => {
                                         {slide.subtitle || slide.subline}
                                     </p>
                                     <Link
-                                        to={slide.ctaLink || slide.link || '/products'}
+                                        to={toSafeInternalPath(slide.ctaLink || slide.link) || '/products'}
                                         className="inline-block mt-2 px-6 py-2.5 sm:px-8 sm:py-3 bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold rounded-lg text-sm sm:text-base transition-colors duration-base shadow-lg"
                                     >
                                         {slide.ctaLabel || slide.cta || 'Shop Now'}

@@ -17,7 +17,7 @@ const ApplicationForm = ({ course, duration, onClose, onSuccess }) => {
             name: user?.name || '',
             email: user?.email || '',
             phone: user?.phone || '',
-            referralCode: '',
+            referralCode: localStorage.getItem('referralCode') || '',
             message: ''
         },
         validate: (values) => {
@@ -77,7 +77,7 @@ const ApplicationForm = ({ course, duration, onClose, onSuccess }) => {
                         <h2 className="text-xl font-bold text-text-primary">Apply for Course</h2>
                         <p className="text-sm text-text-secondary">{course.title} — {duration.label}</p>
                     </div>
-                    <button onClick={onClose} className="p-xs hover:bg-surface-hover text-text-muted hover:text-text-primary rounded transition-colors"><X size={20} /></button>
+                    <button onClick={onClose} className="p-xs hover:bg-surface-hover text-text-muted hover:text-text-primary rounded transition-colors" aria-label="Close application form"><X size={20} /></button>
                 </div>
 
                 <form onSubmit={formik.handleSubmit} className="p-md space-y-md">

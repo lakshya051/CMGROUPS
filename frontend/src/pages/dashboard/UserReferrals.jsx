@@ -144,9 +144,9 @@ const UserReferrals = () => {
                         </button>
                         <button
                             onClick={() => {
-                                const text = `Join CMGROUPS and use my referral code: ${referralCode}. Earn rewards on shopping, services, and courses.`;
+                                const text = `Join Shoptify and use my referral code: ${referralCode}. Earn rewards on shopping, services, and courses.`;
                                 if (navigator.share) {
-                                    navigator.share({ title: 'Join CMGROUPS!', text });
+                                    navigator.share({ title: 'Join Shoptify!', text });
                                 } else {
                                     copyToClipboard(text, 'share');
                                 }
@@ -165,7 +165,7 @@ const UserReferrals = () => {
                 <div className="bg-surface border border-border-default rounded-lg p-md shadow-sm">
                     <div className="flex items-center justify-between mb-sm">
                         <p className="text-text-secondary text-sm font-semibold uppercase tracking-wider">Total Referrals</p>
-                        <div className="p-sm bg-page-bg border border-border-default rounded text-blue-400"><Users size={20} /></div>
+                        <div className="p-sm bg-page-bg border border-border-default rounded text-blue-700"><Users size={20} /></div>
                     </div>
                     <span className="text-3xl font-bold text-text-primary">{stats?.totalReferrals || 0}</span>
                     <div className="flex flex-wrap gap-3 text-xs text-text-secondary font-medium mt-2">

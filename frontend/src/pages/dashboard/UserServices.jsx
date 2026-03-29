@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Wrench, Calendar, Clock, CheckCircle, XCircle, MapPin, Phone,
     Cpu, IndianRupee, User as UserIcon, Settings, Gift, FileText,
-    AlertTriangle, RefreshCw, ShieldCheck, UserCheck, Download
+    AlertTriangle, RefreshCw, ShieldCheck, UserCheck, Download, Shield
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
@@ -191,7 +191,7 @@ const UserServices = () => {
         // Base64 data URL — convert to blob and trigger download
         const link = document.createElement('a');
         link.href = invoiceUrl;
-        link.download = 'CMGROUPS_Service_Invoice.pdf';
+        link.download = 'Shoptify_Service_Invoice.pdf';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -370,11 +370,47 @@ const UserServices = () => {
                                             </div>
                                         )}
 
+                                        {/* Delivery OTP — show to customer when Completed */}
+                                        {booking.status === 'Completed' && booking.deliveryOtp && !booking.deliveryOtpVerified && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                                <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2 flex items-center gap-1.5">
+                                                    <Shield size={12} />Delivery Verification OTP
+                                                </p>
+                                                <p className="text-sm text-blue-700 mb-3">
+                                                    Your device is ready! When the technician delivers your device, share this OTP with them to confirm receipt.
+                                                </p>
+                                                <div className="bg-white border-2 border-blue-300 rounded-lg py-3">
+                                                    <p className="text-3xl font-mono font-bold tracking-[0.4em] text-blue-900 text-center">{booking.deliveryOtp}</p>
+                                                </div>
+                                                <p className="text-xs text-blue-600 mt-2">Do not share this OTP with anyone except the delivery technician.</p>
+                                            </div>
+                                        )}
+                                        {booking.status === 'Completed' && booking.deliveryOtpVerified && (
+                                            <div className="flex items-center gap-2 text-green-700 text-sm font-semibold bg-green-50 border border-green-200 rounded-xl px-4 py-2">
+                                                <CheckCircle size={16} />Delivery OTP Verified — Device received
+                                            </div>
+                                        )}
+
                                         {/* Description */}
                                         {booking.description && (
                                             <div className="bg-surface rounded-xl border border-border-default p-4">
                                                 <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">Issue Description</p>
                                                 <p className="text-sm text-text-primary">{booking.description}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Custom Fields */}
+                                        {booking.customFields && typeof booking.customFields === 'object' && Object.keys(booking.customFields).length > 0 && (
+                                            <div className="bg-surface rounded-xl border border-border-default p-4">
+                                                <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2 flex items-center gap-1.5"><Settings size={12} />Service Details</p>
+                                                <div className="space-y-1.5">
+                                                    {Object.entries(booking.customFields).map(([key, value]) => (
+                                                        <div key={key} className="flex items-start gap-2 text-sm">
+                                                            <span className="font-semibold text-text-primary capitalize">{key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim()}:</span>
+                                                            <span className="text-text-secondary">{String(value)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
 

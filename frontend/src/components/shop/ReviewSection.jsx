@@ -161,6 +161,7 @@ const ReviewSection = ({ productId }) => {
                                         type="button"
                                         onClick={() => removeImage(idx)}
                                         className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error"
+                                        aria-label="Remove"
                                     >
                                         <X size={14} />
                                     </button>
@@ -194,7 +195,7 @@ const ReviewSection = ({ productId }) => {
                     </div>
                 ) : (
                     reviews.map(review => {
-                        const hasVoted = user && review.voters?.includes(user.id);
+                        const hasVoted = user && Array.isArray(review.voters) && review.voters.some(v => (typeof v === 'object' ? v?.id : v) === user.id);
                         return (
                             <div key={review.id} className="bg-surface p-6 rounded-lg border border-border-default shadow-sm transition-shadow hover:shadow-md">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">

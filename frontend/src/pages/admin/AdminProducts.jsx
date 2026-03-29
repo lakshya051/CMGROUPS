@@ -3,6 +3,7 @@ import { Package, Search, Plus, Trash2, Edit, X, Save, Image, Upload, Zap, Toggl
 import Button from '../../components/ui/Button';
 import { productsAPI, categoriesAPI, uploadAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useFormik } from 'formik';
 import { addProductSchema } from '../../utils/validationSchemas';
 import { handleImageError } from '../../utils/image';
@@ -62,6 +63,7 @@ const AdminProducts = () => {
     // Specs state (key-value pairs)
     const [specKey, setSpecKey] = useState('');
     const [specValue, setSpecValue] = useState('');
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
     const formik = useFormik({
         initialValues: emptyProductValues,
@@ -448,26 +450,44 @@ const AdminProducts = () => {
     };
 
     const handleToggleProductType = () => {
+        const proceed = () => {
+            const next = !isVariableProduct;
+            setIsVariableProduct(next);
+            if (next) {
+                formik.setFieldValue('price', '1');
+                formik.setFieldValue('stock', '0');
+            }
+        };
         if (isVariableProduct && editingProduct) {
-            if (!window.confirm('This will hide all variant prices. Product will use the MRP and Selling Price fields instead. Variants are not deleted.')) return;
+            setConfirmState({
+                isOpen: true,
+                title: 'Switch to simple product?',
+                message: 'This will hide all variant prices. Product will use the MRP and Selling Price fields instead. Variants are not deleted.',
+                onConfirm: () => {
+                    setConfirmState(prev => ({ ...prev, isOpen: false }));
+                    proceed();
+                },
+            });
+            return;
         }
-        const next = !isVariableProduct;
-        setIsVariableProduct(next);
-        if (next) {
-            formik.setFieldValue('price', '1');
-            formik.setFieldValue('stock', '0');
-        }
+        proceed();
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this product?')) {
-            try {
-                await productsAPI.delete(id);
-                setProducts(prev => prev.filter(p => p.id !== id));
-            } catch (err) {
-                console.error('Failed to delete product:', err);
-            }
-        }
+    const handleDelete = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete product?',
+            message: 'Are you sure you want to delete this product?',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await productsAPI.delete(id);
+                    setProducts(prev => prev.filter(p => p.id !== id));
+                } catch (err) {
+                    console.error('Failed to delete product:', err);
+                }
+            },
+        });
     };
 
     // Server-side filtering implemented above.
@@ -518,6 +538,7 @@ const AdminProducts = () => {
                                 <th className="p-4">Category</th>
                                 <th className="p-4">Price</th>
                                 <th className="p-4">Stock</th>
+                                <th className="p-4">Points</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -583,19 +604,33 @@ const AdminProducts = () => {
                                             );
                                         })()}
                                     </td>
+                                    <td className="p-4">
+                                        {(product.referrerPoints || product.refereePoints) ? (
+                                            <div className="space-y-0.5">
+                                                {product.referrerPoints > 0 && (
+                                                    <span className="block text-xs font-semibold text-trust">Referrer: {product.referrerPoints}</span>
+                                                )}
+                                                {product.refereePoints > 0 && (
+                                                    <span className="block text-xs font-semibold text-primary">Referee: {product.refereePoints}</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-text-muted">—</span>
+                                        )}
+                                    </td>
                                     <td className="p-4 text-right">
                                         <div className="flex items-center justify-end gap-xs">
                                             <button
                                                 onClick={() => openEditModal(product)}
                                                 className="p-xs hover:text-text-primary transition-colors hover:bg-surface-hover rounded text-text-secondary"
-                                                title="Edit Product"
+                                                aria-label="Edit"
                                             >
                                                 <Edit size={16} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(product.id)}
                                                 className="p-xs hover:text-error transition-colors hover:bg-error/10 rounded text-text-secondary"
-                                                title="Delete Product"
+                                                aria-label="Delete"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -605,7 +640,7 @@ const AdminProducts = () => {
                             ))}
                             {displayProducts.length === 0 && (
                                 <tr>
-                                    <td colSpan="5" className="p-8 text-center text-text-muted">
+                                    <td colSpan="6" className="p-8 text-center text-text-muted">
                                         No products found.
                                     </td>
                                 </tr>
@@ -647,7 +682,7 @@ const AdminProducts = () => {
                             <h2 className="text-xl font-bold text-text-primary">
                                 {editingProduct ? 'Edit Product' : 'Add New Product'}
                             </h2>
-                            <button onClick={closeModal} className="text-text-muted hover:text-text-primary transition-colors p-xs rounded hover:bg-surface-hover">
+                            <button onClick={closeModal} className="text-text-muted hover:text-text-primary transition-colors p-xs rounded hover:bg-surface-hover" aria-label="Close dialog">
                                 <X size={24} />
                             </button>
                         </div>
@@ -674,7 +709,7 @@ const AdminProducts = () => {
                                         onChange={formik.handleChange}
                                         onBlur={formik.handleBlur}
                                     />
-                                    {formik.touched.title && formik.errors.title && <p className="text-red-400 text-sm mt-1">{formik.errors.title}</p>}
+                                    {formik.touched.title && formik.errors.title && <p className="text-error text-sm mt-1">{formik.errors.title}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-text-muted mb-1">Brand</label>
@@ -746,7 +781,7 @@ const AdminProducts = () => {
                                                 Selling Price (₹) <span className="text-error">*</span>
                                             </label>
                                             <input type="number" name="price" className={`input-field ${formik.touched.price && formik.errors.price ? 'border-red-500' : ''}`} placeholder="32000" value={formik.values.price} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" step="0.01" />
-                                            {formik.touched.price && formik.errors.price && <p className="text-red-400 text-sm mt-1">{formik.errors.price}</p>}
+                                            {formik.touched.price && formik.errors.price && <p className="text-error text-sm mt-1">{formik.errors.price}</p>}
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-text-muted mb-1">
@@ -762,7 +797,7 @@ const AdminProducts = () => {
                                                 Stock <span className="text-error">*</span>
                                             </label>
                                             <input type="number" name="stock" className={`input-field ${formik.touched.stock && formik.errors.stock ? 'border-red-500' : ''}`} placeholder="15" value={formik.values.stock} onChange={formik.handleChange} onBlur={formik.handleBlur} min="0" />
-                                            {formik.touched.stock && formik.errors.stock && <p className="text-red-400 text-sm mt-1">{formik.errors.stock}</p>}
+                                            {formik.touched.stock && formik.errors.stock && <p className="text-error text-sm mt-1">{formik.errors.stock}</p>}
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-text-muted mb-1">
@@ -774,7 +809,7 @@ const AdminProducts = () => {
                                                     <option key={cat.id} value={cat.name}>{cat.name}</option>
                                                 ))}
                                             </select>
-                                            {formik.touched.category && formik.errors.category && <p className="text-red-400 text-sm mt-1">{formik.errors.category}</p>}
+                                            {formik.touched.category && formik.errors.category && <p className="text-error text-sm mt-1">{formik.errors.category}</p>}
                                         </div>
                                     </div>
                                 </>
@@ -793,7 +828,7 @@ const AdminProducts = () => {
                                                 <option key={cat.id} value={cat.name}>{cat.name}</option>
                                             ))}
                                         </select>
-                                        {formik.touched.category && formik.errors.category && <p className="text-red-400 text-sm mt-1">{formik.errors.category}</p>}
+                                        {formik.touched.category && formik.errors.category && <p className="text-error text-sm mt-1">{formik.errors.category}</p>}
                                     </div>
                                 </div>
                             )}
@@ -901,6 +936,7 @@ const AdminProducts = () => {
                                                     type="button"
                                                     onClick={() => setProductImages(prev => prev.filter((_, i) => i !== idx))}
                                                     className="absolute -top-1 -right-1 w-5 h-5 bg-error text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Remove"
                                                 >
                                                     <X size={12} />
                                                 </button>
@@ -930,6 +966,7 @@ const AdminProducts = () => {
                                                 setImageUrlInput('');
                                             }
                                         }}
+                                        aria-label="Add"
                                     >
                                         <Plus size={14} />
                                     </Button>
@@ -982,7 +1019,7 @@ const AdminProducts = () => {
                                 </button>
 
                                 {productImages.length === 0 && formik.touched.image && (
-                                    <p className="text-red-400 text-sm mt-1">At least one image is required</p>
+                                    <p className="text-error text-sm mt-1">At least one image is required</p>
                                 )}
                             </div>
 
@@ -1003,7 +1040,7 @@ const AdminProducts = () => {
                                             <div key={key} className="flex items-center gap-sm bg-page-bg rounded border border-border-default px-sm py-xs text-sm">
                                                 <span className="text-text-secondary font-semibold min-w-[80px]">{key}</span>
                                                 <span className="text-text-primary flex-1">{value}</span>
-                                                <button type="button" onClick={() => removeSpec(key)} className="text-text-muted hover:text-error transition-colors">
+                                                <button type="button" onClick={() => removeSpec(key)} className="text-text-muted hover:text-error transition-colors" aria-label="Remove">
                                                     <X size={14} />
                                                 </button>
                                             </div>
@@ -1027,7 +1064,7 @@ const AdminProducts = () => {
                                         value={specValue}
                                         onChange={(e) => setSpecValue(e.target.value)}
                                     />
-                                    <Button type="button" variant="outline" size="sm" onClick={addSpec}>
+                                    <Button type="button" variant="outline" size="sm" onClick={addSpec} aria-label="Add">
                                         <Plus size={16} />
                                     </Button>
                                 </div>
@@ -1054,7 +1091,7 @@ const AdminProducts = () => {
                                                     value={opt.name}
                                                     onChange={(e) => updateVariantOption(optIdx, 'name', e.target.value)}
                                                 />
-                                                <button type="button" onClick={() => removeVariantOption(optIdx)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors">
+                                                <button type="button" onClick={() => removeVariantOption(optIdx)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors" aria-label="Remove">
                                                     <X size={16} />
                                                 </button>
                                             </div>
@@ -1062,7 +1099,7 @@ const AdminProducts = () => {
                                                 {opt.values.map((val, valIdx) => (
                                                     <span key={valIdx} className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface border border-border-default rounded-full text-sm text-text-primary">
                                                         {val}
-                                                        <button type="button" onClick={() => removeOptionValue(optIdx, valIdx)} className="text-text-muted hover:text-error">
+                                                        <button type="button" onClick={() => removeOptionValue(optIdx, valIdx)} className="text-text-muted hover:text-error" aria-label="Remove">
                                                             <X size={12} />
                                                         </button>
                                                     </span>
@@ -1153,7 +1190,7 @@ const AdminProducts = () => {
                                                                     />
                                                                 </td>
                                                                 <td className="p-2 text-right">
-                                                                    <button type="button" onClick={() => removeVariant(variant.id)} className="p-1 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors">
+                                                                    <button type="button" onClick={() => removeVariant(variant.id)} className="p-1 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors" aria-label="Delete">
                                                                         <Trash2 size={14} />
                                                                     </button>
                                                                 </td>
@@ -1201,7 +1238,7 @@ const AdminProducts = () => {
                                                             <input type="text" className="input-field py-1.5 text-sm w-full font-mono" placeholder="Optional" value={variant.sku ?? ''} onChange={(e) => updateVariant(index, 'sku', e.target.value)} />
                                                         </td>
                                                         <td className="p-2 text-right">
-                                                            <button type="button" onClick={() => removeVariant(variant.id)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors">
+                                                            <button type="button" onClick={() => removeVariant(variant.id)} className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors" aria-label="Delete">
                                                                 <Trash2 size={16} />
                                                             </button>
                                                         </td>
@@ -1228,6 +1265,13 @@ const AdminProducts = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };
@@ -1250,7 +1294,7 @@ function OptionValueInput({ onAdd }) {
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
             />
-            <button type="button" onClick={handleAdd} className="p-1 text-primary hover:bg-primary/10 rounded transition-colors" disabled={!value.trim()}>
+            <button type="button" onClick={handleAdd} className="p-1 text-primary hover:bg-primary/10 rounded transition-colors" disabled={!value.trim()} aria-label="Add">
                 <Plus size={14} />
             </button>
         </div>

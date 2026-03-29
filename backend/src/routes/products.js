@@ -245,28 +245,29 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
-        const { referrerPoints, refereePoints, isReturnable, returnWindowDays, sku, image, images, originalPrice, hasVariants, sellerName, ...otherData } = req.body;
-        if ('isRefurbished' in otherData) delete otherData.isRefurbished;
+        const ALLOWED_FIELDS = ['title', 'description', 'price', 'stock', 'category', 'brand', 'unit', 'gstPercent', 'isActive'];
+        const body = req.body;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
 
-        const updateData = {
-            ...otherData,
-            referrerPoints: referrerPoints !== undefined ? (referrerPoints === null ? null : parseFloat(referrerPoints)) : undefined,
-            refereePoints: refereePoints !== undefined ? (refereePoints === null ? null : parseFloat(refereePoints)) : undefined
-        };
+        const updateData = {};
+        for (const field of ALLOWED_FIELDS) {
+            if (body[field] !== undefined) updateData[field] = body[field];
+        }
+        if (body.referrerPoints !== undefined) updateData.referrerPoints = body.referrerPoints === null ? null : parseFloat(body.referrerPoints);
+        if (body.refereePoints !== undefined) updateData.refereePoints = body.refereePoints === null ? null : parseFloat(body.refereePoints);
 
-        if (images !== undefined) {
-            updateData.images = Array.isArray(images) ? images : [];
-        } else if (image !== undefined) {
-            updateData.images = image ? [image] : [];
+        if (body.images !== undefined) {
+            updateData.images = Array.isArray(body.images) ? body.images : [];
+        } else if (body.image !== undefined) {
+            updateData.images = body.image ? [body.image] : [];
         }
 
-        if (isReturnable !== undefined) updateData.isReturnable = isReturnable === true || isReturnable === 'true';
-        if (returnWindowDays !== undefined) updateData.returnWindowDays = parseInt(returnWindowDays);
-        if (originalPrice !== undefined) updateData.originalPrice = originalPrice == null || originalPrice === '' ? null : parseFloat(originalPrice);
-        if (hasVariants !== undefined) updateData.hasVariants = hasVariants === true || hasVariants === 'true';
-        if (sellerName !== undefined) updateData.sellerName = sellerName?.trim() || null;
+        if (body.isReturnable !== undefined) updateData.isReturnable = body.isReturnable === true || body.isReturnable === 'true';
+        if (body.returnWindowDays !== undefined) updateData.returnWindowDays = parseInt(body.returnWindowDays);
+        if (body.originalPrice !== undefined) updateData.originalPrice = body.originalPrice == null || body.originalPrice === '' ? null : parseFloat(body.originalPrice);
+        if (body.hasVariants !== undefined) updateData.hasVariants = body.hasVariants === true || body.hasVariants === 'true';
+        if (body.sellerName !== undefined) updateData.sellerName = body.sellerName?.trim() || null;
 
         const product = await prisma.product.update({
             where: { id: productId },
@@ -278,6 +279,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 
         // Background Alert Check (non-blocking)
         (async () => {
+            if (!oldProduct) return;
             try {
                 // 1. Stock Alert: If stock was 0 and now > 0
                 if (oldProduct.stock === 0 && product.stock > 0) {
@@ -412,7 +414,14 @@ router.post('/:id/variants', protect, adminOnly, async (req, res) => {
 // PUT /api/products/:id/variants/:variantId (Admin only)
 router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
     try {
+        const productId = parseInt(req.params.id);
+        const variantId = parseInt(req.params.variantId);
         const { name, price, originalPrice, stock, sku, combination, isActive, image } = req.body;
+
+        const existing = await prisma.productVariant.findUnique({ where: { id: variantId } });
+        if (!existing || existing.productId !== productId) {
+            return res.status(404).json({ error: 'Variant not found for this product' });
+        }
 
         const updateData = {};
         if (name !== undefined) updateData.name = name;
@@ -425,7 +434,7 @@ router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
         if (image !== undefined) updateData.image = image || null;
 
         const variant = await prisma.productVariant.update({
-            where: { id: parseInt(req.params.variantId) },
+            where: { id: variantId },
             data: updateData
         });
 
@@ -440,8 +449,16 @@ router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
 // DELETE /api/products/:id/variants/:variantId (Admin only)
 router.delete('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
     try {
+        const productId = parseInt(req.params.id);
+        const variantId = parseInt(req.params.variantId);
+
+        const existing = await prisma.productVariant.findUnique({ where: { id: variantId } });
+        if (!existing || existing.productId !== productId) {
+            return res.status(404).json({ error: 'Variant not found for this product' });
+        }
+
         await prisma.productVariant.delete({
-            where: { id: parseInt(req.params.variantId) }
+            where: { id: variantId }
         });
 
         cache.delByPrefix('products:');

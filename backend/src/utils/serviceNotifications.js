@@ -1,4 +1,5 @@
 import { transporter } from './emailNotifications.js';
+import { escapeHtml } from './escapeHtml.js';
 
 /**
  * Sends a status-aware notification email for a service booking.
@@ -14,9 +15,10 @@ export async function sendServiceNotification(booking, newStatus) {
         if (!email) return;
 
         const bookingRef = `SRV-${booking.id}`;
-        let subject = `CMGROUPS Service Update — ${bookingRef}`;
+        let subject = `Shoptify Service Update — ${bookingRef}`;
         let bodyMessage = '';
         let showOtp = false;
+        let showDeliveryOtp = false;
 
         switch (newStatus) {
             case 'Confirmed': {
@@ -50,8 +52,9 @@ export async function sendServiceNotification(booking, newStatus) {
                     <p>Your device has been repaired and is ready for delivery!</p>
                     <p><strong>Final Amount:</strong> ₹${booking.finalPrice ?? 'N/A'}</p>
                     ${booking.invoiceUrl ? `<p><strong>Invoice:</strong> ${invoiceLink}</p>` : ''}
-                    <p>Please allow our technician to collect the payment at the time of delivery.</p>
+                    <p>When the technician delivers your device, share the Delivery OTP below to confirm receipt.</p>
                 `;
+                showDeliveryOtp = Boolean(booking.deliveryOtp);
                 break;
             }
 
@@ -59,7 +62,7 @@ export async function sendServiceNotification(booking, newStatus) {
                 subject = `Service Booking Cancelled — ${bookingRef}`;
                 bodyMessage = `
                     <p>Your service request <strong>${bookingRef}</strong> has been <strong>cancelled</strong>.</p>
-                    ${booking.cancellationReason ? `<p><strong>Reason:</strong> ${booking.cancellationReason}</p>` : ''}
+                    ${booking.cancellationReason ? `<p><strong>Reason:</strong> ${escapeHtml(booking.cancellationReason)}</p>` : ''}
                     <p>If you believe this is an error, please contact our support team.</p>
                 `;
                 break;
@@ -79,13 +82,24 @@ export async function sendServiceNotification(booking, newStatus) {
             </div>`
             : '';
 
+        const deliveryOtpBlock = showDeliveryOtp
+            ? `
+            <div style="background-color:#DBEAFE;color:#1E40AF;padding:15px;border-radius:6px;margin:20px 0;">
+                <p style="margin:0 0 8px 0;font-weight:700;">Delivery Verification OTP</p>
+                <p style="margin:0 0 10px 0;">Share this OTP with the technician when receiving your device to confirm delivery.</p>
+                <div style="font-size:32px;letter-spacing:8px;font-weight:700;text-align:center;margin:12px 0;">${booking.deliveryOtp}</div>
+                <p style="margin:0;font-size:12px;">Do not share this OTP with anyone else.</p>
+            </div>`
+            : '';
+
         const html = `
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
-                <h2 style="color:#1e3a5f;margin-bottom:16px;">CMGROUPS Service Hub</h2>
+                <h2 style="color:#1e3a5f;margin-bottom:16px;">Shoptify Service Hub</h2>
                 ${bodyMessage}
                 ${otpBlock}
+                ${deliveryOtpBlock}
                 <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;"/>
-                <p style="color:#6b7280;font-size:12px;">This is an automated message from CMGROUPS. Please do not reply.</p>
+                <p style="color:#6b7280;font-size:12px;">This is an automated message from Shoptify. Please do not reply.</p>
             </div>
         `;
 
@@ -95,7 +109,8 @@ export async function sendServiceNotification(booking, newStatus) {
             console.log(`To:      ${email}`);
             console.log(`Subject: ${subject}`);
             console.log(`Status:  ${newStatus}`);
-            if (showOtp) console.log(`OTP:     ${booking.pickupOtp}`);
+            if (showOtp) console.log(`Pickup OTP:   ${booking.pickupOtp}`);
+            if (showDeliveryOtp) console.log(`Delivery OTP: ${booking.deliveryOtp}`);
             console.log('----------------------------------------\n');
             return;
         }

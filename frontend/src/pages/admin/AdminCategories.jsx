@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Search, Plus, Trash2, Edit, X, Save, Image, Folder } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { categoriesAPI } from '../../lib/api';
 import { useFormik } from 'formik';
 import { addCategorySchema } from '../../utils/validationSchemas';
 import { handleImageError } from '../../utils/image';
+import toast from 'react-hot-toast';
 
 const AdminCategories = () => {
     const [categories, setCategories] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
     const formik = useFormik({
         initialValues: { name: '', image: '', description: '' },
@@ -41,19 +44,28 @@ const AdminCategories = () => {
             setCategories(data);
         } catch (err) {
             console.error('Failed to load categories:', err);
+            toast.error('Failed to load categories');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure? This cannot be undone.')) return;
-        try {
-            await categoriesAPI.delete(id);
-            setCategories(prev => prev.filter(c => c.id !== id));
-        } catch (err) {
-            console.error('Failed to delete category:', err);
-        }
+    const handleDelete = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete category?',
+            message: 'Are you sure? This cannot be undone.',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await categoriesAPI.delete(id);
+                    setCategories(prev => prev.filter(c => c.id !== id));
+                } catch (err) {
+                    console.error('Failed to delete category:', err);
+                    toast.error('Failed to delete category');
+                }
+            },
+        });
     };
 
     const openModal = () => { formik.resetForm(); setShowModal(true); };
@@ -132,7 +144,7 @@ const AdminCategories = () => {
                     <div className="glass-panel w-full max-w-md relative animate-in zoom-in duration-300">
                         <div className="p-6 border-b border-border-default flex items-center justify-between">
                             <h2 className="text-xl font-bold">Add Category</h2>
-                            <button onClick={closeModal}><X size={20} /></button>
+                            <button onClick={closeModal} aria-label="Close dialog"><X size={20} /></button>
                         </div>
                         <form onSubmit={formik.handleSubmit} className="p-6 space-y-4">
                             {formik.errors.submit && <div className="text-red-500 text-sm bg-red-50 p-2 rounded">{formik.errors.submit}</div>}
@@ -140,7 +152,7 @@ const AdminCategories = () => {
                             <div>
                                 <label className="block text-sm font-medium mb-1">Name *</label>
                                 <input name="name" className={`input-field ${formik.touched.name && formik.errors.name ? 'border-red-500' : ''}`} value={formik.values.name} onChange={formik.handleChange} onBlur={formik.handleBlur} />
-                                {formik.touched.name && formik.errors.name && <p className="text-red-400 text-sm mt-1">{formik.errors.name}</p>}
+                                {formik.touched.name && formik.errors.name && <p className="text-error text-sm mt-1">{formik.errors.name}</p>}
                             </div>
 
                             <div>
@@ -160,6 +172,13 @@ const AdminCategories = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };

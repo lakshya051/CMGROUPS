@@ -71,7 +71,7 @@ router.post('/test', protect, adminOnly, async (req, res) => {
             subscriptions.map((sub) =>
                 sendPushNotification(
                     { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-                    { title: 'CMGROUPS Test', body: 'Push notifications are working!', icon: '/icons/icon-192x192.png', url: '/' }
+                    { title: 'Shoptify Test', body: 'Push notifications are working!', icon: '/icons/icon-192x192.png', url: '/' }
                 )
             )
         );

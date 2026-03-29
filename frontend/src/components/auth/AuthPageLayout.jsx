@@ -6,7 +6,7 @@ const perks = [
 
 export default function AuthPageLayout({ headline, subheadline, children }) {
     return (
-        <div className="min-h-screen safe-screen relative overflow-hidden bg-[#07060b] text-text-primary flex flex-col">
+        <div className="min-h-screen safe-screen relative overflow-hidden bg-auth-bg text-text-primary flex flex-col">
             <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
                 <div className="absolute -top-[40%] -right-[20%] h-[min(100vw,56rem)] w-[min(100vw,56rem)] rounded-full bg-primary/[0.22] blur-[120px]" />
                 <div className="absolute -bottom-[35%] -left-[25%] h-[min(90vw,48rem)] w-[min(90vw,48rem)] rounded-full bg-secondary/[0.28] blur-[110px]" />
@@ -26,7 +26,7 @@ export default function AuthPageLayout({ headline, subheadline, children }) {
                 <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-stretch lg:gap-16 xl:gap-24">
                     <div className="hidden flex-1 flex-col justify-center lg:flex">
                         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/45">
-                            CMGROUPS
+                            SHOPTIFY
                         </p>
                         <h2 className="mt-4 font-heading text-4xl font-bold leading-[1.1] tracking-tight text-white xl:text-5xl">
                             {headline}
@@ -46,7 +46,7 @@ export default function AuthPageLayout({ headline, subheadline, children }) {
 
                     <div className="flex w-full flex-col justify-center lg:max-w-[440px] lg:flex-none">
                         <div className="mb-8 text-center lg:hidden">
-                            <p className="font-heading text-2xl font-bold tracking-tight text-white">CMGROUPS</p>
+                            <p className="font-heading text-2xl font-bold tracking-tight text-white">Shoptify</p>
                             <div className="mx-auto mt-3 h-1 w-14 rounded-full bg-gradient-to-r from-primary via-secondary to-trust opacity-90" />
                         </div>
 

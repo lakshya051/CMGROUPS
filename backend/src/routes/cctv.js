@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import nodemailer from 'nodemailer';
+import { escapeHtml } from '../utils/escapeHtml.js';
 
 const enquiryLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -72,12 +73,12 @@ router.post('/enquiry', enquiryLimiter, async (req, res) => {
                         <h2 style="color: #111827; margin-bottom: 4px;">New CCTV Security Enquiry</h2>
                         <p style="color: #6b7280; font-size: 13px; margin-top: 0;">Submitted at: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
                         <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
-                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280; width: 40%;">Name</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${name}</td></tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280; width: 40%;">Name</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${escapeHtml(name)}</td></tr>
                             <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280;">Phone</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;"><a href="tel:+91${cleanPhone}" style="color: #4F46E5;">+91 ${cleanPhone}</a></td></tr>
-                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280;">City / Area</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${city}</td></tr>
-                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280;">Property Type</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${propertyType}</td></tr>
-                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280;">Cameras Needed</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${camerasNeeded}</td></tr>
-                            <tr><td style="padding: 10px 8px; color: #6b7280; vertical-align: top;">Message</td><td style="padding: 10px 8px; color: #111827;">${message || '<em style="color:#9ca3af">No message provided</em>'}</td></tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280;">City / Area</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${escapeHtml(city)}</td></tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280;">Property Type</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${escapeHtml(propertyType)}</td></tr>
+                            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: 10px 8px; color: #6b7280;">Cameras Needed</td><td style="padding: 10px 8px; font-weight: bold; color: #111827;">${escapeHtml(camerasNeeded)}</td></tr>
+                            <tr><td style="padding: 10px 8px; color: #6b7280; vertical-align: top;">Message</td><td style="padding: 10px 8px; color: #111827;">${message ? escapeHtml(message) : '<em style="color:#9ca3af">No message provided</em>'}</td></tr>
                         </table>
                         <div style="margin-top: 24px; text-align: center;">
                             <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/cctv-enquiries" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View in Admin Panel</a>

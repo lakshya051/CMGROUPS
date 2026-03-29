@@ -55,7 +55,7 @@ const UserOrders = () => {
     // ─── Fetch Orders ───────────────────────────────────────────
     useEffect(() => {
         setError(null)
-        ordersAPI.getMyOrders()
+        ordersAPI.getMyOrders({ limit: 100, page: 1 })
             .then(data => setOrders(data.orders || data))
             .catch(() => setError('We couldn\'t load your orders. Please try again.'))
             .finally(() => setLoading(false))
@@ -205,31 +205,33 @@ const UserOrders = () => {
     }
 
     return (
-        <div className="space-y-lg">
+        <div className="space-y-lg min-w-0">
             {/* Header */}
             <div>
-                <h1 className="text-2xl md:text-3xl font-heading font-bold text-text-primary mb-xs">My Orders</h1>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-heading font-bold text-text-primary mb-xs">My Orders</h1>
                 <p className="text-sm text-text-secondary">Track your orders and payment status.</p>
             </div>
 
             {/* Search + Time Filter Bar */}
-            <div className="flex flex-col sm:flex-row gap-md">
-                <div className="relative flex-1">
-                    <Search size={16} className="absolute left-md top-1/2 -translate-y-1/2 text-text-muted" />
+            <div className="flex flex-col sm:flex-row gap-md min-w-0">
+                <div className="relative flex-1 min-w-0">
+                    <Search size={16} className="absolute left-md top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
                     <input
-                        type="text"
+                        type="search"
+                        enterKeyHint="search"
+                        autoComplete="off"
                         placeholder="Search by product name or order ID..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        className="w-full pl-2xl pr-md py-sm border border-border-default rounded-lg text-sm focus:outline-none focus:border-trust transition-colors duration-fast"
+                        className="w-full min-w-0 pl-2xl pr-md py-sm border border-border-default rounded-lg text-base sm:text-sm focus:outline-none focus:border-trust transition-colors duration-fast"
                     />
                 </div>
-                <div className="relative">
-                    <Calendar size={14} className="absolute left-md top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                <div className="relative w-full sm:w-auto sm:min-w-[160px] shrink-0">
+                    <Calendar size={14} className="absolute left-md top-1/2 -translate-y-1/2 text-text-muted pointer-events-none z-[1]" />
                     <select
                         value={timeFilter}
                         onChange={e => setTimeFilter(e.target.value)}
-                        className="appearance-none pl-2xl pr-xl py-sm border border-border-default rounded-lg text-sm bg-surface focus:outline-none focus:border-trust cursor-pointer transition-colors duration-fast"
+                        className="w-full sm:w-auto appearance-none pl-2xl pr-xl py-sm border border-border-default rounded-lg text-base sm:text-sm bg-surface focus:outline-none focus:border-trust cursor-pointer transition-colors duration-fast"
                     >
                         {TIME_FILTERS.map(f => (
                             <option key={f.value} value={f.value}>{f.label}</option>
@@ -302,9 +304,9 @@ const UserOrders = () => {
 
             {/* OTP Modal */}
             {selectedOtp && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-surface rounded-xl p-xl max-w-sm w-full mx-lg relative shadow-glass">
-                        <button onClick={() => setSelectedOtp(null)} className="absolute top-lg right-lg text-text-muted hover:text-text-primary transition-colors duration-fast">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-lg pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-lg">
+                    <div className="bg-surface rounded-t-2xl sm:rounded-xl p-xl max-w-sm w-full max-h-[90dvh] overflow-y-auto mx-0 sm:mx-lg relative shadow-glass">
+                        <button onClick={() => setSelectedOtp(null)} className="absolute top-lg right-lg text-text-muted hover:text-text-primary transition-colors duration-fast" aria-label="Close dialog">
                             <X size={20} />
                         </button>
                         <div className="text-center space-y-lg">
@@ -347,10 +349,10 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
     const thumbnails = (order.items || []).filter(i => i.product?.images?.[0] || i.product?.image).slice(0, 3)
 
     return (
-        <div className="bg-surface border border-border-default rounded-lg overflow-hidden">
+        <div className="bg-surface border border-border-default rounded-lg overflow-hidden min-w-0">
             {/* Order header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-md p-md border-b border-border-default bg-surface-hover">
-                <div className="flex items-center gap-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-md p-md border-b border-border-default bg-surface-hover min-w-0">
+                <div className="flex items-center gap-md min-w-0">
                     {/* Product thumbnails (stacked) */}
                     <div className="flex -space-x-3">
                         {thumbnails.map((item, i) => (
@@ -371,14 +373,14 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                             </div>
                         ))}
                     </div>
-                    <div>
-                        <h3 className="text-sm font-bold text-text-primary">Order #{order.id}</h3>
+                    <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-text-primary truncate">Order #{order.id}</h3>
                         <p className="text-xs text-text-muted">
                             {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-sm flex-wrap">
+                <div className="flex items-center gap-sm flex-wrap sm:justify-end">
                     <StatusBadge
                         label={order.isPaid ? '✓ Paid' : '⏳ Unpaid'}
                         color={order.isPaid ? 'success' : 'warning'}
@@ -392,7 +394,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
 
             {/* Timeline */}
             {!isCancelled && (
-                <div className="px-md py-md">
+                <div className="px-md py-md -mx-px">
                     <OrderTimeline status={order.status} />
                 </div>
             )}
@@ -404,9 +406,9 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
             )}
 
             {/* Items */}
-            <div className="px-md pb-sm space-y-xs">
+            <div className="px-md pb-sm space-y-xs min-w-0">
                 {order.items?.map(item => (
-                    <div key={item.id} className="flex items-center gap-sm text-sm bg-page-bg border border-border-default rounded-lg p-sm">
+                    <div key={item.id} className="flex items-start sm:items-center gap-sm text-sm bg-page-bg border border-border-default rounded-lg p-sm min-w-0">
                         <div className="w-10 h-10 bg-surface border border-border-default rounded p-xs flex-shrink-0">
                             <img
                                 src={item.product?.images?.[0] || item.product?.image}
@@ -418,16 +420,22 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                                 className="w-full h-full object-contain"
                             />
                         </div>
-                        <span className="flex-1 text-text-primary text-sm line-clamp-1">{item.product?.title}</span>
-                        <span className="text-text-muted text-xs">×{item.quantity}</span>
-                        <span className="font-bold text-sm text-text-primary">₹{item.price.toLocaleString('en-IN')}</span>
+                        <div className="flex-1 min-w-0">
+                            <span className="text-text-primary text-sm line-clamp-2 break-words">{item.product?.title}</span>
+                            <div className="mt-xs flex items-center justify-between gap-sm sm:hidden">
+                                <span className="text-text-muted text-xs">Qty ×{item.quantity}</span>
+                                <span className="font-bold text-sm text-text-primary shrink-0">₹{item.price.toLocaleString('en-IN')}</span>
+                            </div>
+                        </div>
+                        <span className="hidden sm:inline text-text-muted text-xs shrink-0">×{item.quantity}</span>
+                        <span className="hidden sm:inline font-bold text-sm text-text-primary shrink-0">₹{item.price.toLocaleString('en-IN')}</span>
                     </div>
                 ))}
             </div>
 
             {/* Footer */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-md p-md border-t border-border-default">
-                <div className="flex items-center gap-md">
+            <div className="flex flex-col gap-md p-md border-t border-border-default min-w-0">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-md gap-y-xs">
                     <span className="text-xs text-text-muted">
                         {order.paymentMethod === 'pay_at_store' ? 'Pay at Store'
                             : order.paymentMethod === 'cod' ? 'Cash on Delivery'
@@ -437,12 +445,12 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                     <span className="text-lg font-bold text-text-primary">₹{order.total?.toLocaleString('en-IN')}</span>
                 </div>
 
-                <div className="flex flex-wrap gap-sm">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-sm">
                     {/* Buy Again — only for Delivered */}
                     {order.status === 'Delivered' && (
                         <button
                             onClick={onBuyAgain}
-                            className="flex items-center gap-xs px-md py-xs text-sm font-bold bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded-lg transition-colors duration-fast"
+                            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-xs px-md py-sm sm:py-xs text-sm font-bold bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded-lg transition-colors duration-fast"
                         >
                             <ShoppingCart size={14} /> Buy Again
                         </button>
@@ -452,7 +460,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                     {!isCancelled && order.status !== 'Delivered' && (
                         <button
                             onClick={onTrack}
-                            className="flex items-center gap-xs px-md py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast"
+                            className="flex items-center justify-center gap-xs px-md py-sm sm:py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast"
                         >
                             <Eye size={14} /> Track
                         </button>
@@ -460,40 +468,40 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
 
                     {/* Cancel */}
                     {order.status === 'Processing' && (
-                        <button onClick={onCancel} className="px-md py-xs text-sm text-error bg-error/10 hover:bg-error/20 rounded-lg transition-colors duration-fast">
+                        <button onClick={onCancel} className="px-md py-sm sm:py-xs text-sm text-error bg-error/10 hover:bg-error/20 rounded-lg transition-colors duration-fast">
                             Cancel
                         </button>
                     )}
 
                     {/* Return */}
                     {isReturnable && (
-                        <button onClick={onReturn} className="px-md py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast">
+                        <button onClick={onReturn} className="px-md py-sm sm:py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast">
                             Return
                         </button>
                     )}
 
                     {order.status === 'Delivered' && !isReturnable && order.returnStatus === 'None' && (
-                        <span className="px-md py-xs text-sm text-text-muted bg-page-bg border border-border-default rounded-lg" title="Return window expired">
+                        <span className="col-span-2 sm:col-span-1 px-md py-sm sm:py-xs text-sm text-text-muted bg-page-bg border border-border-default rounded-lg text-center sm:text-left" title="Return window expired">
                             Not Returnable
                         </span>
                     )}
 
                     {order.returnStatus !== 'None' && (
-                        <span className="px-md py-xs text-sm text-purple-600 bg-purple-50 rounded-lg">
+                        <span className="col-span-2 sm:col-span-1 px-md py-sm sm:py-xs text-sm text-purple-600 bg-purple-50 rounded-lg text-center sm:text-left">
                             Return: {order.returnStatus}
                         </span>
                     )}
 
                     {/* Invoice */}
                     {order.isPaid && !isCancelled && (
-                        <button onClick={onDownloadInvoice} className="flex items-center gap-xs px-md py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast">
+                        <button onClick={onDownloadInvoice} className="flex items-center justify-center gap-xs px-md py-sm sm:py-xs text-sm text-trust bg-trust/10 hover:bg-trust/20 rounded-lg transition-colors duration-fast">
                             <Download size={14} /> Invoice
                         </button>
                     )}
 
                     {/* OTP */}
                     {!order.isPaid && (order.paymentMethod === 'pay_at_store' || order.paymentMethod === 'cod') && !isCancelled && order.paymentOtp && (
-                        <button onClick={onViewOtp} className="flex items-center gap-xs px-md py-xs text-sm text-surface bg-text-primary rounded-lg hover:bg-black transition-colors duration-fast">
+                        <button onClick={onViewOtp} className="col-span-2 sm:col-span-1 flex items-center justify-center gap-xs px-md py-sm sm:py-xs text-sm text-surface bg-text-primary rounded-lg hover:bg-black transition-colors duration-fast">
                             <Shield size={14} /> View OTP
                         </button>
                     )}
@@ -508,7 +516,7 @@ function OrderTimeline({ status }) {
     const currentIdx = STATUS_INDEX[status] ?? -1
 
     return (
-        <div className="flex items-center w-full overflow-x-auto">
+        <div className="flex items-center w-full min-w-0 overflow-x-auto overflow-y-hidden pb-sm -mb-sm scrollbar-hide touch-pan-x">
             {TIMELINE_STEPS.map((step, i) => {
                 const isCompleted = i <= currentIdx
                 const isCurrent = i === currentIdx
@@ -559,8 +567,8 @@ function StatusBadge({ label, color }) {
 // ─── ActionModal ────────────────────────────────────────────────
 function ActionModal({ title, description, placeholder, confirmLabel, confirmClass, reason, onReasonChange, onConfirm, onClose, loading, error }) {
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-surface rounded-xl p-lg max-w-sm w-full mx-lg relative shadow-glass">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-lg pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-lg">
+            <div className="bg-surface rounded-t-2xl sm:rounded-xl p-lg max-w-sm w-full max-h-[90dvh] overflow-y-auto mx-0 sm:mx-lg relative shadow-glass">
                 <h3 className="text-lg font-bold text-text-primary mb-sm">{title}</h3>
                 <p className="text-sm text-text-secondary mb-md">{description}</p>
                 <textarea
@@ -590,7 +598,7 @@ function ActionModal({ title, description, placeholder, confirmLabel, confirmCla
 
 // ─── TrackingModal ──────────────────────────────────────────────
 function TrackingModal({ order, onClose }) {
-    const trackingNumber = order.trackingNumber || `TN${order.id}${Date.now().toString(36).toUpperCase().slice(-6)}`
+    const trackingNumber = order.trackingNumber || `TN${order.id}${String(order.id * 2654435761 >>> 0).slice(-6)}`
     const [copied, setCopied] = useState(false)
 
     const copyTracking = () => {
@@ -633,20 +641,22 @@ function TrackingModal({ order, onClose }) {
             <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
 
             {/* Panel — slides from right on desktop, bottom sheet on mobile */}
-            <div className="fixed z-50 inset-y-0 right-0 w-full sm:w-[420px] bg-surface shadow-glass flex flex-col
-        sm:animate-none
-        max-sm:inset-y-auto max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl max-sm:max-h-[85vh]
-      ">
+            <div
+                className="fixed z-[60] flex flex-col bg-surface shadow-glass
+                inset-x-0 bottom-0 top-auto max-h-[85vh] rounded-t-2xl w-full
+                sm:inset-y-0 sm:top-0 sm:bottom-0 sm:left-auto sm:right-0 sm:max-h-none sm:rounded-none sm:w-[420px]
+                pb-[env(safe-area-inset-bottom,0px)]"
+            >
                 {/* Header */}
-                <div className="flex items-center justify-between p-lg border-b border-border-default">
+                <div className="flex items-center justify-between p-lg border-b border-border-default shrink-0">
                     <h3 className="text-lg font-bold text-text-primary">Track Order #{order.id}</h3>
-                    <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors duration-fast">
+                    <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors duration-fast" aria-label="Close dialog">
                         <X size={20} />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-lg space-y-xl">
+                <div className="flex-1 min-h-0 overflow-y-auto scrollable p-lg space-y-xl">
                     {/* Tracking number */}
                     <div className="flex items-center justify-between bg-page-bg border border-border-default rounded-lg p-md">
                         <div>

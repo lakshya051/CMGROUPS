@@ -15,7 +15,7 @@ keytool -genkeypair -v \
   -keyalg RSA -keysize 2048 \
   -validity 10000 \
   -alias cmgroups-upload \
-  -dname "CN=CMGROUPS, O=CMGROUPS, L=NewDelhi, ST=Delhi, C=IN"
+  -dname "CN=Shoptify, O=CMGroups, L=NewDelhi, ST=Delhi, C=IN"
 ```
 
 **IMPORTANT:** Store the keystore and passwords securely. Never commit to git.

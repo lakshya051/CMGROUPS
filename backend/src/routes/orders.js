@@ -190,10 +190,37 @@ router.post('/', optionalProtect, async (req, res) => {
                 if (product) computedSubtotal += product.price * qty;
             }
         }
-        const serverTotal = Math.round(computedSubtotal * 1.18); // items + 18% GST
+
+        // Server-side coupon validation
+        let serverDiscount = 0;
+        let validatedCoupon = null;
+        if (couponCode && String(couponCode).trim()) {
+            validatedCoupon = await prisma.coupon.findUnique({
+                where: { code: String(couponCode).trim().toUpperCase() },
+            });
+            if (!validatedCoupon || !validatedCoupon.active) {
+                return res.status(400).json({ error: 'Invalid or inactive coupon code' });
+            }
+            if (validatedCoupon.expiresAt && validatedCoupon.expiresAt < new Date()) {
+                return res.status(400).json({ error: 'Coupon has expired' });
+            }
+            if (validatedCoupon.maxUses != null && validatedCoupon.usedCount >= validatedCoupon.maxUses) {
+                return res.status(400).json({ error: 'Coupon usage limit reached' });
+            }
+            if (validatedCoupon.minOrderAmount != null && computedSubtotal < validatedCoupon.minOrderAmount) {
+                return res.status(400).json({ error: `Minimum order amount of ₹${validatedCoupon.minOrderAmount} required for this coupon` });
+            }
+            if (validatedCoupon.discountType === 'percent') {
+                serverDiscount = Math.round(computedSubtotal * (validatedCoupon.value / 100) * 100) / 100;
+            } else {
+                serverDiscount = validatedCoupon.value;
+            }
+            serverDiscount = Math.min(serverDiscount, computedSubtotal);
+        }
+
+        const serverTotal = Math.round((computedSubtotal - serverDiscount) * 1.18);
         const tolerance = Math.max(2, serverTotal * 0.01);
         if (Math.abs(serverTotal - parsedTotal - (parsedWalletUsed || 0)) > tolerance && Math.abs(serverTotal - parsedTotal) > tolerance) {
-            // Allow if total + walletUsed matches OR total alone matches (wallet already subtracted client-side)
             const totalPlusWallet = parsedTotal + parsedWalletUsed;
             if (Math.abs(serverTotal - totalPlusWallet) > tolerance && Math.abs(serverTotal - parsedTotal) > tolerance) {
                 return res.status(400).json({ error: 'Order total mismatch. Please refresh and try again.' });
@@ -289,8 +316,8 @@ router.post('/', optionalProtect, async (req, res) => {
                 shippingAddress: shippingAddress || null,
                 guestInfo: !req.user && shippingAddress ? { name: shippingAddress.fullName, phone: shippingAddress.phone, email: shippingAddress.email } : null,
                 referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
-                couponCode: couponCode ? String(couponCode).trim().toUpperCase() : null,
-                discountAmount: discountAmount ? parseFloat(discountAmount) : 0,
+                couponCode: validatedCoupon ? validatedCoupon.code : null,
+                discountAmount: serverDiscount,
                 latitude: latitude ? parseFloat(latitude) : null,
                 longitude: longitude ? parseFloat(longitude) : null,
                 googleMapLink: googleMapLink || null,
@@ -327,6 +354,14 @@ router.post('/', optionalProtect, async (req, res) => {
             });
 
             await tx.orderItem.createMany({ data: orderItemsData });
+
+            // 3.5 Increment coupon usedCount
+            if (validatedCoupon) {
+                await tx.coupon.update({
+                    where: { id: validatedCoupon.id },
+                    data: { usedCount: { increment: 1 } },
+                });
+            }
 
             // 4. Record wallet debit transaction (after order creation so orderId is available)
             if (useWallet && parsedWalletUsed > 0 && req.user) {
@@ -397,7 +432,7 @@ router.post('/', optionalProtect, async (req, res) => {
                     push: {
                         enabled: true,
                         title: 'Payment OTP Ready',
-                        body: 'Your payment OTP is available in CMGROUPS.',
+                        body: 'Your payment OTP is available in Shoptify.',
                     },
                 }).catch((notifErr) => {
                     console.error('Order OTP notification error (non-blocking):', notifErr);
@@ -745,21 +780,23 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
-        // Send In-App Notification
-        try {
-            await createUserNotification({
-                userId: order.userId,
-                title: 'Order Status Updated',
-                message: `Your order #${order.id} is now ${status}.`,
-                type: 'order',
-                link: '/dashboard/orders',
-                push: {
-                    enabled: true,
-                    body: `Your order #${order.id} is now ${status}.`,
-                },
-            });
-        } catch (notifErr) {
-            console.error('In-app notification error:', notifErr);
+        // Send In-App Notification (skip for guest orders)
+        if (order.userId) {
+            try {
+                await createUserNotification({
+                    userId: order.userId,
+                    title: 'Order Status Updated',
+                    message: `Your order #${order.id} is now ${status}.`,
+                    type: 'order',
+                    link: '/dashboard/orders',
+                    push: {
+                        enabled: true,
+                        body: `Your order #${order.id} is now ${status}.`,
+                    },
+                });
+            } catch (notifErr) {
+                console.error('In-app notification error:', notifErr);
+            }
         }
 
         res.json(order);
@@ -1085,6 +1122,9 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
         }
 
         // Approve Return -> Refund full amount (cash portion + wallet portion) to Wallet
+        if (!order.userId) {
+            return res.status(400).json({ error: 'Cannot process wallet refund for guest orders' });
+        }
         const fullRefundAmount = (order.total || 0) + (order.walletUsed || 0);
         await prisma.$transaction(async (tx) => {
             await tx.user.update({

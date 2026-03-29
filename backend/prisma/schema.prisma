@@ -349,6 +349,7 @@ model ServiceBooking {
   timeSlot         String?
   status           String    @default("Pending")
   referralCodeUsed String?
+  customFields     Json? // Dynamic field values { fieldName: value }
   // Customer details
   customerName     String?
   customerPhone    String?
@@ -356,6 +357,10 @@ model ServiceBooking {
   city             String?
   pincode          String?
   landmark         String?
+  // Location (GPS)
+  latitude         Float?
+  longitude        Float?
+  googleMapLink    String?
   // Admin fields
   estimatedPrice   Float?
   finalPrice       Float?
@@ -363,6 +368,10 @@ model ServiceBooking {
   assignedTo       String?
   // OTP for pickup verification
   pickupOtp        String?
+  // OTP for delivery verification
+  deliveryOtp            String?
+  deliveryOtpVerified    Boolean   @default(false)
+  deliveryOtpGeneratedAt DateTime?
   // Timestamps
   confirmedAt      DateTime?
   pickedUpAt       DateTime?
@@ -484,6 +493,7 @@ model ServiceType {
   icon           String? // Icon name e.g. "Wrench", "Monitor", "Cpu"
   price          String? // Starting price e.g. "₹499"
   features       Json? // Array of feature strings
+  formFields     Json? // Array of { name, label, type, required, options }
   active         Boolean  @default(true)
   referrerPoints Float?
   refereePoints  Float?

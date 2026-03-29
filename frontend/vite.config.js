@@ -23,8 +23,8 @@ export default defineConfig(({ mode }) => ({
                 'placeholder-product.svg',
             ],
             manifest: {
-                name: 'CMGROUPS',
-                short_name: 'CMGROUPS',
+                name: 'Shoptify',
+                short_name: 'Shoptify',
                 description: 'Shop, Book Services, Learn Courses & More — Your Local Super App',
                 start_url: '/',
                 scope: '/',
@@ -81,7 +81,7 @@ export default defineConfig(({ mode }) => ({
                         sizes: '1080x1920',
                         type: 'image/png',
                         form_factor: 'narrow',
-                        label: 'CMGROUPS Home',
+                        label: 'Shoptify Home',
                     },
                     {
                         src: '/screenshots/products.png',

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useSEO } from '../hooks/useSEO';
 
 export default function TermsOfService() {
-    useSEO({ title: 'Terms of Service — CMGROUPS', description: 'Terms and conditions for using the CMGROUPS platform and services.' });
+    useSEO({ title: 'Terms of Service — Shoptify', description: 'Terms and conditions for using the Shoptify platform and services.' });
     useEffect(() => { window.scrollTo(0, 0); }, []);
 
     return (
@@ -15,7 +15,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-xl font-heading font-bold mt-0">1. Acceptance of Terms</h2>
                         <p className="text-text-secondary leading-relaxed">
-                            By accessing or using the CMGROUPS application and website (the "Service"),
+                            By accessing or using the Shoptify application and website (the "Service"),
                             you agree to be bound by these Terms of Service. If you do not agree to
                             these terms, do not use the Service.
                         </p>
@@ -23,7 +23,7 @@ export default function TermsOfService() {
 
                     <section>
                         <h2 className="text-xl font-heading font-bold">2. Services Offered</h2>
-                        <p className="text-text-secondary leading-relaxed">CMGROUPS provides:</p>
+                        <p className="text-text-secondary leading-relaxed">Shoptify provides:</p>
                         <ul className="list-disc pl-5 text-text-secondary space-y-1">
                             <li><strong>E-Commerce:</strong> Purchase of computers, components, and accessories.</li>
                             <li><strong>Repair & Maintenance:</strong> Booking of computer repair, AMC, and installation services.</li>
@@ -62,7 +62,7 @@ export default function TermsOfService() {
                         <h2 className="text-xl font-heading font-bold">6. Service Bookings</h2>
                         <p className="text-text-secondary leading-relaxed">
                             Service appointments are subject to technician availability. OTP verification
-                            is required to confirm service completion. CMGROUPS is not liable for damage
+                            is required to confirm service completion. Shoptify is not liable for damage
                             caused by third-party technicians beyond the scope of the booked service.
                         </p>
                     </section>
@@ -70,7 +70,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-xl font-heading font-bold">7. Intellectual Property</h2>
                         <p className="text-text-secondary leading-relaxed">
-                            All content, logos, and materials on the Service are the property of CMGROUPS
+                            All content, logos, and materials on the Service are the property of CMGroups
                             or its licensors and are protected by intellectual property laws. You may not
                             reproduce, distribute, or create derivative works without written permission.
                         </p>
@@ -79,7 +79,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-xl font-heading font-bold">8. Limitation of Liability</h2>
                         <p className="text-text-secondary leading-relaxed">
-                            CMGROUPS shall not be liable for any indirect, incidental, special, or
+                            Shoptify shall not be liable for any indirect, incidental, special, or
                             consequential damages arising from use of the Service. Our total liability
                             shall not exceed the amount paid by you for the specific product or service
                             giving rise to the claim.

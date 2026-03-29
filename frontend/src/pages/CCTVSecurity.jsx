@@ -10,7 +10,7 @@ import { StarRating } from '../components/ui';
 
 const API_BASE = import.meta.env.VITE_API_URL;
 const CITY = 'Etah';
-const WA_NUMBER = '918171838388'; // TODO: Replace with actual CMGROUPS WhatsApp business number
+const WA_NUMBER = '918171838388'; // TODO: Replace with actual CMGroups WhatsApp business number
 const WA_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Hi, I need CCTV installation in Etah. Please share package details and site visit timings.')}`;
 const PROPERTY_OPTIONS = ['Home', 'Shop', 'Medical Store', 'School', 'Factory or Godown', 'Other'];
 const CAMERA_OPTIONS = ['1-2', '3-4', '5-8', 'More than 8', 'Not Sure'];
@@ -37,7 +37,7 @@ const DIFFERENTIATORS = [
     { icon: <ShieldCheck size={20} />, text: 'Only genuine brands: CP Plus, Hikvision, Dahua' }
 ];
 const TESTIMONIALS = [
-    { name: 'Vikas Gupta', role: 'Medical Store Owner, Etah', quote: 'CMGROUPS installed 4 cameras at our store with very clean wiring. I can check the counter and entrance anytime on my phone.', icon: <Store size={20} /> },
+    { name: 'Vikas Gupta', role: 'Medical Store Owner, Etah', quote: 'Shoptify installed 4 cameras at our store with very clean wiring. I can check the counter and entrance anytime on my phone.', icon: <Store size={20} /> },
     { name: 'Anita Sharma', role: 'School Principal, Jalesar', quote: 'They handled our 8-camera setup professionally and trained our staff the same day. The app is simple and reliable.', icon: <School size={20} /> },
     { name: 'Saurabh Singh', role: 'Home Owner, Etah', quote: 'The conduit installation looks neat and professional. We wanted a clean finish and that is exactly what we got.', icon: <Home size={20} /> }
 ];
@@ -76,7 +76,7 @@ const FAQItem = ({ q, a }) => {
 };
 
 const CCTVSecurity = () => {
-    useSEO({ title: 'CCTV Installation in Etah — CMGROUPS Security', description: 'Professional CCTV installation and security solutions for homes and businesses in Etah.' });
+    useSEO({ title: 'CCTV Installation in Etah — Shoptify Security', description: 'Professional CCTV installation and security solutions for homes and businesses in Etah.' });
     const formRef = useRef(null);
     const [preset, setPreset] = useState({ propertyType: '', camerasNeeded: '' });
     const [form, setForm] = useState({ name: '', phone: '', city: '', propertyType: '', camerasNeeded: '', message: '' });
@@ -117,7 +117,7 @@ const CCTVSecurity = () => {
 
     return (
         <>
-            <title>{`CCTV Installation in ${CITY} | CMGROUPS CCTV Security`}</title>
+            <title>{`CCTV Installation in ${CITY} | Shoptify CCTV Security`}</title>
             <div className="min-h-screen bg-page-bg">
                 <section className="relative overflow-hidden bg-page-bg py-xl sm:py-2xl px-lg">
                     <div className="container mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-xl items-center">
@@ -125,7 +125,7 @@ const CCTVSecurity = () => {
                             <span className="inline-flex items-center gap-xs bg-trust/10 text-trust text-xs font-bold px-3 py-1 rounded tracking-wider uppercase"><MapPin size={14} />Serving Etah & Nearby Areas</span>
                             <div>
                                 <h1 className="text-2xl md:text-4xl font-bold leading-tight text-text-primary">Professional CCTV Installation<br /><span className="text-trust">in {CITY}</span></h1>
-                                <p className="text-sm md:text-base text-text-secondary leading-relaxed mt-md max-w-2xl">Protect your property with 24/7 CCTV coverage, mobile live view, hidden wiring, and dependable local warranty support from CMGROUPS.</p>
+                                <p className="text-sm md:text-base text-text-secondary leading-relaxed mt-md max-w-2xl">Protect your property with 24/7 CCTV coverage, mobile live view, hidden wiring, and dependable local warranty support from Shoptify.</p>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-sm">
                                 <Button size="lg" onClick={() => scrollToForm()}>Request Free Site Inspection</Button>
@@ -155,7 +155,7 @@ const CCTVSecurity = () => {
                             </div>
                             <div className="mt-lg ml-auto w-64 max-w-full rounded-3xl border border-border-default bg-surface shadow-sm p-sm animate-in slide-in-from-bottom-5 duration-500">
                                 <div className="rounded-3xl border border-border-default bg-page-bg p-md">
-                                    <div className="flex items-center justify-between mb-sm"><span className="text-xs font-bold text-text-primary">CMGROUPS Live</span><span className="inline-flex items-center gap-xs text-xs text-success font-semibold"><MonitorSmartphone size={12} />Online</span></div>
+                                    <div className="flex items-center justify-between mb-sm"><span className="text-xs font-bold text-text-primary">Shoptify Live</span><span className="inline-flex items-center gap-xs text-xs text-success font-semibold"><MonitorSmartphone size={12} />Online</span></div>
                                     <div className="rounded-2xl border border-border-default bg-surface p-md space-y-sm">
                                         <div className="flex items-center justify-between rounded-lg bg-surface-hover px-sm py-xs"><span className="text-xs font-medium text-text-secondary">Main gate</span><span className="text-xs font-semibold text-success">Live</span></div>
                                         <div className="grid grid-cols-2 gap-sm">
@@ -200,7 +200,7 @@ const CCTVSecurity = () => {
                 </section>
                 <section className="py-xl px-lg bg-surface">
                     <div className="container mx-auto max-w-5xl">
-                        <div className="text-center mb-xl"><h2 className="text-xl font-bold text-text-primary mb-xs">Why Choose CMGROUPS</h2><p className="text-sm text-text-secondary">Local installation quality and after-sales support built for homes and businesses around Etah.</p></div>
+                        <div className="text-center mb-xl"><h2 className="text-xl font-bold text-text-primary mb-xs">Why Choose Shoptify</h2><p className="text-sm text-text-secondary">Local installation quality and after-sales support built for homes and businesses around Etah.</p></div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">{DIFFERENTIATORS.map(item => <div key={item.text} className="glass-panel p-md flex items-start gap-sm"><div className="text-success flex-shrink-0 mt-0.5">{item.icon}</div><span className="font-semibold text-sm text-text-primary leading-relaxed">{item.text}</span></div>)}</div>
                     </div>
                 </section>

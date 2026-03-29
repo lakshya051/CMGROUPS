@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, ShoppingBag, Wrench, Wallet, GraduationCap, Trash2, CheckCheck } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 import Button from '../components/ui/Button';
+import { toSafeInternalPath } from '../utils/sanitize';
 
 function getTimeAgo(dateStr) {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -70,8 +71,9 @@ export default function Notifications() {
         if (!notif.isRead) {
             await markAsRead(notif.id);
         }
-        if (notif.link) {
-            navigate(notif.link);
+        const safePath = toSafeInternalPath(notif.link);
+        if (safePath) {
+            navigate(safePath);
         }
     };
 

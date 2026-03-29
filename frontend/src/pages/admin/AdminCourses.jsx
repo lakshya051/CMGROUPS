@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Clock, Users, BookOpen, X, Save } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { coursesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { useFormik } from 'formik';
@@ -15,7 +16,7 @@ const Modal = ({ title, onClose, children }) => (
         <div className="bg-surface rounded-lg max-w-md w-full shadow-lg border border-border-default animate-in zoom-in duration-300">
             <div className="p-sm border-b border-border-default flex items-center justify-between">
                 <h3 className="font-bold text-lg text-text-primary">{title}</h3>
-                <button onClick={onClose} className="p-xs text-text-muted hover:text-text-primary hover:bg-surface-hover rounded transition-colors"><X size={18} /></button>
+                <button onClick={onClose} className="p-xs text-text-muted hover:text-text-primary hover:bg-surface-hover rounded transition-colors" aria-label="Close dialog"><X size={18} /></button>
             </div>
             <div className="p-md">{children}</div>
         </div>
@@ -34,6 +35,7 @@ const AdminCourses = () => {
     const [durForm, setDurForm] = useState(emptyDuration);
     const [batchForm, setBatchForm] = useState(emptyBatch);
     const [saving, setSaving] = useState(false);
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
     const courseFormik = useFormik({
         initialValues: emptyForm,
@@ -75,9 +77,16 @@ const AdminCourses = () => {
         courseFormik.resetForm({ values: { title: c.title, description: c.description, instructor: c.instructor, category: c.category, thumbnail: c.thumbnail || '', hasCertificate: c.hasCertificate, isPublished: c.isPublished, enableReferral: c.referrerPoints !== null && c.referrerPoints !== undefined, referrerPoints: c.referrerPoints !== null ? c.referrerPoints : '', refereePoints: c.refereePoints !== null ? c.refereePoints : '', sellerName: c.sellerName || '' } });
         setCourseModal(c);
     };
-    const deleteCourse = async (id) => {
-        if (!window.confirm('Delete this course and all its durations/batches?')) return;
-        try { await coursesAPI.delete(id); toast.success('Deleted'); load(); } catch { toast.error('Failed'); }
+    const deleteCourse = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete course?',
+            message: 'Delete this course and all its durations/batches?',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try { await coursesAPI.delete(id); toast.success('Deleted'); load(); } catch { toast.error('Failed'); }
+            },
+        });
     };
 
     // Duration CRUD
@@ -92,9 +101,16 @@ const AdminCourses = () => {
         } catch (err) { toast.error(err.message || 'Failed'); }
         finally { setSaving(false); }
     };
-    const deleteDuration = async (id) => {
-        if (!window.confirm('Delete this duration and all its batches?')) return;
-        try { await coursesAPI.deleteDuration(id); toast.success('Deleted'); load(); } catch { toast.error('Failed'); }
+    const deleteDuration = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete duration?',
+            message: 'Delete this duration and all its batches?',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try { await coursesAPI.deleteDuration(id); toast.success('Deleted'); load(); } catch { toast.error('Failed'); }
+            },
+        });
     };
 
     // Batch CRUD
@@ -109,9 +125,16 @@ const AdminCourses = () => {
         } catch (err) { toast.error(err.message || 'Failed'); }
         finally { setSaving(false); }
     };
-    const deleteBatch = async (id) => {
-        if (!window.confirm('Delete this batch?')) return;
-        try { await coursesAPI.deleteBatch(id); toast.success('Deleted'); load(); } catch { toast.error('Failed'); }
+    const deleteBatch = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete batch?',
+            message: 'Delete this batch?',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try { await coursesAPI.deleteBatch(id); toast.success('Deleted'); load(); } catch { toast.error('Failed'); }
+            },
+        });
     };
 
     if (loading) return <div className="p-8 text-center text-text-muted">Loading courses...</div>;
@@ -216,12 +239,12 @@ const AdminCourses = () => {
                         <div>
                             <label className="block text-sm font-bold mb-1">Title *</label>
                             <input name="title" value={courseFormik.values.title} onChange={courseFormik.handleChange} onBlur={courseFormik.handleBlur} className={`input-field ${courseFormik.touched.title && courseFormik.errors.title ? 'border-red-500' : ''}`} />
-                            {courseFormik.touched.title && courseFormik.errors.title && <p className="text-red-400 text-sm mt-1">{courseFormik.errors.title}</p>}
+                            {courseFormik.touched.title && courseFormik.errors.title && <p className="text-error text-sm mt-1">{courseFormik.errors.title}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">Instructor *</label>
                             <input name="instructor" value={courseFormik.values.instructor} onChange={courseFormik.handleChange} onBlur={courseFormik.handleBlur} className={`input-field ${courseFormik.touched.instructor && courseFormik.errors.instructor ? 'border-red-500' : ''}`} />
-                            {courseFormik.touched.instructor && courseFormik.errors.instructor && <p className="text-red-400 text-sm mt-1">{courseFormik.errors.instructor}</p>}
+                            {courseFormik.touched.instructor && courseFormik.errors.instructor && <p className="text-error text-sm mt-1">{courseFormik.errors.instructor}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">Category</label>
@@ -238,7 +261,7 @@ const AdminCourses = () => {
                         <div>
                             <label className="block text-sm font-bold mb-1">Description *</label>
                             <textarea name="description" value={courseFormik.values.description} onChange={courseFormik.handleChange} onBlur={courseFormik.handleBlur} className={`input-field h-20 resize-none ${courseFormik.touched.description && courseFormik.errors.description ? 'border-red-500' : ''}`} />
-                            {courseFormik.touched.description && courseFormik.errors.description && <p className="text-red-400 text-sm mt-1">{courseFormik.errors.description}</p>}
+                            {courseFormik.touched.description && courseFormik.errors.description && <p className="text-error text-sm mt-1">{courseFormik.errors.description}</p>}
                         </div>
                         <div className="flex gap-6 text-sm">
                             <label className="flex items-center gap-2 cursor-pointer">
@@ -348,6 +371,13 @@ const AdminCourses = () => {
                     </form>
                 </Modal>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };

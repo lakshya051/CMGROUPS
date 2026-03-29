@@ -48,8 +48,10 @@ const getServiceSettings = async () => {
     return settings || getDefaultServiceSettings();
 };
 
-/** Generate a 6-digit numeric OTP string */
-const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
+import crypto from 'crypto';
+
+/** Generate a 6-digit numeric OTP string (cryptographically secure) */
+const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
 
 /**
  * Safe booking select — always excludes pickupOtp from responses.
@@ -62,6 +64,7 @@ const BOOKING_SAFE_SELECT = {
     description: true,
     deviceType: true,
     deviceBrand: true,
+    customFields: true,
     date: true,
     timeSlot: true,
     status: true,
@@ -72,13 +75,18 @@ const BOOKING_SAFE_SELECT = {
     city: true,
     pincode: true,
     landmark: true,
+    latitude: true,
+    longitude: true,
+    googleMapLink: true,
     estimatedPrice: true,
     finalPrice: true,
     adminNotes: true,
     assignedTo: true,
-    // pickupOtp intentionally excluded
+    // pickupOtp and deliveryOtp intentionally excluded
     otpVerified: true,
     otpGeneratedAt: true,
+    deliveryOtpVerified: true,
+    deliveryOtpGeneratedAt: true,
     technicianId: true,
     estimatedCompletionDate: true,
     invoiceUrl: true,
@@ -96,8 +104,8 @@ const BOOKING_SAFE_SELECT = {
     invoice: true
 };
 
-/** Admin list/detail — includes pickupOtp so admin can match at pickup */
-const BOOKING_ADMIN_SELECT = { ...BOOKING_SAFE_SELECT, pickupOtp: true };
+/** Admin list/detail — includes pickupOtp and deliveryOtp */
+const BOOKING_ADMIN_SELECT = { ...BOOKING_SAFE_SELECT, pickupOtp: true, deliveryOtp: true };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/services/available-slots (Public)
@@ -154,7 +162,8 @@ router.post('/book', protect, async (req, res) => {
             deviceType, deviceBrand,
             customerName, customerPhone,
             address, city, pincode, landmark,
-            referralCode
+            latitude, longitude, googleMapLink,
+            referralCode, customFields
         } = req.body;
 
         if (!serviceType || !date || !timeSlot || !customerName || !customerPhone || !address || !city || !pincode) {
@@ -172,19 +181,7 @@ router.post('/book', protect, async (req, res) => {
             return res.status(400).json({ error: 'Invalid time slot selected.' });
         }
 
-        const existingBookings = await withDbRetry(() => prisma.serviceBooking.count({
-            where: {
-                date: { gte: targetDate, lt: nextDate },
-                timeSlot,
-                status: { notIn: ['Cancelled', 'Rejected'] }
-            }
-        }));
-
-        if (existingBookings >= settings.maxBookingsPerSlot) {
-            return res.status(400).json({ error: 'Selected time slot is no longer available.' });
-        }
-
-        // Validate referral code if provided
+        // Validate referral code if provided (before transaction)
         let referrer = null;
         if (referralCode && referralCode.trim()) {
             referrer = await prisma.user.findFirst({
@@ -198,25 +195,51 @@ router.post('/book', protect, async (req, res) => {
             }
         }
 
-        const booking = await withDbRetry(() => prisma.serviceBooking.create({
-            data: {
-                userId: req.user.id,
-                serviceType,
-                description: description || null,
-                deviceType: deviceType || null,
-                deviceBrand: deviceBrand || null,
-                date: new Date(date),
-                timeSlot,
-                status: 'Pending',
-                customerName,
-                customerPhone,
-                address,
-                city,
-                pincode,
-                landmark: landmark || null,
-                referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null
+        // Atomic slot check + create inside a serializable transaction to prevent double-booking
+        const booking = await withDbRetry(() => prisma.$transaction(async (tx) => {
+            const existingBookings = await tx.serviceBooking.count({
+                where: {
+                    date: { gte: targetDate, lt: nextDate },
+                    timeSlot,
+                    status: { notIn: ['Cancelled', 'Rejected'] }
+                }
+            });
+
+            if (existingBookings >= settings.maxBookingsPerSlot) {
+                throw new Error('SLOT_FULL');
             }
-        }));
+
+            return tx.serviceBooking.create({
+                data: {
+                    userId: req.user.id,
+                    serviceType,
+                    description: description || null,
+                    deviceType: deviceType || null,
+                    deviceBrand: deviceBrand || null,
+                    date: new Date(date),
+                    timeSlot,
+                    status: 'Pending',
+                    customerName,
+                    customerPhone,
+                    address,
+                    city,
+                    pincode,
+                    landmark: landmark || null,
+                    latitude: latitude != null ? parseFloat(latitude) : null,
+                    longitude: longitude != null ? parseFloat(longitude) : null,
+                    googleMapLink: googleMapLink || null,
+                    referralCodeUsed: referrer ? referralCode.trim().toUpperCase() : null,
+                    customFields: customFields && typeof customFields === 'object' ? customFields : null
+                }
+            });
+        })).catch(err => {
+            if (err.message === 'SLOT_FULL') return null;
+            throw err;
+        });
+
+        if (!booking) {
+            return res.status(400).json({ error: 'Selected time slot is no longer available.' });
+        }
 
         // Respond immediately — notifications fire in background
         res.status(201).json({ ...booking, pickupOtp: undefined });
@@ -330,6 +353,24 @@ router.get('/', protect, adminOnly, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api/services/:id (Admin — single booking detail)
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/:id', protect, adminOnly, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const booking = await prisma.serviceBooking.findUnique({
+            where: { id: bookingId },
+            select: BOOKING_ADMIN_SELECT
+        });
+        if (!booking) return res.status(404).json({ error: 'Booking not found' });
+        res.json(booking);
+    } catch (error) {
+        console.error('Get booking error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/services/:id/assign (Admin — assign technician)
 // ─────────────────────────────────────────────────────────────────────────────
 router.patch('/:id/assign', protect, adminOnly, async (req, res) => {
@@ -385,6 +426,18 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 });
             }
         }
+        // Enforce delivery OTP verification before marking as Delivered
+        if (status === 'Delivered') {
+            const current = await prisma.serviceBooking.findUnique({
+                where: { id: bookingId },
+                select: { status: true, deliveryOtpVerified: true }
+            });
+            if (current?.status === 'Completed' && !current.deliveryOtpVerified) {
+                return res.status(400).json({
+                    error: 'Customer must provide the delivery OTP first. Verify the delivery OTP before marking as Delivered.'
+                });
+            }
+        }
 
         const updateData = {};
 
@@ -411,6 +464,14 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 updateData.pickupOtp = otp;
                 updateData.otpGeneratedAt = now;
                 updateData.otpVerified = false;
+            }
+
+            // ── DELIVERY OTP GENERATION on "Completed" ──────────────────────
+            if (status === 'Completed') {
+                const deliveryOtp = generateOtp();
+                updateData.deliveryOtp = deliveryOtp;
+                updateData.deliveryOtpGeneratedAt = now;
+                updateData.deliveryOtpVerified = false;
             }
 
         }
@@ -446,7 +507,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 booking.finalPrice = totalAmount;
 
                 const invoiceNumber = `SINV-${Date.now()}-${booking.id}`;
-                const technicianName = booking.technician?.name || booking.assignedTo || 'CMGROUPS Technician';
+                const technicianName = booking.technician?.name || booking.assignedTo || 'Shoptify Technician';
 
                 const serviceInvoice = await prisma.serviceInvoice.create({
                     data: {
@@ -571,7 +632,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                                         const nRT = tiers.find(t => upRef.tierPoints >= t.minPoints)?.tierName || 'Bronze';
                                         if (nRT !== upRef.tier) await tx.user.update({ where: { id: referrerId }, data: { tier: nRT } });
 
-                                        const upBuy = await tx.user.update({ where: { id: fullBooking.userId }, data: { tierPoints: { increment: rewardAmount } }, select: { id: true, tierPoints: true, tier: true } });
+                                        const upBuy = await tx.user.update({ where: { id: fullBooking.userId }, data: { tierPoints: { increment: refereePoints } }, select: { id: true, tierPoints: true, tier: true } });
                                         const nBT = tiers.find(t => upBuy.tierPoints >= t.minPoints)?.tierName || 'Bronze';
                                         if (nBT !== upBuy.tier) await tx.user.update({ where: { id: fullBooking.userId }, data: { tier: nBT } });
                                     }
@@ -593,15 +654,21 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             setImmediate(() => {
                 void sendServiceNotification(booking, status);
                 if (booking.user?.id) {
+                    const isCompleted = status === 'Completed';
                     createUserNotification({
                         userId: booking.user.id,
-                        title: 'Service Status Updated',
-                        message: `Your service request SRV-${booking.id} is now ${status}.`,
+                        title: isCompleted ? `Delivery OTP for SRV-${booking.id}` : 'Service Status Updated',
+                        message: isCompleted
+                            ? `Your device is ready! A delivery OTP has been sent. Share it with the technician when receiving your device.`
+                            : `Your service request SRV-${booking.id} is now ${status}.`,
                         type: 'service',
                         link: '/dashboard/services',
                         push: {
                             enabled: true,
-                            body: `Your service request SRV-${booking.id} is now ${status}.`,
+                            title: isCompleted ? 'Delivery OTP Ready' : undefined,
+                            body: isCompleted
+                                ? `Your delivery OTP for SRV-${booking.id} is available in Shoptify.`
+                                : `Your service request SRV-${booking.id} is now ${status}.`,
                         },
                     }).catch((notifErr) => {
                         console.error('In-app notification error (deferred):', notifErr);
@@ -730,12 +797,12 @@ router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
             createUserNotification({
                 userId: updated.userId,
                 title: 'Pickup OTP Updated',
-                message: `A new pickup OTP has been generated for SRV-${bookingId}. Check CMGROUPS before technician pickup.`,
+                message: `A new pickup OTP has been generated for SRV-${bookingId}. Check Shoptify before technician pickup.`,
                 type: 'service',
                 link: '/dashboard/services',
                 push: {
                     enabled: true,
-                    body: `A new pickup OTP is available in CMGROUPS for SRV-${bookingId}.`,
+                    body: `A new pickup OTP is available in Shoptify for SRV-${bookingId}.`,
                 },
             }).catch((notifErr) => {
                 console.error('Pickup OTP notification error (deferred):', notifErr);
@@ -743,6 +810,100 @@ router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
         });
     } catch (error) {
         console.error('Regenerate OTP error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/services/:id/verify-delivery-otp (Admin — verify customer's delivery OTP)
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/:id/verify-delivery-otp', protect, adminOnly, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+        const { otp } = req.body;
+
+        if (!otp) return res.status(400).json({ error: 'OTP is required' });
+
+        const booking = await prisma.serviceBooking.findUnique({
+            where: { id: bookingId },
+            select: { id: true, status: true, deliveryOtp: true, deliveryOtpVerified: true }
+        });
+
+        if (!booking) return res.status(404).json({ error: 'Booking not found' });
+        if (booking.status !== 'Completed') {
+            return res.status(400).json({ error: 'Delivery OTP can only be verified for Completed bookings' });
+        }
+        if (booking.deliveryOtpVerified) {
+            return res.status(400).json({ error: 'Delivery OTP has already been verified' });
+        }
+        if (String(otp).trim() !== String(booking.deliveryOtp).trim()) {
+            return res.status(400).json({ error: 'Invalid OTP. Please check and try again.' });
+        }
+
+        const updated = await prisma.serviceBooking.update({
+            where: { id: bookingId },
+            data: { deliveryOtpVerified: true },
+            select: BOOKING_ADMIN_SELECT
+        });
+
+        res.json({ success: true, message: 'Delivery OTP verified. You can now mark this booking as Delivered.', booking: updated });
+    } catch (error) {
+        console.error('Verify delivery OTP error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/services/:id/regenerate-delivery-otp (Admin only)
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/:id/regenerate-delivery-otp', protect, adminOnly, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id);
+
+        const existing = await prisma.serviceBooking.findUnique({
+            where: { id: bookingId },
+            include: { user: { select: { id: true, name: true, email: true } }, technician: true }
+        });
+
+        if (!existing) return res.status(404).json({ error: 'Booking not found' });
+        if (existing.status !== 'Completed') {
+            return res.status(400).json({ error: 'Delivery OTP can only be regenerated for Completed bookings' });
+        }
+
+        const newOtp = generateOtp();
+        const updated = await prisma.serviceBooking.update({
+            where: { id: bookingId },
+            data: {
+                deliveryOtp: newOtp,
+                deliveryOtpGeneratedAt: new Date(),
+                deliveryOtpVerified: false
+            },
+            include: {
+                user: { select: { id: true, name: true, email: true } },
+                technician: true
+            }
+        });
+
+        const { deliveryOtp: _otp, pickupOtp: _pOtp, ...safeBooking } = updated;
+        res.json({ success: true, message: 'New delivery OTP generated and sent to customer.', booking: safeBooking });
+
+        setImmediate(() => {
+            createUserNotification({
+                userId: updated.userId,
+                title: 'Delivery OTP Updated',
+                message: `A new delivery OTP has been generated for SRV-${bookingId}. Share it with the technician when receiving your device.`,
+                type: 'service',
+                link: '/dashboard/services',
+                push: {
+                    enabled: true,
+                    body: `Your new delivery OTP for SRV-${bookingId} is available in Shoptify.`,
+                },
+            }).catch((notifErr) => {
+                console.error('Delivery OTP notification error (deferred):', notifErr);
+            });
+        });
+    } catch (error) {
+        console.error('Regenerate delivery OTP error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

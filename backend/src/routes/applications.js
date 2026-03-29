@@ -85,6 +85,10 @@ router.get('/admin/all', protect, adminOnly, async (req, res) => {
 router.put('/:id/status', protect, adminOnly, async (req, res) => {
     try {
         const { status } = req.body;
+        const validStatuses = ['Pending', 'Approved', 'Rejected', 'Enrolled', 'Completed'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
 
         const application = await prisma.courseApplication.update({
             where: { id: parseInt(req.params.id) },
@@ -169,6 +173,7 @@ router.put('/enrollment/:id/payment', protect, adminOnly, async (req, res) => {
                         refereeId: enrollment.userId,
                         status: 'rewarded',
                         rewardAmount,
+                        source: 'course',
                         completedAt: new Date()
                     }
                 });

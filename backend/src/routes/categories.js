@@ -48,20 +48,6 @@ router.post('/', protect, adminOnly, async (req, res) => {
     }
 });
 
-// DELETE /api/categories/:id - Delete category (Admin)
-router.delete('/:id', protect, adminOnly, async (req, res) => {
-    try {
-        await prisma.category.delete({
-            where: { id: parseInt(req.params.id) }
-        });
-        cache.delByPrefix('categories:');
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Delete category error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
 // ============ SERVICE TYPES ============
 
 // GET /api/categories/service-types - List all active service types (Public)
@@ -98,7 +84,7 @@ router.get('/service-types/all', protect, adminOnly, async (req, res) => {
 // POST /api/categories/service-types - Create service type (Admin)
 router.post('/service-types', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, icon, price, features, referrerPoints, refereePoints, sellerName } = req.body;
+        const { title, description, icon, price, features, formFields, referrerPoints, refereePoints, sellerName } = req.body;
 
         if (!title) {
             return res.status(400).json({ error: 'Title is required' });
@@ -111,6 +97,7 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
                 icon: icon || 'Wrench',
                 price: price || null,
                 features: features || [],
+                formFields: Array.isArray(formFields) ? formFields : null,
                 referrerPoints: referrerPoints !== undefined ? parseFloat(referrerPoints) : null,
                 refereePoints: refereePoints !== undefined ? parseFloat(refereePoints) : null,
                 sellerName: sellerName?.trim() || null
@@ -131,7 +118,7 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
 // PUT /api/categories/service-types/:id - Update service type (Admin)
 router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
     try {
-        const { title, description, icon, price, features, active, referrerPoints, refereePoints, sellerName } = req.body;
+        const { title, description, icon, price, features, formFields, active, referrerPoints, refereePoints, sellerName } = req.body;
 
         const data = {};
         if (title !== undefined) data.title = title;
@@ -139,6 +126,7 @@ router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
         if (icon !== undefined) data.icon = icon;
         if (price !== undefined) data.price = price;
         if (features !== undefined) data.features = features;
+        if (formFields !== undefined) data.formFields = Array.isArray(formFields) ? formFields : null;
         if (active !== undefined) data.active = active;
         if (referrerPoints !== undefined) data.referrerPoints = referrerPoints === null ? null : parseFloat(referrerPoints);
         if (refereePoints !== undefined) data.refereePoints = refereePoints === null ? null : parseFloat(refereePoints);
@@ -170,6 +158,21 @@ router.delete('/service-types/:id', protect, adminOnly, async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Delete service type error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// DELETE /api/categories/:id - Delete category (Admin)
+// Placed after all static routes to prevent /:id from matching 'service-types'
+router.delete('/:id', protect, adminOnly, async (req, res) => {
+    try {
+        await prisma.category.delete({
+            where: { id: parseInt(req.params.id) }
+        });
+        cache.delByPrefix('categories:');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Delete category error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

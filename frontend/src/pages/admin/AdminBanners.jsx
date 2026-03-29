@@ -4,6 +4,7 @@ import {
     ChevronUp, ChevronDown, Eye, EyeOff, Upload
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { bannersAPI } from '../../lib/api';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -39,6 +40,7 @@ const AdminBanners = () => {
     const [editingId, setEditingId] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
     const fileInputRef = useRef(null);
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
     const formik = useFormik({
         initialValues: EMPTY_FORM,
@@ -118,15 +120,22 @@ const AdminBanners = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('This will permanently delete the banner and its image. Continue?')) return;
-        try {
-            await bannersAPI.delete(id);
-            setBanners(prev => prev.filter(b => b.id !== id));
-            toast.success('Banner deleted');
-        } catch {
-            toast.error('Failed to delete banner');
-        }
+    const handleDelete = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete banner?',
+            message: 'This will permanently delete the banner and its image. Continue?',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await bannersAPI.delete(id);
+                    setBanners(prev => prev.filter(b => b.id !== id));
+                    toast.success('Banner deleted');
+                } catch {
+                    toast.error('Failed to delete banner');
+                }
+            },
+        });
     };
 
     const handleMove = async (index, direction) => {
@@ -303,7 +312,7 @@ const AdminBanners = () => {
                             <h2 className="text-xl font-heading font-bold">
                                 {editingId ? 'Edit Banner' : 'Add New Banner'}
                             </h2>
-                            <button onClick={closeModal} className="text-text-muted hover:text-text-main">
+                            <button onClick={closeModal} className="text-text-muted hover:text-text-main" aria-label="Close dialog">
                                 <X size={20} />
                             </button>
                         </div>
@@ -343,6 +352,7 @@ const AdminBanners = () => {
                                                     if (fileInputRef.current) fileInputRef.current.value = '';
                                                 }}
                                                 className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+                                                aria-label="Remove"
                                             >
                                                 <X size={14} />
                                             </button>
@@ -390,7 +400,7 @@ const AdminBanners = () => {
                                     onBlur={formik.handleBlur}
                                 />
                                 {formik.touched.title && formik.errors.title && (
-                                    <p className="text-red-400 text-sm mt-1">{formik.errors.title}</p>
+                                    <p className="text-error text-sm mt-1">{formik.errors.title}</p>
                                 )}
                             </div>
 
@@ -476,6 +486,13 @@ const AdminBanners = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };

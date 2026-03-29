@@ -13,6 +13,9 @@ function getCredential() {
             privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
         });
     }
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('Firebase credentials must be provided via environment variables in production (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)');
+    }
     const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
         ?? path.join(__dirname, '..', 'serviceAccountKey.json');
     const serviceAccount = JSON.parse(readFileSync(keyPath, 'utf8'));

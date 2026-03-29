@@ -16,9 +16,13 @@ export const phoneSchema = Yup.string()
     .required('Phone number is required');
 
 export const optionalPhoneSchema = Yup.string()
-    .matches(/^[0-9]{10}$/, 'Please enter a valid 10-digit phone number')
-    .optional()
-    .nullable();
+    .transform((value) => (value === '' ? null : value))
+    .nullable()
+    .notRequired()
+    .test('phone-format', 'Please enter a valid 10-digit phone number', (value) => {
+        if (!value) return true;
+        return /^[0-9]{10}$/.test(value);
+    });
 
 export const passwordSchema = Yup.string()
     .min(6, 'Password must be at least 6 characters')
@@ -90,10 +94,8 @@ export const serviceBookingSchema = Yup.object({
         .required('Pincode is required'),
     date: Yup.string().required('Preferred date is required'),
     timeSlot: Yup.string().required('Preferred time slot is required'),
-    description: Yup.string().optional(),
-    deviceType: Yup.string().optional(),
-    deviceBrand: Yup.string().optional(),
     landmark: Yup.string().optional(),
+    customFields: Yup.object().optional(),
 });
 
 // ─── Admin — Products ─────────────────────────────────────────────────────────
@@ -147,9 +149,9 @@ export const addCouponSchema = Yup.object({
         .min(3, 'Coupon code must be at least 3 characters')
         .required('Coupon code is required'),
     discountType: Yup.string()
-        .oneOf(['percentage', 'fixed'], 'Invalid discount type')
+        .oneOf(['percent', 'fixed'], 'Invalid discount type')
         .required('Discount type is required'),
-    discountValue: Yup.number()
+    value: Yup.number()
         .typeError('Discount value must be a number')
         .positive('Discount value must be greater than 0')
         .required('Discount value is required'),

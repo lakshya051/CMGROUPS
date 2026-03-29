@@ -42,11 +42,13 @@ const Services = lazyRetry(() => import('./pages/Services'));
 const TallyERP = lazyRetry(() => import('./pages/TallyERP'));
 const CCTVSecurity = lazyRetry(() => import('./pages/CCTVSecurity'));
 const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage'));
+const OurCompanies = lazyRetry(() => import('./pages/OurCompanies'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazyRetry(() => import('./pages/TermsOfService'));
 const SignIn = lazyRetry(() => import('./pages/SignIn'));
 const SignUp = lazyRetry(() => import('./pages/SignUp'));
 const Notifications = lazyRetry(() => import('./pages/Notifications'));
+const NotFound = lazyRetry(() => import('./pages/NotFound'));
 
 // Shop
 const Products = lazyRetry(() => import('./pages/shop/Products'));
@@ -121,6 +123,7 @@ function App() {
                                 <Route path="tally-erp" element={<TallyERP />} />
                                 <Route path="tally-prime" element={<TallyERP />} />
                                 <Route path="cctv" element={<CCTVSecurity />} />
+                                <Route path="our-companies" element={<OurCompanies />} />
                                 <Route path="privacy-policy" element={<PrivacyPolicy />} />
                                 <Route path="terms-of-service" element={<TermsOfService />} />
                                 <Route path="notifications" element={
@@ -169,6 +172,11 @@ function App() {
                             <Route path="/sign-in" element={<SignIn />} />
                             <Route path="/sign-up" element={<SignUp />} />
                             <Route path="/onboarding" element={<OnboardingPage />} />
+
+                            {/* 404 catch-all */}
+                            <Route path="*" element={<ErrorBoundary><SharedLayout /></ErrorBoundary>}>
+                                <Route path="*" element={<NotFound />} />
+                            </Route>
                         </Routes>
                     </Suspense>
                 </ShopProvider>

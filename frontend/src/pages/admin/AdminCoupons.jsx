@@ -3,7 +3,9 @@ import { Ticket, Plus, Trash2, ToggleLeft, ToggleRight, X, Save, Pencil } from '
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import Button from '../../components/ui/Button';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { couponsAPI } from '../../lib/api';
+import toast from 'react-hot-toast';
 
 const EMPTY_FORM_VALUES = {
     code: '',
@@ -70,6 +72,7 @@ const AdminCoupons = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState(null);
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
     const couponSchema = Yup.object({
         code: Yup.string().min(3, 'Code must be at least 3 characters').required('Coupon code is required'),
@@ -124,7 +127,7 @@ const AdminCoupons = () => {
     useEffect(() => {
         couponsAPI.getAll()
             .then(data => setCoupons(data))
-            .catch(err => console.error('Failed to fetch coupons:', err))
+            .catch(err => { console.error('Failed to fetch coupons:', err); toast.error('Failed to load coupons'); })
             .finally(() => setLoading(false));
     }, []);
 
@@ -152,18 +155,26 @@ const AdminCoupons = () => {
             setCoupons(prev => prev.map(item => (item.id === coupon.id ? updated : item)));
         } catch (err) {
             console.error('Failed to toggle coupon:', err);
+            toast.error('Failed to toggle coupon');
         }
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Delete this coupon?')) {
-            try {
-                await couponsAPI.delete(id);
-                setCoupons(prev => prev.filter(coupon => coupon.id !== id));
-            } catch (err) {
-                console.error('Failed to delete coupon:', err);
-            }
-        }
+    const handleDelete = (id) => {
+        setConfirmState({
+            isOpen: true,
+            title: 'Delete coupon?',
+            message: 'Delete this coupon?',
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await couponsAPI.delete(id);
+                    setCoupons(prev => prev.filter(coupon => coupon.id !== id));
+                } catch (err) {
+                    console.error('Failed to delete coupon:', err);
+                    toast.error('Failed to delete coupon');
+                }
+            },
+        });
     };
 
     if (loading) return <div className="p-8 text-center text-text-muted">Loading coupons...</div>;
@@ -197,7 +208,7 @@ const AdminCoupons = () => {
 
                         <div className="flex items-center gap-3 mb-4">
                             <div className={`px-3 py-1 rounded-lg text-sm font-bold ${coupon.discountType === 'percent'
-                                ? 'bg-blue-400/10 text-blue-400'
+                                ? 'bg-blue-400/10 text-blue-700'
                                 : 'bg-green-400/10 text-green-400'
                                 }`}>
                                 {coupon.discountType === 'percent' ? `${coupon.value}% OFF` : `Rs. ${coupon.value} OFF`}
@@ -261,7 +272,7 @@ const AdminCoupons = () => {
                     <div className="glass-panel w-full max-w-lg relative animate-in zoom-in duration-300">
                         <div className="p-6 border-b border-border-default flex items-center justify-between">
                             <h2 className="text-xl font-heading font-bold">{editingCoupon ? 'Edit Coupon' : 'Create Coupon'}</h2>
-                            <button onClick={closeModal} className="text-text-muted hover:text-text-main">
+                            <button onClick={closeModal} className="text-text-muted hover:text-text-main" aria-label="Close dialog">
                                 <X size={20} />
                             </button>
                         </div>
@@ -282,7 +293,7 @@ const AdminCoupons = () => {
                                     onChange={formik.handleChange}
                                     onBlur={formik.handleBlur}
                                 />
-                                {formik.touched.code && formik.errors.code && <p className="text-red-400 text-sm mt-1">{formik.errors.code}</p>}
+                                {formik.touched.code && formik.errors.code && <p className="text-error text-sm mt-1">{formik.errors.code}</p>}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -312,7 +323,7 @@ const AdminCoupons = () => {
                                         onBlur={formik.handleBlur}
                                         min="0"
                                     />
-                                    {formik.touched.value && formik.errors.value && <p className="text-red-400 text-sm mt-1">{formik.errors.value}</p>}
+                                    {formik.touched.value && formik.errors.value && <p className="text-error text-sm mt-1">{formik.errors.value}</p>}
                                 </div>
                             </div>
 
@@ -330,7 +341,7 @@ const AdminCoupons = () => {
                                         min="0"
                                         step="0.01"
                                     />
-                                    {formik.touched.minOrderAmount && formik.errors.minOrderAmount && <p className="text-red-400 text-sm mt-1">{formik.errors.minOrderAmount}</p>}
+                                    {formik.touched.minOrderAmount && formik.errors.minOrderAmount && <p className="text-error text-sm mt-1">{formik.errors.minOrderAmount}</p>}
                                 </div>
 
                                 <div>
@@ -346,7 +357,7 @@ const AdminCoupons = () => {
                                         min="1"
                                         step="1"
                                     />
-                                    {formik.touched.maxUses && formik.errors.maxUses && <p className="text-red-400 text-sm mt-1">{formik.errors.maxUses}</p>}
+                                    {formik.touched.maxUses && formik.errors.maxUses && <p className="text-error text-sm mt-1">{formik.errors.maxUses}</p>}
                                 </div>
                             </div>
 
@@ -360,7 +371,7 @@ const AdminCoupons = () => {
                                     onChange={formik.handleChange}
                                     onBlur={formik.handleBlur}
                                 />
-                                {formik.touched.expiresAt && formik.errors.expiresAt && <p className="text-red-400 text-sm mt-1">{formik.errors.expiresAt}</p>}
+                                {formik.touched.expiresAt && formik.errors.expiresAt && <p className="text-error text-sm mt-1">{formik.errors.expiresAt}</p>}
                             </div>
 
                             <Button type="submit" className="w-full gap-2" disabled={formik.isSubmitting}>
@@ -370,6 +381,13 @@ const AdminCoupons = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };

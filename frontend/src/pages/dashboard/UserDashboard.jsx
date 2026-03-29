@@ -47,7 +47,7 @@ const UserDashboard = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [statsError, setStatsError] = useState(false);
-    useSEO({ title: 'My Dashboard — CMGROUPS', description: 'Manage your orders, services and account.', noIndex: true });
+    useSEO({ title: 'My Dashboard — Shoptify', description: 'Manage your orders, services and account.', noIndex: true });
 
     useEffect(() => {
         ordersAPI.getMyStats()
@@ -58,7 +58,7 @@ const UserDashboard = () => {
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'Processing': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+            case 'Processing': return 'bg-blue-500/10 text-blue-700 border-blue-500/20';
             case 'Confirmed': return 'bg-success/10 text-success border-success/20';
             case 'Shipped': return 'bg-orange-400/10 text-orange-400 border-orange-400/20';
             case 'Delivered': return 'bg-success/10 text-success border-success/20';

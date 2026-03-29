@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, ShoppingBag, Wrench, Wallet, GraduationCap, X } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
+import { toSafeInternalPath } from '../../utils/sanitize';
 
 function getTimeAgo(dateStr) {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -64,8 +65,9 @@ const NotificationDropdown = () => {
             await markAsRead(notif.id);
         }
         setIsOpen(false);
-        if (notif.link) {
-            navigate(notif.link);
+        const safePath = toSafeInternalPath(notif.link);
+        if (safePath) {
+            navigate(safePath);
         }
     };
 
@@ -89,6 +91,7 @@ const NotificationDropdown = () => {
                     <button
                         onClick={() => setIsOpen(false)}
                         className="text-text-muted hover:text-text-primary transition-colors"
+                        aria-label="Close notifications"
                     >
                         <X size={16} />
                     </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     ShoppingBag, Search, Eye, CheckCircle, Truck, XCircle,
     Shield, X, MapPin, User, Package, CreditCard, Tag, Calendar,
@@ -7,6 +7,7 @@ import {
 import Button from '../../components/ui/Button';
 import { ordersAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { handleImageError } from '../../utils/image';
 
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
@@ -20,7 +21,7 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
     const customerPhone = order.user?.phone || order.guestInfo?.phone || '—';
 
     const statusColors = {
-        Processing: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+        Processing: 'text-blue-700 bg-blue-400/10 border-blue-400/20',
         Confirmed: 'text-success bg-success/10 border-success/20',
         Shipped: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
         Delivered: 'text-success bg-success/10 border-success/20',
@@ -88,6 +89,7 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                     <button
                         onClick={onClose}
                         className="p-1.5 hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-text-primary flex-shrink-0"
+                        aria-label="Close dialog"
                     >
                         <X size={20} />
                     </button>
@@ -244,14 +246,14 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                                 <>
                                     <Button
                                         variant="primary"
-                                        onClick={() => { onStatusUpdate(order.id, 'approve-return'); onClose(); }}
+                                        onClick={() => { onStatusUpdate(order.id, 'approve-return'); }}
                                         className="flex items-center gap-1.5"
                                     >
                                         <CheckCircle size={15} /> Approve Return & Refund
                                     </Button>
                                     <Button
                                         variant="outline"
-                                        onClick={() => { onStatusUpdate(order.id, 'reject-return'); onClose(); }}
+                                        onClick={() => { onStatusUpdate(order.id, 'reject-return'); }}
                                         className="flex items-center gap-1.5 text-error"
                                     >
                                         <XCircle size={15} /> Reject Return
@@ -326,33 +328,35 @@ const AdminOrders = () => {
     const [verifyingOrderId, setVerifyingOrderId] = useState(null);
     const [otpInput, setOtpInput] = useState('');
     const [isVerifying, setIsVerifying] = useState(false);
+    const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+    const fetchOrders = useCallback(async (showLoader = true) => {
+        if (showLoader) setLoading(true);
+        try {
+            const params = {
+                page,
+                limit: 20,
+                status: filter !== 'All' ? filter : undefined,
+                search: searchTerm || undefined
+            };
+            const res = await ordersAPI.getAll(params);
+            if (res.data) {
+                setOrders(res.data);
+                setTotalPages(res.totalPages);
+                setTotalOrders(res.total);
+            } else {
+                setOrders(res);
+            }
+        } catch (err) {
+            console.error('Failed to fetch orders:', err);
+        } finally {
+            if (showLoader) setLoading(false);
+        }
+    }, [page, filter, searchTerm]);
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            setLoading(true);
-            try {
-                const params = {
-                    page,
-                    limit: 20,
-                    status: filter !== 'All' ? filter : undefined,
-                    search: searchTerm || undefined
-                };
-                const res = await ordersAPI.getAll(params);
-                if (res.data) {
-                    setOrders(res.data);
-                    setTotalPages(res.totalPages);
-                    setTotalOrders(res.total);
-                } else {
-                    setOrders(res);
-                }
-            } catch (err) {
-                console.error('Failed to fetch orders:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchOrders();
-    }, [page, filter, searchTerm]);
+    }, [fetchOrders]);
 
     // Reset page when filter/search changes
     useEffect(() => { setPage(1); }, [filter, searchTerm]);
@@ -361,7 +365,7 @@ const AdminOrders = () => {
         // Handle return actions (approve/reject) routed through the refund API
         if (newStatus === 'approve-return' || newStatus === 'reject-return') {
             const action = newStatus === 'approve-return' ? 'approve' : 'reject';
-            await handleRefund(orderId, action);
+            handleRefund(orderId, action);
             return;
         }
         try {
@@ -382,18 +386,14 @@ const AdminOrders = () => {
         setIsVerifying(true);
         try {
             await ordersAPI.verifyPayment(verifyingOrderId, otpInput);
-            setOrders(prev => prev.map(order =>
-                order.id === verifyingOrderId
-                    ? { ...order, isPaid: true, status: order.status === 'Processing' ? 'Confirmed' : order.status }
-                    : order
-            ));
-            setSelectedOrder(prev => prev?.id === verifyingOrderId
-                ? { ...prev, isPaid: true, status: prev.status === 'Processing' ? 'Confirmed' : prev.status }
-                : prev
-            );
             alert('Payment verified! Order confirmed.');
             setVerifyingOrderId(null);
             setOtpInput('');
+            await fetchOrders(false);
+            setSelectedOrder(prev => {
+                if (!prev || prev.id !== verifyingOrderId) return prev;
+                return null;
+            });
         } catch (err) {
             alert(err.message || 'Failed to verify payment');
         } finally {
@@ -401,29 +401,33 @@ const AdminOrders = () => {
         }
     };
 
-    const handleRefund = async (orderId, action) => {
-        if (!window.confirm(`Are you sure you want to ${action} this return?`)) return;
-        try {
-            await ordersAPI.processRefund(orderId, action);
-            setOrders(prev => prev.map(order =>
-                order.id === orderId
-                    ? { ...order, returnStatus: action === 'approve' ? 'Completed' : 'Rejected', refundStatus: action === 'approve' ? 'Processed' : 'None' }
-                    : order
-            ));
-            setSelectedOrder(prev => prev?.id === orderId
-                ? { ...prev, returnStatus: action === 'approve' ? 'Completed' : 'Rejected' }
-                : prev
-            );
-        } catch (err) {
-            alert(err.message || 'Failed to process refund');
-        }
+    const handleRefund = (orderId, action) => {
+        setConfirmState({
+            isOpen: true,
+            title: action === 'approve' ? 'Approve return?' : 'Reject return?',
+            message: `Are you sure you want to ${action} this return?`,
+            onConfirm: async () => {
+                setConfirmState(prev => ({ ...prev, isOpen: false }));
+                try {
+                    await ordersAPI.processRefund(orderId, action);
+                    setOrders(prev => prev.map(order =>
+                        order.id === orderId
+                            ? { ...order, returnStatus: action === 'approve' ? 'Completed' : 'Rejected', refundStatus: action === 'approve' ? 'Processed' : 'None' }
+                            : order
+                    ));
+                    setSelectedOrder(null);
+                } catch (err) {
+                    alert(err.message || 'Failed to process refund');
+                }
+            },
+        });
     };
 
     const getStatusColor = (status, returnStatus) => {
         if (returnStatus === 'Requested') return 'text-purple-500 bg-purple-500/10 border-purple-500/20';
         if (returnStatus === 'Completed') return 'text-purple-700 bg-purple-500/20 border-purple-500/30';
         switch (status) {
-            case 'Processing': return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+            case 'Processing': return 'text-blue-700 bg-blue-400/10 border-blue-400/20';
             case 'Confirmed': return 'text-success bg-success/10 border-success/20';
             case 'Shipped': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
             case 'Delivered': return 'text-success bg-success/10 border-success/20';
@@ -661,6 +665,7 @@ const AdminOrders = () => {
                             <button
                                 onClick={() => { setVerifyingOrderId(null); setOtpInput(''); }}
                                 className="p-xs hover:bg-surface-hover rounded transition-colors text-text-muted hover:text-text-primary"
+                                aria-label="Close dialog"
                             >
                                 <X size={20} />
                             </button>
@@ -701,6 +706,13 @@ const AdminOrders = () => {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+            />
         </div>
     );
 };

@@ -51,7 +51,7 @@ const CoursePlayer = () => {
     const activeMaterial = materials.find(m => m.id === activeMaterialId);
 
     return (
-        <div className="container mx-auto px-4 py-8 h-[calc(100vh-64px)] flex flex-col animate-in fade-in">
+        <div className="container mx-auto px-4 py-8 h-[calc(100dvh-64px)] flex flex-col animate-in fade-in">
             <Link to="/dashboard/courses" className="inline-flex items-center gap-2 text-text-muted hover:text-primary mb-6 transition-colors">
                 <ArrowLeft size={18} /> Back to My Learning
             </Link>

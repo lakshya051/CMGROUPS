@@ -1,8 +1,8 @@
 {
   "packageId": "com.cmgroups.shopnow",
   "host": "cmgroups.vercel.app",
-  "name": "CMGROUPS - Technology, Services & Education",
-  "launcherName": "CMGROUPS",
+  "name": "Shoptify - Technology, Services & Education",
+  "launcherName": "Shoptify",
   "display": "standalone",
   "themeColor": "#e91e63",
   "backgroundColor": "#EAEDED",

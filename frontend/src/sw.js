@@ -35,7 +35,7 @@ registerRoute(
         cacheName: 'api-public-data',
         plugins: [
             new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 300 }),
-            new CacheableResponsePlugin({ statuses: [0, 200] }),
+            new CacheableResponsePlugin({ statuses: [200] }),
         ],
         networkTimeoutSeconds: 5,
     })
@@ -52,10 +52,26 @@ registerRoute(
         cacheName: 'images-cache',
         plugins: [
             new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 }),
-            new CacheableResponsePlugin({ statuses: [0, 200] }),
+            new CacheableResponsePlugin({ statuses: [200] }),
         ],
     })
 );
+
+function normalizeNotificationUrl(raw) {
+    if (typeof raw !== 'string') return '/';
+    const s = raw.trim();
+    if (!s || s.startsWith('//') || /^javascript:/i.test(s)) return '/';
+    if (/^https?:\/\//i.test(s)) {
+        try {
+            const u = new URL(s);
+            if (u.origin !== self.location.origin) return '/';
+            return `${u.pathname}${u.search}${u.hash}` || '/';
+        } catch {
+            return '/';
+        }
+    }
+    return s.startsWith('/') ? s : `/${s}`;
+}
 
 self.addEventListener('push', (event) => {
     let data = {};
@@ -63,23 +79,17 @@ self.addEventListener('push', (event) => {
         if (event.data) data = event.data.json();
     } catch {
         try {
-            const text = event.data?.text();
-            if (text) data = { body: text };
+            const text = event.data?.text?.();
+            if (typeof text === 'string') {
+                data = { body: text };
+            }
         } catch {
             /* ignore */
         }
     }
-    let openPath = data.url || '/';
-    if (typeof openPath === 'string' && /^https?:\/\//i.test(openPath)) {
-        try {
-            const u = new URL(openPath);
-            openPath = `${u.pathname}${u.search}${u.hash}` || '/';
-        } catch {
-            openPath = '/';
-        }
-    }
+    const openPath = normalizeNotificationUrl(data.url);
     event.waitUntil(
-        self.registration.showNotification(data.title || 'CMGROUPS', {
+        self.registration.showNotification(data.title || 'Shoptify', {
             body: data.body || '',
             icon: data.icon || '/icons/icon-192x192.png',
             badge: '/icons/icon-96x96.png',
@@ -90,8 +100,8 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const raw = event.notification.data?.url ?? '/';
-    const targetUrl = new URL(raw, self.location.origin).href;
+    const safePath = normalizeNotificationUrl(event.notification.data?.url);
+    const targetUrl = new URL(safePath, self.location.origin).href;
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
             for (const client of clientList) {

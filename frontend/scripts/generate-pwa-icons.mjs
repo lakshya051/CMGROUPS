@@ -100,7 +100,7 @@ async function generate() {
         const svgOverlay = Buffer.from(`
             <svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg">
                 <rect width="1080" height="1920" fill="#e91e63"/>
-                <text x="540" y="900" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="120" fill="#fff">CMGROUPS</text>
+                <text x="540" y="900" text-anchor="middle" font-family="sans-serif" font-weight="800" font-size="120" fill="#fff">Shoptify</text>
                 <text x="540" y="1050" text-anchor="middle" font-family="sans-serif" font-weight="400" font-size="48" fill="rgba(255,255,255,0.8)">Replace with real screenshot</text>
                 <text x="540" y="1130" text-anchor="middle" font-family="sans-serif" font-weight="400" font-size="40" fill="rgba(255,255,255,0.6)">${name}.png</text>
             </svg>
@@ -109,7 +109,7 @@ async function generate() {
         console.log(`  ✓ screenshots/${name}.png (placeholder)`);
     }
 
-    console.log('\n⚠️  ICON FILES NEEDED: Replace placeholder icons in public/icons/ with real CMGROUPS logo icons before Play Store submission');
+    console.log('\n⚠️  ICON FILES NEEDED: Replace placeholder icons in public/icons/ with real Shoptify logo icons before Play Store submission');
     console.log('⚠️  SCREENSHOT FILES NEEDED: Replace placeholder screenshots in public/screenshots/ with real app screenshots (1080x1920px)');
     console.log('\nDone! Icons generated in public/icons/');
 }

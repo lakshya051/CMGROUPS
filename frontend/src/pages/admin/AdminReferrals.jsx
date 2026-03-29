@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
 import { handleImageError } from '../../utils/image';
+import toast from 'react-hot-toast';
 
 const INITIAL_VISIBLE_ROWS = 50;
 const ROWS_STEP = 25;
@@ -42,7 +43,7 @@ const AdminReferrals = () => {
     useEffect(() => {
         adminAPI.getReferrals()
             .then((data) => setReferrals(data))
-            .catch((err) => console.error('Failed to fetch referrals:', err))
+            .catch((err) => { console.error('Failed to fetch referrals:', err); toast.error('Failed to load referrals'); })
             .finally(() => setLoading(false));
     }, []);
 
@@ -131,7 +132,7 @@ const AdminReferrals = () => {
                 <div className="glass-panel p-5">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-text-muted text-xs uppercase tracking-wider">Total Referrals</span>
-                        <div className="p-2 bg-page-bg rounded-lg text-blue-400"><Users size={18} /></div>
+                        <div className="p-2 bg-page-bg rounded-lg text-blue-700"><Users size={18} /></div>
                     </div>
                     <span className="text-2xl font-bold">{referrals.length}</span>
                 </div>
