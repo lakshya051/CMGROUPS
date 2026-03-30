@@ -16,27 +16,63 @@ const getAuthHeaders = async () => {
 
 export { getAuthHeaders };
 
-const apiFetch = async (endpoint, options = {}) => {
-    const headers = await getAuthHeaders();
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers: { ...headers, ...options.headers }
-    });
+const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 } = {}) => {
+    const callerSignal = options.signal;
+    let lastError;
 
-    const text = await response.text();
-    let data = {};
-    try {
-        data = text ? JSON.parse(text) : {};
-    } catch {
-        if (!response.ok) throw new Error('Something went wrong');
-        return text;
+    for (let attempt = 0; attempt < retries; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeout);
+
+        if (callerSignal) {
+            callerSignal.addEventListener('abort', () => controller.abort(), { once: true });
+        }
+
+        try {
+            const headers = await getAuthHeaders();
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers: { ...headers, ...options.headers },
+                signal: controller.signal,
+            });
+            clearTimeout(timer);
+
+            const text = await response.text();
+            let data = {};
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch {
+                if (!response.ok) throw new Error('Something went wrong');
+                return text;
+            }
+
+            if (!response.ok) {
+                const err = new Error(data.error || 'Something went wrong');
+                err.status = response.status;
+                throw err;
+            }
+
+            return data;
+        } catch (err) {
+            clearTimeout(timer);
+
+            if (callerSignal?.aborted) throw new Error('Request cancelled');
+
+            if (err.name === 'AbortError') {
+                lastError = new Error('Request timed out');
+            } else {
+                lastError = err;
+            }
+
+            const isRetryable = !err.status || err.status >= 500;
+            if (!isRetryable) throw err;
+            if (attempt < retries - 1) {
+                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+            }
+        }
     }
 
-    if (!response.ok) {
-        throw new Error(data.error || 'Something went wrong');
-    }
-
-    return data;
+    throw lastError;
 };
 
 // ============ AUTH ============
@@ -70,6 +106,8 @@ export const productsAPI = {
     },
 
     getById: (id) => apiFetch(`/products/${id}`),
+
+    getRelated: (id) => apiFetch(`/products/${id}/related`),
 
     create: (productData) =>
         apiFetch('/products', {
@@ -142,6 +180,8 @@ export const ordersAPI = {
             method: 'POST',
             body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink })
         }),
+
+    getById: (id) => apiFetch(`/orders/detail/${id}`),
 
     getMyOrders: (params = {}) => {
         const query = new URLSearchParams(
@@ -417,6 +457,7 @@ export const coursesAPI = {
 // ============ CATEGORIES ============
 export const categoriesAPI = {
     getAll: () => apiFetch('/categories'),
+    getBySlug: (slug) => apiFetch(`/categories/${slug}`),
     create: (data) =>
         apiFetch('/categories', {
             method: 'POST',
@@ -501,7 +542,14 @@ export const adminAPI = {
         apiFetch('/admin/referral-settings', {
             method: 'PUT',
             body: JSON.stringify(data)
-        })
+        }),
+
+    getAuditLogs: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+        ).toString();
+        return apiFetch(`/admin/audit-logs${query ? `?${query}` : ''}`);
+    },
 };
 
 // ============ BANNERS ============
@@ -554,6 +602,40 @@ export const uploadAPI = {
             method: 'DELETE',
             body: JSON.stringify({ url })
         }),
+};
+
+// ============ BUNDLES ============
+export const bundlesAPI = {
+    getAll: (params = {}) => {
+        const query = new URLSearchParams(
+            Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+        ).toString();
+        return apiFetch(`/bundles${query ? `?${query}` : ''}`);
+    },
+    getById: (id) => apiFetch(`/bundles/${id}`),
+    getForProduct: (productId) => apiFetch(`/bundles/for-product/${productId}`),
+    getAllAdmin: () => apiFetch('/bundles/admin'),
+    create: (data) => apiFetch('/bundles', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => apiFetch(`/bundles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => apiFetch(`/bundles/${id}`, { method: 'DELETE' }),
+};
+
+// ============ BUNDLE TEMPLATES ============
+export const bundleTemplatesAPI = {
+    getAll: () => apiFetch('/bundle-templates'),
+    getById: (id) => apiFetch(`/bundle-templates/${id}`),
+    getProducts: (id) => apiFetch(`/bundle-templates/${id}/products`),
+    calculate: (id, productIds) => apiFetch(`/bundle-templates/${id}/calculate`, { method: 'POST', body: JSON.stringify({ productIds }) }),
+    getAllAdmin: () => apiFetch('/bundle-templates/admin'),
+    create: (data) => apiFetch('/bundle-templates', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => apiFetch(`/bundle-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => apiFetch(`/bundle-templates/${id}`, { method: 'DELETE' }),
+};
+
+// ============ QUANTITY TIERS ============
+export const quantityTiersAPI = {
+    get: (productId) => apiFetch(`/products/${productId}/quantity-tiers`),
+    update: (productId, tiers) => apiFetch(`/products/${productId}/quantity-tiers`, { method: 'PUT', body: JSON.stringify({ tiers }) }),
 };
 
 // ============ REFERRALS ============

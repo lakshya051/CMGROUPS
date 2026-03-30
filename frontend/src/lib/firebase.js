@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -18,11 +19,24 @@ const hasValidConfig =
 
 let app = null;
 let auth = null;
+let appCheck = null;
 
 if (hasValidConfig) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
+
+    const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+    if (recaptchaSiteKey) {
+        try {
+            appCheck = initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+                isTokenAutoRefreshEnabled: true,
+            });
+        } catch (e) {
+            console.warn('Firebase App Check initialization failed:', e);
+        }
+    }
 }
 
-export { auth };
+export { auth, appCheck };
 export default app;

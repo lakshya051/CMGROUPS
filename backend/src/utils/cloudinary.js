@@ -21,17 +21,34 @@ export const uploadImage = async (base64Data, folder = 'products') => {
     return result.secure_url;
 };
 
-export const deleteImage = async (publicId) => {
+export const uploadPdfBuffer = async (buffer, folder = 'invoices') => {
     ensureConfig();
-    await cloudinary.uploader.destroy(publicId);
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            { folder: `cmgroups/${folder}`, resource_type: 'raw' },
+            (error, result) => {
+                if (error) return reject(error);
+                resolve(result.secure_url);
+            }
+        );
+        stream.end(buffer);
+    });
+};
+
+export const deleteImage = async (publicId, resourceType = 'image') => {
+    ensureConfig();
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
 };
 
 export const getPublicIdFromUrl = (url) => {
     if (!url || !url.includes('cloudinary')) return null;
     const parts = url.split('/upload/');
     if (parts.length < 2) return null;
-    const pathWithExt = parts[1].replace(/^v\d+\//, '');
-    return pathWithExt.replace(/\.\w+$/, '');
+    let pathAfterUpload = parts[1];
+    // Strip transformation segments (e.g. w_100,h_200/) before version
+    pathAfterUpload = pathAfterUpload.replace(/^(?:[a-z]_[^/]+\/)*/, '');
+    pathAfterUpload = pathAfterUpload.replace(/^v\d+\//, '');
+    return pathAfterUpload.replace(/\.\w+$/, '');
 };
 
 export default cloudinary;

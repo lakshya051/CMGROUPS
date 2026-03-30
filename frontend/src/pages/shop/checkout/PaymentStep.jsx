@@ -195,7 +195,7 @@ export const OrderSummaryPanel = ({ cart, subtotal, tax, couponDiscount = 0, del
             <div className="flex justify-between text-text-muted">
                 <div className="flex items-center gap-1">
                     <span>Delivery</span>
-                    <span className="text-[10px] text-trust font-semibold bg-trust/10 px-1.5 py-0.5 rounded">1-DAY</span>
+                    <span className="text-[10px] text-trust font-semibold bg-trust/10 px-1.5 py-0.5 rounded">24-HR</span>
                 </div>
                 <span>{deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}</span>
             </div>

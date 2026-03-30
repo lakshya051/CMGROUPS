@@ -2,6 +2,7 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { logAudit } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -22,6 +23,25 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/categories/:slug - Get single category by slug (Public)
+// Must use next() for known sub-routes so they can fall through to their handlers
+router.get('/:slug', async (req, res, next) => {
+    if (req.params.slug === 'service-types') return next();
+    // Skip numeric IDs so they don't collide with DELETE /:id
+    if (/^\d+$/.test(req.params.slug)) return next();
+
+    try {
+        const category = await prisma.category.findUnique({
+            where: { slug: req.params.slug },
+        });
+        if (!category) return res.status(404).json({ error: 'Category not found' });
+        res.json(category);
+    } catch (error) {
+        console.error('Get category by slug error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // POST /api/categories - Create category (Admin)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
@@ -31,13 +51,23 @@ router.post('/', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Name is required' });
         }
 
-        const slug = name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+        let slug = name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+        if (!slug) slug = `category-${Date.now()}`;
+        const existingSlug = await prisma.category.findUnique({ where: { slug } });
+        if (existingSlug) slug = `${slug}-${Date.now()}`;
 
         const category = await prisma.category.create({
             data: { name, slug, image, description }
         });
 
         cache.delByPrefix('categories:');
+
+        logAudit({
+            userId: req.user.id, action: 'CREATE', entity: 'Category', entityId: category.id,
+            details: { after: { name: category.name, slug: category.slug } },
+            req,
+        });
+
         res.status(201).json(category);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -105,6 +135,13 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
         });
 
         cache.delByPrefix('serviceTypes:');
+
+        logAudit({
+            userId: req.user.id, action: 'CREATE', entity: 'ServiceType', entityId: serviceType.id,
+            details: { after: { title: serviceType.title } },
+            req,
+        });
+
         res.status(201).json(serviceType);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -132,12 +169,20 @@ router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
         if (refereePoints !== undefined) data.refereePoints = refereePoints === null ? null : parseFloat(refereePoints);
         if (sellerName !== undefined) data.sellerName = sellerName?.trim() || null;
 
+        const stId = parseInt(req.params.id);
         const serviceType = await prisma.serviceType.update({
-            where: { id: parseInt(req.params.id) },
+            where: { id: stId },
             data
         });
 
         cache.delByPrefix('serviceTypes:');
+
+        logAudit({
+            userId: req.user.id, action: 'UPDATE', entity: 'ServiceType', entityId: stId,
+            details: { after: { title: serviceType.title }, changedFields: Object.keys(data) },
+            req,
+        });
+
         res.json(serviceType);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -151,10 +196,14 @@ router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
 // DELETE /api/categories/service-types/:id - Delete service type (Admin)
 router.delete('/service-types/:id', protect, adminOnly, async (req, res) => {
     try {
-        await prisma.serviceType.delete({
-            where: { id: parseInt(req.params.id) }
-        });
+        const stId = parseInt(req.params.id);
+        await prisma.serviceType.delete({ where: { id: stId } });
         cache.delByPrefix('serviceTypes:');
+
+        logAudit({
+            userId: req.user.id, action: 'DELETE', entity: 'ServiceType', entityId: stId, req,
+        });
+
         res.json({ success: true });
     } catch (error) {
         console.error('Delete service type error:', error);
@@ -166,10 +215,14 @@ router.delete('/service-types/:id', protect, adminOnly, async (req, res) => {
 // Placed after all static routes to prevent /:id from matching 'service-types'
 router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
-        await prisma.category.delete({
-            where: { id: parseInt(req.params.id) }
-        });
+        const catId = parseInt(req.params.id);
+        await prisma.category.delete({ where: { id: catId } });
         cache.delByPrefix('categories:');
+
+        logAudit({
+            userId: req.user.id, action: 'DELETE', entity: 'Category', entityId: catId, req,
+        });
+
         res.json({ success: true });
     } catch (error) {
         console.error('Delete category error:', error);

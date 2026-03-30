@@ -364,6 +364,29 @@ export const ShopProvider = ({ children }) => {
         setCompareList(prev => prev.filter(id => id !== numId));
     };
 
+    const addBundleToCart = useCallback((bundle) => {
+        if (!user) {
+            toast.error('Please sign in to add items to your cart');
+            return;
+        }
+        const bundleInstanceId = `bundle-${bundle.id}-${Date.now()}`;
+        const productItems = (bundle.items || []).filter(bi => bi.itemType === 'product' && bi.product && bi.product.stock > 0);
+        if (productItems.length === 0) {
+            toast.error('No in-stock items in this bundle');
+            return;
+        }
+        productItems.forEach(bi => {
+            const prod = bi.product;
+            const variant = prod.hasVariants && prod.variants?.length > 0 ? prod.variants[0] : null;
+            addToCart(
+                { ...prod, bundleInfo: { bundleId: bundle.id, bundleInstanceId, bundleName: bundle.name, bundlePrice: bundle.bundlePrice } },
+                bi.quantity,
+                variant
+            );
+        });
+        toast.success(`Added "${bundle.name}" bundle to cart`);
+    }, [user, addToCart]);
+
     const clearCompare = () => setCompareList([]);
 
     return (
@@ -371,6 +394,7 @@ export const ShopProvider = ({ children }) => {
             cart,
             cartLoading,
             addToCart,
+            addBundleToCart,
             removeFromCart,
             updateCartQuantity,
             clearCart,

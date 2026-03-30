@@ -2,6 +2,7 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { logAudit } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -182,10 +183,21 @@ router.patch('/users/:id/role', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Cannot change your own role' });
         }
 
+        const oldUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, email: true, role: true }
+        });
+
         const user = await prisma.user.update({
             where: { id: userId },
             data: { role },
             select: { id: true, name: true, email: true, role: true }
+        });
+
+        logAudit({
+            userId: req.user.id, action: 'ROLE_CHANGE', entity: 'User', entityId: userId,
+            details: { before: { role: oldUser?.role }, after: { role }, targetUser: user.email },
+            req,
         });
 
         res.json({ success: true, user });
@@ -684,6 +696,56 @@ router.patch('/technicians/:id', protect, adminOnly, async (req, res) => {
             const field = error.meta?.target?.includes('phone') ? 'phone' : 'email';
             return res.status(409).json({ error: `A technician with this ${field} already exists` });
         }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ==================== AUDIT LOG ====================
+
+// GET /api/admin/audit-logs — paginated, filterable audit log
+router.get('/audit-logs', protect, adminOnly, async (req, res) => {
+    try {
+        const { page = 1, limit = 30, entity, action, userId, search } = req.query;
+        const parsedPage = Number.parseInt(page, 10);
+        const parsedLimit = Number.parseInt(limit, 10);
+        const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+        const take = Math.min(50, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 30));
+        const skip = (currentPage - 1) * take;
+
+        const where = {};
+        if (entity) where.entity = entity;
+        if (action) where.action = action;
+        if (userId) where.userId = parseInt(userId);
+        if (search) {
+            where.OR = [
+                { entityId: { contains: search, mode: 'insensitive' } },
+                { user: { name: { contains: search, mode: 'insensitive' } } },
+                { user: { email: { contains: search, mode: 'insensitive' } } },
+            ];
+        }
+
+        const [logs, total] = await Promise.all([
+            prisma.auditLog.findMany({
+                where,
+                include: { user: { select: { id: true, name: true, email: true } } },
+                orderBy: { createdAt: 'desc' },
+                take,
+                skip,
+            }),
+            prisma.auditLog.count({ where }),
+        ]);
+
+        res.json({
+            data: logs,
+            pagination: {
+                total,
+                page: currentPage,
+                limit: take,
+                totalPages: Math.ceil(total / take),
+            },
+        });
+    } catch (error) {
+        console.error('Get audit logs error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

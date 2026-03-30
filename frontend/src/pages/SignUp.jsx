@@ -20,6 +20,7 @@ export default function SignUp() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [termsAccepted, setTermsAccepted] = useState(false);
     const { registerWithEmail, loginWithGoogle, firebaseConfigured } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -40,6 +41,10 @@ export default function SignUp() {
         }
         if (password !== confirmPassword) {
             toast.error('Passwords do not match');
+            return;
+        }
+        if (!termsAccepted) {
+            toast.error('Please accept the Terms of Service and Privacy Policy');
             return;
         }
 
@@ -188,9 +193,28 @@ export default function SignUp() {
                     </div>
                 </div>
 
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-border-default text-primary focus:ring-primary/30"
+                    />
+                    <span className="text-sm text-text-secondary leading-snug">
+                        I agree to the{' '}
+                        <Link to="/terms-of-service" target="_blank" className="text-trust font-semibold underline-offset-4 hover:underline">
+                            Terms of Service
+                        </Link>{' '}
+                        and{' '}
+                        <Link to="/privacy-policy" target="_blank" className="text-trust font-semibold underline-offset-4 hover:underline">
+                            Privacy Policy
+                        </Link>
+                    </span>
+                </label>
+
                 <button
                     type="submit"
-                    disabled={loading || !firebaseConfigured}
+                    disabled={loading || !firebaseConfigured || !termsAccepted}
                     className="mt-1 w-full rounded-xl bg-gradient-to-r from-primary to-secondary py-3.5 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all duration-base hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-45 active:scale-[0.98]"
                 >
                     {loading ? 'Creating account…' : 'Create account'}

@@ -5,7 +5,8 @@ import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
 import { sendOrderConfirmationEmail } from '../utils/emailNotifications.js';
 import { generateInvoice } from '../utils/invoiceGenerator.js';
 import { calculateOrderReferralPoints } from '../utils/referralHelper.js';
-import { createUserNotification } from '../utils/notifications.js';
+import { createUserNotification, createAdminNotification } from '../utils/notifications.js';
+import { logAudit } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -91,8 +92,8 @@ router.post('/', optionalProtect, async (req, res) => {
         const normalizedPaymentMethod = paymentMethod || 'pay_at_store';
 
         // 2. Validate stock for all items BEFORE creating order (Optimized for "alot of products")
-        const productIds = [...new Set(items.map(i => parseInt(i.productId, 10)))];
-        const variantIds = [...new Set(items.filter(i => i.variantId).map(i => parseInt(i.variantId, 10)))];
+        const productIds = [...new Set(items.map(i => parseInt(i.productId, 10)).filter(Number.isFinite))];
+        const variantIds = [...new Set(items.filter(i => i.variantId).map(i => parseInt(i.variantId, 10)).filter(Number.isFinite))];
 
         const [dbProducts, dbVariants] = await Promise.all([
             prisma.product.findMany({
@@ -178,7 +179,18 @@ router.post('/', optionalProtect, async (req, res) => {
             }
         }
 
-        // Compute server-side total from DB prices and validate against client total
+        // Fetch quantity tiers for products in the order
+        const allProductIds = [...new Set(items.filter(i => !i.variantId).map(i => parseInt(i.productId, 10)))];
+        const quantityTiers = allProductIds.length > 0
+            ? await prisma.quantityTier.findMany({ where: { productId: { in: allProductIds } }, orderBy: { minQty: 'desc' } })
+            : [];
+        const tiersByProduct = {};
+        for (const tier of quantityTiers) {
+            if (!tiersByProduct[tier.productId]) tiersByProduct[tier.productId] = [];
+            tiersByProduct[tier.productId].push(tier);
+        }
+
+        // Compute server-side total from DB prices (with quantity tier pricing)
         let computedSubtotal = 0;
         for (const item of items) {
             const qty = parseInt(item.quantity, 10);
@@ -186,8 +198,18 @@ router.post('/', optionalProtect, async (req, res) => {
                 const variant = variantMap.get(parseInt(item.variantId, 10));
                 if (variant) computedSubtotal += variant.price * qty;
             } else {
-                const product = productMap.get(parseInt(item.productId, 10));
-                if (product) computedSubtotal += product.price * qty;
+                const pid = parseInt(item.productId, 10);
+                const product = productMap.get(pid);
+                if (product) {
+                    const tiers = tiersByProduct[pid];
+                    let unitPrice = product.price;
+                    if (tiers && tiers.length > 0) {
+                        const totalQtyForProduct = totalRequestedProducts[pid] || qty;
+                        const applicableTier = tiers.find(t => totalQtyForProduct >= t.minQty);
+                        if (applicableTier) unitPrice = applicableTier.price;
+                    }
+                    computedSubtotal += unitPrice * qty;
+                }
             }
         }
 
@@ -337,7 +359,14 @@ router.post('/', optionalProtect, async (req, res) => {
                 if (vId !== null) {
                     actualPrice = variantMap.get(vId)?.price;
                 } else {
-                    actualPrice = productMap.get(pId)?.price;
+                    const product = productMap.get(pId);
+                    actualPrice = product?.price;
+                    const tiers = tiersByProduct[pId];
+                    if (tiers && tiers.length > 0) {
+                        const totalQtyForProduct = totalRequestedProducts[pId] || qty;
+                        const applicableTier = tiers.find(t => totalQtyForProduct >= t.minQty);
+                        if (applicableTier) actualPrice = applicableTier.price;
+                    }
                 }
 
                 if (isNaN(pId) || isNaN(qty) || actualPrice === undefined || actualPrice === null) {
@@ -349,7 +378,8 @@ router.post('/', optionalProtect, async (req, res) => {
                     productId: pId,
                     variantId: vId,
                     quantity: qty,
-                    price: actualPrice
+                    price: actualPrice,
+                    bundleId: item.bundleId ? parseInt(item.bundleId, 10) : null,
                 };
             });
 
@@ -439,6 +469,70 @@ router.post('/', optionalProtect, async (req, res) => {
                 });
             }
 
+            // Admin notification: new order placed
+            createAdminNotification({
+                title: 'New Order Placed',
+                message: `Order #${order.id} — ₹${order.total.toLocaleString('en-IN')} (${order.items.length} item${order.items.length > 1 ? 's' : ''})`,
+                type: 'admin',
+                link: '/admin/orders',
+            }).catch(() => {});
+
+            // Low-stock alerts for admins (variant-aware)
+            const LOW_STOCK_THRESHOLD = 5;
+            for (const item of order.items) {
+                const prod = item.product;
+                if (!prod) continue;
+                const stockToCheck = item.variantId ? (variantMap.get(item.variantId)?.stock ?? prod.stock) : prod.stock;
+                if (stockToCheck <= LOW_STOCK_THRESHOLD && stockToCheck > 0) {
+                    createAdminNotification({
+                        title: 'Low Stock Alert',
+                        message: `"${prod.title}"${item.variantId ? ' (variant)' : ''} has only ${stockToCheck} units left.`,
+                        type: 'admin',
+                        link: '/admin/products',
+                    }).catch(() => {});
+                }
+            }
+
+            // Auto-create service bookings for bundle orders that include services
+            if (userId) {
+                (async () => {
+                    const bundleIds = [...new Set(items.filter(i => i.bundleId).map(i => parseInt(i.bundleId)))].filter(Number.isFinite);
+                    if (bundleIds.length === 0) return;
+
+                    const bundlesWithServices = await prisma.bundle.findMany({
+                        where: { id: { in: bundleIds } },
+                        include: {
+                            items: {
+                                where: { itemType: 'service' },
+                                include: { serviceType: true }
+                            }
+                        }
+                    });
+
+                    for (const bundle of bundlesWithServices) {
+                        for (const bi of bundle.items) {
+                            if (bi.serviceType) {
+                                const addr = order.shippingAddress || {};
+                                await prisma.serviceBooking.create({
+                                    data: {
+                                        userId,
+                                        serviceType: bi.serviceType.title,
+                                        description: `Auto-booked from bundle: ${bundle.name}`,
+                                        status: 'Pending',
+                                        date: new Date(),
+                                        customerName: addr.fullName || null,
+                                        customerPhone: addr.phone || null,
+                                        address: addr.address || null,
+                                        city: addr.city || null,
+                                        pincode: addr.postalCode || null,
+                                    }
+                                });
+                            }
+                        }
+                    }
+                })().catch(err => console.error('Bundle service auto-booking error (non-blocking):', err));
+            }
+
             logCheckoutTiming(checkoutRequestId, 'async_notifications_complete', asyncStart);
         });
 
@@ -459,11 +553,45 @@ router.post('/', optionalProtect, async (req, res) => {
     }
 });
 
+// GET /api/orders/detail/:id (Protected - single order detail for user or admin)
+router.get('/detail/:id', protect, async (req, res) => {
+    try {
+        const orderId = parseInt(req.params.id);
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                items: {
+                    include: {
+                        product: {
+                            select: { id: true, title: true, images: true, price: true, stock: true, isReturnable: true, returnWindowDays: true, category: true }
+                        },
+                        variant: { select: { id: true, name: true, combination: true, price: true, sku: true, image: true } }
+                    }
+                },
+                user: {
+                    select: { id: true, name: true, email: true, phone: true }
+                }
+            }
+        });
+
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+
+        if (order.userId !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Not authorized' });
+        }
+
+        res.json(order);
+    } catch (error) {
+        console.error('Get order detail error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // GET /api/orders/my-orders (Protected - user's orders with pagination)
 router.get('/my-orders', protect, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 10));
         const skip = (page - 1) * limit;
 
         const [orders, total] = await prisma.$transaction([
@@ -654,16 +782,23 @@ router.get('/', protect, adminOnly, async (req, res) => {
 router.patch('/:id/status', protect, adminOnly, async (req, res) => {
     try {
         const { status } = req.body;
+        const VALID_STATUSES = ['Processing', 'Confirmed', 'Shipped', 'OutForDelivery', 'Delivered', 'Cancelled'];
+        if (!status || !VALID_STATUSES.includes(status)) {
+            return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
+        }
         const orderId = parseInt(req.params.id);
 
-        // If cancelling, restore stock
+        // If cancelling, restore stock inside a transaction
         if (status === 'Cancelled') {
             const order = await prisma.order.findUnique({
                 where: { id: orderId },
                 include: { items: true }
             });
             if (order && order.status !== 'Cancelled') {
-                await restoreStockForOrderItems(prisma, order.items);
+                await prisma.$transaction(async (tx) => {
+                    await restoreStockForOrderItems(tx, order.items);
+                    await tx.order.update({ where: { id: orderId }, data: { status: 'Cancelled' } });
+                });
             }
         }
 
@@ -704,9 +839,16 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
+        const previousStatus = orderWithItems?.status;
         const order = await prisma.order.update({
             where: { id: orderId },
             data: updateData
+        });
+
+        logAudit({
+            userId: req.user.id, action: 'STATUS_CHANGE', entity: 'Order', entityId: orderId,
+            details: { before: { status: previousStatus }, after: { status } },
+            req,
         });
 
         if (instantReferralInjection) {
@@ -850,6 +992,12 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                 paymentOtp: null,
                 status: (order.status === 'Processing') ? 'Confirmed' : order.status
             }
+        });
+
+        logAudit({
+            userId: req.user.id, action: 'PAYMENT_VERIFY', entity: 'Order', entityId: orderId,
+            details: { before: { isPaid: false, status: order.status }, after: { isPaid: true, status: updatedOrder.status } },
+            req,
         });
 
         // Check for instant referral injection (if delivered or non-returnable)
@@ -1113,10 +1261,23 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
 
         if (!order) return res.status(404).json({ error: 'Order not found' });
 
+        if (!action || !['approve', 'reject'].includes(action)) {
+            return res.status(400).json({ error: 'action must be "approve" or "reject"' });
+        }
+
+        if (order.returnStatus !== 'Requested') {
+            return res.status(400).json({ error: 'Return must be in "Requested" status to process' });
+        }
+
         if (action === 'reject') {
             const updatedOrder = await prisma.order.update({
                 where: { id: order.id },
                 data: { returnStatus: 'Rejected' }
+            });
+            logAudit({
+                userId: req.user.id, action: 'REFUND_REJECT', entity: 'Order', entityId: order.id,
+                details: { before: { returnStatus: order.returnStatus }, after: { returnStatus: 'Rejected' } },
+                req,
             });
             return res.json(updatedOrder);
         }
@@ -1155,6 +1316,12 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
                 refundStatus: 'Processed',
                 refundAmount: fullRefundAmount
             }
+        });
+
+        logAudit({
+            userId: req.user.id, action: 'REFUND_APPROVE', entity: 'Order', entityId: order.id,
+            details: { refundAmount: fullRefundAmount, restoreStock, after: { returnStatus: 'Completed', refundStatus: 'Processed' } },
+            req,
         });
 
         res.json({ message: 'Return approved and refunded', order: updatedOrder });

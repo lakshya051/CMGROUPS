@@ -75,13 +75,31 @@ const getIcon = (name) => {
 const CategoryGrid = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
 
-    useEffect(() => {
+    const loadCategories = () => {
+        setError(false);
+        setLoading(true);
         categoriesAPI.getAll()
             .then(setCategories)
-            .catch(err => console.error('Failed to fetch categories:', err))
+            .catch(() => setError(true))
             .finally(() => setLoading(false));
-    }, []);
+    };
+
+    useEffect(() => { loadCategories(); }, []);
+
+    if (error) {
+        return (
+            <section className="py-xl sm:py-2xl bg-page-bg">
+                <div className="container mx-auto px-4 text-center">
+                    <p className="text-text-muted text-sm">
+                        Couldn't load categories.{' '}
+                        <button onClick={loadCategories} className="text-primary font-semibold underline">Retry</button>
+                    </p>
+                </div>
+            </section>
+        );
+    }
 
     if (loading) {
         return (
@@ -98,7 +116,7 @@ const CategoryGrid = () => {
         );
     }
 
-    const existingNames = new Set(categories.map(c => c.name.toLowerCase()));
+    const existingNames = new Set(categories.filter(c => c.name).map(c => c.name.toLowerCase()));
     const filteredQuickLinks = QUICK_LINKS.filter(
         ql => !existingNames.has(ql.name.toLowerCase())
     );
@@ -107,7 +125,7 @@ const CategoryGrid = () => {
         ...categories.map(cat => ({
             id: cat.id,
             name: cat.name,
-            path: `/products?category=${encodeURIComponent(cat.name)}`,
+            path: cat.slug ? `/products/category/${cat.slug}` : `/products?category=${encodeURIComponent(cat.name)}`,
             iconKey: cat.name,
         })),
         ...filteredQuickLinks,

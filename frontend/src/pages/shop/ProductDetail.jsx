@@ -7,34 +7,13 @@ import Button from '../../components/ui/Button';
 import PriceDisplay from '../../components/common/PriceDisplay';
 import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight, Award, Zap, Truck, ShieldCheck } from 'lucide-react';
 import ReviewSection from '../../components/shop/ReviewSection';
-import { RECENTLY_VIEWED_KEY } from '../../constants';
+import FrequentlyBoughtTogether from '../../components/shop/FrequentlyBoughtTogether';
+import QuantityTierDisplay from '../../components/shop/QuantityTierDisplay';
+import BundleCard from '../../components/shop/BundleCard';
+import { bundlesAPI } from '../../lib/api';
+import { useRecentlyViewed } from '../../hooks/useRecentlyViewed';
 import { handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
-
-const MAX_RECENTLY_VIEWED = 10;
-
-const saveToRecentlyViewed = (product) => {
-    try {
-        const existing = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]');
-        const snapshot = {
-            id: product.id,
-            title: product.title,
-            price: product.price,
-            image: product.images?.[0] || product.image,
-            category: product.category,
-            brand: product.brand,
-            rating: product.rating,
-            stock: product.stock,
-            variants: product.variants || [],
-        };
-        // Remove duplicate then prepend
-        const filtered = existing.filter(p => p.id !== product.id);
-        const updated = [snapshot, ...filtered].slice(0, MAX_RECENTLY_VIEWED);
-        localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
-    } catch (e) {
-        // Silently ignore localStorage errors
-    }
-};
 
 const ProductDetail = () => {
     const { id } = useParams();
@@ -51,6 +30,9 @@ const ProductDetail = () => {
     const [isPriceAlertSet, setIsPriceAlertSet] = useState(false);
     const [shake, setShake] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+    const { items: recentlyViewed, save: saveToRecentlyViewed } = useRecentlyViewed(id);
+    const [relatedProducts, setRelatedProducts] = useState([]);
+    const [productBundles, setProductBundles] = useState([]);
 
     useEffect(() => {
         productsAPI.getById(id)
@@ -60,6 +42,17 @@ const ProductDetail = () => {
             })
             .catch(console.error)
             .finally(() => setLoading(false));
+    }, [id, saveToRecentlyViewed]);
+
+    useEffect(() => {
+        if (id) {
+            productsAPI.getRelated(id)
+                .then(setRelatedProducts)
+                .catch(() => setRelatedProducts([]));
+            bundlesAPI.getForProduct(id)
+                .then(setProductBundles)
+                .catch(() => setProductBundles([]));
+        }
     }, [id]);
 
     useEffect(() => {
@@ -574,6 +567,26 @@ const ProductDetail = () => {
                         </div>
                     )}
 
+                    {/* Quantity Tiers */}
+                    {product.quantityTiers && product.quantityTiers.length > 0 && (
+                        <QuantityTierDisplay tiers={product.quantityTiers} currentQty={1} basePrice={product.price} />
+                    )}
+
+                    {/* Available in Bundle */}
+                    {productBundles.length > 0 && (
+                        <div className="pt-4 border-t border-border-default">
+                            <h3 className="text-sm font-bold text-text-primary mb-3 flex items-center gap-2">
+                                <span className="w-5 h-5 bg-trust/10 rounded flex items-center justify-center"><span className="text-trust text-xs font-bold">B</span></span>
+                                Available in Bundle
+                            </h3>
+                            <div className="space-y-2">
+                                {productBundles.slice(0, 3).map(b => (
+                                    <BundleCard key={b.id} bundle={b} compact />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Benefits */}
                     <div className="pt-6 space-y-3">
                         <div className="flex items-center gap-3 bg-trust/5 border border-trust/20 rounded-xl px-4 py-3">
@@ -581,7 +594,7 @@ const ProductDetail = () => {
                                 <Zap size={18} className="text-trust" />
                             </div>
                             <div>
-                                <span className="text-sm font-bold text-trust">1-Day Express Delivery</span>
+                                <span className="text-sm font-bold text-trust">24-Hour Express Delivery</span>
                                 <p className="text-xs text-text-muted">Order now, get it by tomorrow</p>
                             </div>
                         </div>
@@ -597,9 +610,69 @@ const ProductDetail = () => {
                 </div>
             </div>
 
+            {/* Frequently Bought Together */}
+            <FrequentlyBoughtTogether product={product} />
+
+            {/* Customers Also Bought */}
+            {relatedProducts.length > 0 && (
+                <div className="mt-12 pt-8 border-t border-border-default">
+                    <h2 className="text-xl font-heading font-bold text-text-primary mb-6">Customers Also Bought</h2>
+                    <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+                        {relatedProducts.map(rp => (
+                            <Link
+                                key={rp.id}
+                                to={`/products/${rp.id}`}
+                                className="flex-shrink-0 w-44 bg-surface rounded-xl border border-border-default p-3 hover:shadow-card-hover hover:border-trust/40 transition-all group"
+                            >
+                                <img
+                                    src={rp.images?.[0] || rp.image}
+                                    alt={rp.title}
+                                    loading="lazy"
+                                    onError={handleImageError}
+                                    className="w-full h-32 object-contain mb-2"
+                                />
+                                <h3 className="text-sm font-semibold text-text-primary line-clamp-2 group-hover:text-trust transition-colors">{rp.title}</h3>
+                                <p className="text-sm font-bold text-primary mt-1">₹{rp.price?.toLocaleString('en-IN')}</p>
+                                {rp.rating > 0 && (
+                                    <div className="flex items-center gap-1 mt-1 text-warning">
+                                        <Star fill="currentColor" size={12} />
+                                        <span className="text-xs font-medium">{rp.rating}</span>
+                                    </div>
+                                )}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Reviews Section */}
-            {/* Enhanced Reviews Section */}
             <ReviewSection productId={product.id} />
+
+            {/* Recently Viewed */}
+            {recentlyViewed.length > 0 && (
+                <div className="mt-12 pt-8 border-t border-border-default">
+                    <h2 className="text-xl font-heading font-bold text-text-primary mb-6">Recently Viewed</h2>
+                    <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+                        {recentlyViewed.map(rv => (
+                            <Link
+                                key={rv.id}
+                                to={`/products/${rv.id}`}
+                                className="flex-shrink-0 w-44 bg-surface rounded-xl border border-border-default p-3 hover:shadow-card-hover hover:border-trust/40 transition-all group"
+                            >
+                                <img
+                                    src={rv.image}
+                                    alt={rv.title}
+                                    loading="lazy"
+                                    onError={handleImageError}
+                                    className="w-full h-32 object-contain mb-2"
+                                />
+                                <h3 className="text-sm font-semibold text-text-primary line-clamp-2 group-hover:text-trust transition-colors">{rv.title}</h3>
+                                <p className="text-sm font-bold text-primary mt-1">₹{rv.price?.toLocaleString('en-IN')}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

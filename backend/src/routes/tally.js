@@ -4,6 +4,8 @@ import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import nodemailer from 'nodemailer';
 import { escapeHtml } from '../utils/escapeHtml.js';
+import { createAdminNotification } from '../utils/notifications.js';
+import { logAudit } from '../utils/auditLog.js';
 
 const enquiryLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -96,6 +98,13 @@ router.post('/enquiry', enquiryLimiter, async (req, res) => {
             console.log('---\n');
         }
 
+        createAdminNotification({
+            title: 'New Tally Prime Enquiry',
+            message: `${name} (${businessName}) — ${licenseType}`,
+            type: 'admin',
+            link: '/admin/tally-enquiries',
+        }).catch(() => {});
+
         res.status(201).json({ success: true, message: 'Enquiry submitted successfully', id: enquiry.id });
     } catch (error) {
         console.error('Tally enquiry submit error:', error);
@@ -141,9 +150,16 @@ router.put('/admin/enquiries/:id', protect, adminOnly, async (req, res) => {
         if (status !== undefined) updateData.status = status;
         if (sellerName !== undefined) updateData.sellerName = sellerName?.trim() || null;
 
+        const enqId = parseInt(req.params.id);
         const enquiry = await prisma.tallyEnquiry.update({
-            where: { id: parseInt(req.params.id) },
+            where: { id: enqId },
             data: updateData
+        });
+
+        logAudit({
+            userId: req.user.id, action: 'UPDATE', entity: 'TallyEnquiry', entityId: enqId,
+            details: { after: updateData },
+            req,
         });
 
         res.json({ success: true, enquiry });

@@ -28,24 +28,54 @@ export async function createUserNotification({
     link = null,
     push = null,
 }) {
-    const notification = await prisma.notification.create({
-        data: {
-            userId,
-            title,
-            message,
-            type,
-            link,
-        },
-    });
-
-    if (push?.enabled) {
-        void sendPushToUserDevices({
-            userId,
-            title: push.title || title,
-            body: push.body || message,
-            link,
+    try {
+        const notification = await prisma.notification.create({
+            data: {
+                userId,
+                title,
+                message,
+                type,
+                link,
+            },
         });
-    }
 
-    return notification;
+        if (push?.enabled) {
+            void sendPushToUserDevices({
+                userId,
+                title: push.title || title,
+                body: push.body || message,
+                link,
+            });
+        }
+
+        return notification;
+    } catch (err) {
+        console.error('createUserNotification error:', err.message);
+        return null;
+    }
+}
+
+/**
+ * Send a notification to all admin users (in-app + push).
+ * Runs in background — caller should fire-and-forget.
+ */
+export async function createAdminNotification({ title, message, type = 'admin', link = '/admin' }) {
+    try {
+        const admins = await prisma.user.findMany({
+            where: { role: 'admin' },
+            select: { id: true },
+        });
+
+        if (admins.length === 0) return;
+
+        await prisma.notification.createMany({
+            data: admins.map(a => ({ userId: a.id, title, message, type, link })),
+        });
+
+        await Promise.allSettled(
+            admins.map(a => sendPushToUserDevices({ userId: a.id, title, body: message, link }))
+        );
+    } catch (err) {
+        console.error('Admin notification error (non-blocking):', err);
+    }
 }

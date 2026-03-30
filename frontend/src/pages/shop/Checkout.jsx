@@ -272,10 +272,10 @@ const Checkout = () => {
                         <h3 className="font-bold text-lg text-text-primary">Payment Verification OTP</h3>
                     </div>
                     <p className="text-text-secondary text-sm">
-                        {paymentMethod === 'pay_at_store'
-                            ? 'Show this OTP at the store when you pay to confirm your order.'
-                            : paymentMethod === 'wallet'
-                                ? 'Your order is fully paid using wallet balance.'
+                        {!paymentOtp
+                            ? 'Your order is fully paid using wallet balance.'
+                            : paymentMethod === 'pay_at_store'
+                                ? 'Show this OTP at the store when you pay to confirm your order.'
                                 : 'Show this OTP to the delivery agent upon receiving your order.'}
                     </p>
                     {paymentOtp ? (
@@ -301,6 +301,12 @@ const Checkout = () => {
                         </div>
                     )}
                 </div>
+
+                {cart.some?.(item => item.bundleInfo?.bundleId) && (
+                    <div className="max-w-md mx-auto bg-trust/5 border border-trust/20 rounded-lg p-4 mb-6 text-sm text-text-secondary">
+                        Your order includes a service combo. Installation/service will be scheduled after delivery. Check status in <span className="font-semibold text-trust">Dashboard &gt; Services</span>.
+                    </div>
+                )}
 
                 <div className="flex gap-4 justify-center">
                     <Button onClick={() => navigate('/dashboard/orders')}>View My Orders</Button>

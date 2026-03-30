@@ -5,7 +5,9 @@ import { sendServiceBookingEmail } from '../utils/emailNotifications.js';
 import { sendServiceNotification } from '../utils/serviceNotifications.js';
 import { calculateReferralReward } from '../utils/referralHelper.js';
 import { generateServiceInvoicePdf } from '../utils/serviceInvoiceGenerator.js';
-import { createUserNotification } from '../utils/notifications.js';
+import { createUserNotification, createAdminNotification } from '../utils/notifications.js';
+import { uploadPdfBuffer } from '../utils/cloudinary.js';
+import { logAudit } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -262,6 +264,12 @@ router.post('/book', protect, async (req, res) => {
                         body: `Your ${serviceType} request SRV-${booking.id} has been received.`,
                     },
                 });
+                createAdminNotification({
+                    title: 'New Service Booking',
+                    message: `SRV-${booking.id}: ${serviceType} by ${customerName} (${customerPhone})`,
+                    type: 'admin',
+                    link: '/admin/services',
+                }).catch(() => {});
             } catch (notifErr) {
                 console.error('Service notification error (non-blocking):', notifErr);
             }
@@ -492,6 +500,12 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         });
 
+        logAudit({
+            userId: req.user.id, action: 'STATUS_CHANGE', entity: 'ServiceBooking', entityId: bookingId,
+            details: { after: { status: booking.status }, changedFields: Object.keys(updateData) },
+            req,
+        });
+
         // ── INVOICE GENERATION on "Completed" ────────────────────────────
         if (status === 'Completed') {
             try {
@@ -527,24 +541,28 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 const serviceTypeRecord = await prisma.serviceType.findFirst({ where: { title: booking.serviceType } });
                 const invoiceSellerName = serviceTypeRecord?.sellerName || null;
 
-                // Generate PDF buffer and convert to base64 data URL
                 const pdfBuffer = await generateServiceInvoicePdf(booking, serviceInvoice, invoiceSellerName);
-                const pdfDataUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
 
-                // Store PDF URL in both ServiceInvoice and ServiceBooking
+                let pdfUrl;
+                try {
+                    pdfUrl = await uploadPdfBuffer(pdfBuffer, 'invoices');
+                } catch (uploadErr) {
+                    console.warn('[Invoice] Cloudinary upload failed, falling back to base64:', uploadErr.message);
+                    pdfUrl = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
+                }
+
                 await prisma.serviceInvoice.update({
                     where: { id: serviceInvoice.id },
-                    data: { pdfUrl: pdfDataUrl }
+                    data: { pdfUrl }
                 });
 
                 await prisma.serviceBooking.update({
                     where: { id: booking.id },
-                    data: { invoiceUrl: pdfDataUrl }
+                    data: { invoiceUrl: pdfUrl }
                 });
 
-                // Refresh booking with invoice
-                booking.invoiceUrl = pdfDataUrl;
-                booking.invoice = { ...serviceInvoice, pdfUrl: pdfDataUrl };
+                booking.invoiceUrl = pdfUrl;
+                booking.invoice = { ...serviceInvoice, pdfUrl };
 
                 console.log(`[Invoice] Generated service invoice ${invoiceNumber} for SRV-${booking.id}`);
             } catch (invoiceErr) {
@@ -624,7 +642,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                                         }
                                     });
 
-                                    const tierSettings = await prisma.referralSettings.findFirst();
+                                    const tierSettings = await tx.referralSettings.findFirst();
                                     if (tierSettings && tierSettings.tierSystemEnabled) {
                                         const tiers = await tx.tierConfig.findMany({ orderBy: { minPoints: 'desc' } });
 

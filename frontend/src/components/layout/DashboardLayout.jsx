@@ -21,7 +21,10 @@ import {
     Menu,
     X,
     Image,
-    ArrowRight
+    ArrowRight,
+    ScrollText,
+    Layers,
+    Puzzle
 } from 'lucide-react';
 import PointsBadge from '../ui/PointsBadge';
 
@@ -37,6 +40,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
 
     const customerLinks = [
         { name: 'Overview', path: '/dashboard', icon: <LayoutDashboard size={20} />, end: true },
+        { name: 'My Profile', path: '/dashboard/profile', icon: <User size={20} /> },
         { name: 'My Orders', path: '/dashboard/orders', icon: <ShoppingBag size={20} /> },
         { name: 'My Courses', path: '/dashboard/courses', icon: <BookOpen size={20} /> },
         { name: 'Service Requests', path: '/dashboard/services', icon: <Wrench size={20} /> },
@@ -66,6 +70,8 @@ const DashboardLayout = ({ role = 'customer' }) => {
         { name: 'Banners', path: '/admin/banners', icon: <Image size={20} /> },
         { name: 'Products', path: '/admin/products', icon: <Package size={20} /> },
         { name: 'Categories', path: '/admin/categories', icon: <Store size={20} /> },
+        { name: 'Bundles', path: '/admin/bundles', icon: <Layers size={20} /> },
+        { name: 'Bundle Templates', path: '/admin/bundle-templates', icon: <Puzzle size={20} /> },
         { name: 'Orders', path: '/admin/orders', icon: <ShoppingBag size={20} /> },
         { name: 'Services', path: '/admin/services', icon: <Wrench size={20} /> },
         { name: 'Service Types', path: '/admin/service-types', icon: <Settings size={20} /> },
@@ -77,6 +83,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
         { name: 'Enrollments', path: '/admin/enrollments', icon: <ClipboardList size={20} /> },
         { name: 'Tally Prime Enquiries', path: '/admin/tally-enquiries', icon: <FileText size={20} /> },
         { name: 'CCTV Enquiries', path: '/admin/cctv-enquiries', icon: <FileText size={20} /> },
+        { name: 'Audit Log', path: '/admin/audit-log', icon: <ScrollText size={20} /> },
     ];
 
     const links = role === 'admin' ? adminLinks : customerLinks;

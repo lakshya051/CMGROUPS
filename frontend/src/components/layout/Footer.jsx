@@ -10,7 +10,7 @@ const Footer = () => {
                     {/* Brand */}
                     <div className="space-y-4">
                         <h3 className="text-2xl font-heading font-bold">
-                            Shopt<span className="text-primary">ify</span>
+                            CM<span className="text-primary">GROUPS</span>
                         </h3>
                         <p className="text-text-muted text-sm leading-relaxed">
                             A conglomerate of excellence in Technology, Services, and Education. Powering your digital future.
@@ -53,6 +53,8 @@ const Footer = () => {
                         <h4 className="font-bold mb-4 text-sm uppercase tracking-wider text-text-muted">Support</h4>
                         <ul className="space-y-2 text-sm">
                             {[
+                                { name: 'Help Center / FAQ', path: '/faq' },
+                                { name: 'Contact Us', path: '/contact' },
                                 { name: 'Repair Services', path: '/services' },
                                 { name: 'CCTV Security', path: '/cctv' },
                                 { name: 'Academy', path: '/courses' },
@@ -99,7 +101,8 @@ const Footer = () => {
                     <div className="flex gap-6">
                         <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
                         <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
-                        <Link to="/terms-of-service" className="hover:text-primary transition-colors">Refund Policy</Link>
+                        <Link to="/refund-policy" className="hover:text-primary transition-colors">Refund Policy</Link>
+                        <Link to="/contact" className="hover:text-primary transition-colors">Contact Us</Link>
                     </div>
                 </div>
             </div>

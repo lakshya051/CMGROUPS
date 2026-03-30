@@ -27,8 +27,9 @@ const STATUS_INDEX = {
 const TIME_FILTERS = [
     { label: 'All Orders', value: 'all' },
     { label: 'Past 3 Months', value: '3months' },
-    { label: '2025', value: '2025' },
-    { label: '2024', value: '2024' },
+    { label: String(new Date().getFullYear()), value: String(new Date().getFullYear()) },
+    { label: String(new Date().getFullYear() - 1), value: String(new Date().getFullYear() - 1) },
+    { label: String(new Date().getFullYear() - 2), value: String(new Date().getFullYear() - 2) },
 ]
 
 const UserOrders = () => {
@@ -94,7 +95,10 @@ const UserOrders = () => {
     // ─── Handlers ───────────────────────────────────────────────
     const handleBuyAgain = (order) => {
         order.items.forEach(item => {
-            if (item.product) addToCart(item.product, item.quantity)
+            if (item.product) {
+                const variant = item.variantId ? { id: item.variantId, price: item.price, stock: item.product.stock } : null
+                addToCart(item.product, item.quantity, variant)
+            }
         })
         toast.success('Items added to cart!')
         navigate('/checkout')
@@ -345,6 +349,7 @@ const UserOrders = () => {
 
 // ─── OrderCard ──────────────────────────────────────────────────
 function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, onViewOtp, onTrack, isReturnable }) {
+    const navigate = useNavigate()
     const isCancelled = order.status === 'Cancelled'
     const thumbnails = (order.items || []).filter(i => i.product?.images?.[0] || i.product?.image).slice(0, 3)
 
@@ -374,7 +379,9 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                         ))}
                     </div>
                     <div className="min-w-0">
-                        <h3 className="text-sm font-bold text-text-primary truncate">Order #{order.id}</h3>
+                        <h3 className="text-sm font-bold text-text-primary truncate">
+                            <button onClick={() => navigate(`/dashboard/orders/${order.id}`)} className="hover:text-trust transition-colors underline-offset-2 hover:underline">Order #{order.id}</button>
+                        </h3>
                         <p className="text-xs text-text-muted">
                             {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>

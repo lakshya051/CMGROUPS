@@ -168,7 +168,7 @@ const ProductCard = ({ product }) => {
                 {!isOutOfStock && (
                     <div className="flex items-center gap-1.5 mt-2 text-[11px] text-trust font-medium">
                         <Zap size={12} className="text-trust" />
-                        <span>1-Day Delivery</span>
+                        <span>24-Hour Delivery</span>
                     </div>
                 )}
 

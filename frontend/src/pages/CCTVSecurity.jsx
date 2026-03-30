@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { bundlesAPI } from '../lib/api';
+import BundleCard from '../components/shop/BundleCard';
 import { useSEO } from '../hooks/useSEO';
 import {
     BellRing, Camera, CheckCircle, ChevronDown, ChevronUp, Factory, Home, MapPin,
@@ -8,7 +10,7 @@ import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import { StarRating } from '../components/ui';
 
-const API_BASE = import.meta.env.VITE_API_URL;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const CITY = 'Etah';
 const WA_NUMBER = '918171838388'; // TODO: Replace with actual CMGroups WhatsApp business number
 const WA_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Hi, I need CCTV installation in Etah. Please share package details and site visit timings.')}`;
@@ -75,6 +77,27 @@ const FAQItem = ({ q, a }) => {
     );
 };
 
+const CCTVBundleSection = () => {
+    const [bundles, setBundles] = useState([]);
+    useEffect(() => {
+        bundlesAPI.getAll({ displayOn: 'cctv' }).then(setBundles).catch(() => {});
+    }, []);
+    if (bundles.length === 0) return null;
+    return (
+        <section className="py-xl px-lg bg-surface">
+            <div className="container mx-auto max-w-6xl">
+                <div className="text-center mb-xl">
+                    <h2 className="text-xl font-bold text-text-primary mb-xs">Complete CCTV Packages</h2>
+                    <p className="text-sm text-text-secondary">Camera + Installation combos at special bundle prices</p>
+                </div>
+                <div className="flex gap-md overflow-x-auto snap-x snap-mandatory pb-md scrollbar-hide">
+                    {bundles.map(b => <div key={b.id} className="snap-start"><BundleCard bundle={b} /></div>)}
+                </div>
+            </div>
+        </section>
+    );
+};
+
 const CCTVSecurity = () => {
     useSEO({ title: 'CCTV Installation in Etah — Shoptify Security', description: 'Professional CCTV installation and security solutions for homes and businesses in Etah.' });
     const formRef = useRef(null);
@@ -100,7 +123,7 @@ const CCTVSecurity = () => {
         setSubmitting(true);
         try {
             const res = await fetch(`${API_BASE}/cctv/enquiry`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Submission failed');
             setSubmitted(true);
             setForm({ name: '', phone: '', city: '', propertyType: '', camerasNeeded: '', message: '' });
@@ -177,6 +200,9 @@ const CCTVSecurity = () => {
                         </div>
                     </div>
                 </section>
+                {/* Complete CCTV Packages (Dynamic Bundles) */}
+                <CCTVBundleSection />
+
                 <section className="py-xl px-lg bg-page-bg">
                     <div className="container mx-auto max-w-6xl">
                         <div className="text-center mb-xl"><h2 className="text-xl font-bold text-text-primary mb-xs">Choose Your CCTV Package</h2><p className="text-sm text-text-secondary">Shortlist the setup that fits your property. We confirm the final quote after a free site visit.</p></div>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
 import { productsAPI, categoriesAPI } from '../lib/api';
-import { RECENTLY_VIEWED_KEY } from '../constants';
+import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
 
 import HeroBannerSlider from '../components/home/HeroBannerSlider';
 import WhatWeOffer from '../components/home/WhatWeOffer';
@@ -16,6 +16,8 @@ import BrandStrip from '../components/home/BrandStrip';
 import OurBusinesses from '../components/home/OurBusinesses';
 import B2BStrip from '../components/home/B2BStrip';
 import PWAInstallSection from '../components/home/PWAInstallSection';
+import BundleRow from '../components/home/BundleRow';
+import BYOBSection from '../components/home/BYOBSection';
 
 const Home = () => {
     useSEO({ title: 'Shoptify — Shop, Services & Courses in Etah', description: 'Your one-stop destination for computers, tech services, CCTV, Tally Prime and professional courses in Etah.' });
@@ -23,7 +25,8 @@ const Home = () => {
     const [bestSellersLoading, setBestSellersLoading] = useState(true);
     const [bestSellersError, setBestSellersError] = useState(false);
     const [pillCategories, setPillCategories] = useState([]);
-    const [recentlyViewed, setRecentlyViewed] = useState([]);
+    const [pillCategoriesError, setPillCategoriesError] = useState(false);
+    const { items: recentlyViewed } = useRecentlyViewed();
 
     useEffect(() => {
         import('./shop/Products');
@@ -31,28 +34,31 @@ const Home = () => {
         import('./shop/Cart');
     }, []);
 
-    useEffect(() => {
+    const loadPillCategories = () => {
+        setPillCategoriesError(false);
         categoriesAPI.getAll()
             .then(setPillCategories)
-            .catch(console.error);
-    }, []);
+            .catch(() => setPillCategoriesError(true));
+    };
+
+    useEffect(() => { loadPillCategories(); }, []);
 
     useEffect(() => {
         productsAPI.getAll({ sort: 'rating', limit: 10 })
             .then(res => setBestSellers(res.data || []))
             .catch(() => setBestSellersError(true))
             .finally(() => setBestSellersLoading(false));
-
-        try {
-            const stored = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]');
-            setRecentlyViewed(stored.slice(0, 6));
-        } catch { /* ignore */ }
     }, []);
 
     return (
         <div className="min-h-screen bg-page-bg">
             {/* 1. Category Pills — mobile only */}
-            {pillCategories.length > 0 && (
+            {pillCategoriesError ? (
+                <div className="md:hidden flex items-center justify-center gap-2 px-4 py-3 bg-surface border-b border-border-default">
+                    <span className="text-sm text-text-muted">Couldn't load categories.</span>
+                    <button onClick={loadPillCategories} className="text-sm text-primary font-semibold underline">Retry</button>
+                </div>
+            ) : pillCategories.length > 0 && (
                 <div className="md:hidden flex gap-2 overflow-x-auto scrollbar-hide px-4 py-3 bg-surface border-b border-border-default">
                     <Link
                         to="/products"
@@ -63,7 +69,7 @@ const Home = () => {
                     {pillCategories.map(cat => (
                         <Link
                             key={cat.id}
-                            to={`/products?category=${encodeURIComponent(cat.name)}`}
+                            to={cat.slug ? `/products/category/${cat.slug}` : `/products?category=${encodeURIComponent(cat.name)}`}
                             className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium bg-surface text-text-primary border border-border-default whitespace-nowrap hover:border-trust/40 transition-colors"
                         >
                             {cat.name}
@@ -89,6 +95,14 @@ const Home = () => {
 
             {/* 6. Deal of the Day */}
             <DealOfTheDay />
+
+            {/* 6.5. Hot Combos - Bundles */}
+            <div className="bg-page-bg border-t border-border-default">
+                <BundleRow title="Hot Combos — Save More Together" displayOn="home" />
+            </div>
+
+            {/* 6.75. Build Your Own Bundle */}
+            <BYOBSection />
 
             {/* 7. Popular Right Now */}
             <div className="bg-page-bg border-t border-border-default">
@@ -130,7 +144,8 @@ const Home = () => {
                 <div className="bg-page-bg border-t border-border-default">
                     <ProductRow
                         title="Recently Viewed"
-                        products={recentlyViewed}
+                        products={recentlyViewed.slice(0, 6)}
+                        viewAllLink="/products"
                     />
                 </div>
             )}

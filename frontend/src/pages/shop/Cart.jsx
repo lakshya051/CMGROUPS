@@ -210,7 +210,7 @@ const Cart = () => {
                     <ProgressBar value={subtotal} max={FREE_DELIVERY_THRESHOLD} color="success" />
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-trust font-medium">
                         <Zap size={12} />
-                        <span>Express 1-Day Delivery — order now, get it by tomorrow</span>
+                        <span>Express 24-Hour Delivery — order now, get it by tomorrow</span>
                     </div>
                 </div>
             )}
@@ -337,7 +337,7 @@ const Cart = () => {
                                 <div className="flex justify-between gap-sm">
                                     <div className="flex items-center gap-1">
                                         <span className="text-text-secondary">Delivery</span>
-                                        <span className="text-[10px] text-trust font-semibold bg-trust/10 px-1.5 py-0.5 rounded">1-DAY</span>
+                                        <span className="text-[10px] text-trust font-semibold bg-trust/10 px-1.5 py-0.5 rounded">24-HR</span>
                                     </div>
                                     <span className={remainingForFreeDelivery <= 0 ? 'text-success font-medium' : 'text-text-primary'}>
                                         {remainingForFreeDelivery <= 0 ? 'FREE' : `₹${deliveryFee}`}
@@ -525,7 +525,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
                             )}
                             {inStock && (
                                 <p className="text-[11px] text-trust font-medium mt-1 flex items-center gap-1">
-                                    <Zap size={10} /> 1-Day Delivery
+                                    <Zap size={10} /> 24-Hour Delivery
                                 </p>
                             )}
 

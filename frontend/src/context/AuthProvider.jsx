@@ -4,6 +4,8 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider,
     signOut,
     sendPasswordResetEmail,
@@ -25,6 +27,22 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
             return;
         }
+
+        getRedirectResult(auth).then(async (result) => {
+            if (result) {
+                const refCode = localStorage.getItem('referralCode') || undefined;
+                try {
+                    await completeGoogleSignIn(result, refCode);
+                } catch (err) {
+                    console.error('Google redirect sign-in completion failed:', err);
+                }
+            }
+        }).catch((err) => {
+            if (err.code !== 'auth/popup-closed-by-user') {
+                console.error('getRedirectResult error:', err);
+            }
+        });
+
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 const idToken = await fbUser.getIdToken();
@@ -43,10 +61,18 @@ export const AuthProvider = ({ children }) => {
                     } else {
                         console.warn('DB user not found, signing out of Firebase');
                         setUser(null);
+                        setFirebaseUser(null);
+                        tokenRef.current = null;
+                        setTokenGetter(null);
+                        if (auth) await signOut(auth);
                     }
                 } catch (err) {
                     console.error('Failed to fetch DB user:', err);
                     setUser(null);
+                    setFirebaseUser(null);
+                    tokenRef.current = null;
+                    setTokenGetter(null);
+                    if (auth) await signOut(auth);
                 }
             } else {
                 setFirebaseUser(null);
@@ -91,10 +117,7 @@ export const AuthProvider = ({ children }) => {
         return cred;
     }, []);
 
-    const loginWithGoogle = useCallback(async (referredByCode) => {
-        if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
-        const provider = new GoogleAuthProvider();
-        const cred = await signInWithPopup(auth, provider);
+    const completeGoogleSignIn = useCallback(async (cred, referredByCode) => {
         const idToken = await cred.user.getIdToken();
         tokenRef.current = idToken;
         setTokenGetter(() => Promise.resolve(tokenRef.current));
@@ -112,6 +135,23 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('referralCode');
         return { cred, user: data.user };
     }, []);
+
+    const loginWithGoogle = useCallback(async (referredByCode) => {
+        if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
+        const provider = new GoogleAuthProvider();
+
+        try {
+            const cred = await signInWithPopup(auth, provider);
+            return await completeGoogleSignIn(cred, referredByCode);
+        } catch (err) {
+            if (err.code === 'auth/popup-blocked') {
+                if (referredByCode) localStorage.setItem('referralCode', referredByCode);
+                await signInWithRedirect(auth, provider);
+                return { redirectStarted: true };
+            }
+            throw err;
+        }
+    }, [completeGoogleSignIn]);
 
     const logout = useCallback(async () => {
         setUser(null);
@@ -165,9 +205,19 @@ export const AuthProvider = ({ children }) => {
                             const data = await res.json();
                             dbUser = data.user;
                             setUser(data.user);
+                        } else {
+                            console.warn('DB user not found after email login, signing out');
+                            setUser(null);
+                            tokenRef.current = null;
+                            setTokenGetter(null);
+                            if (auth) await signOut(auth);
                         }
                     } catch (err) {
                         console.error('Failed to fetch DB user after email login:', err);
+                        setUser(null);
+                        tokenRef.current = null;
+                        setTokenGetter(null);
+                        if (auth) await signOut(auth);
                     }
                     return { cred, user: dbUser };
                 },

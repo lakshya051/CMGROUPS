@@ -29,7 +29,7 @@ const ShippingStep = ({
         <div className="flex items-center gap-2 bg-trust/5 border border-trust/20 rounded-lg px-3 py-2 mb-3">
             <Zap size={14} className="text-trust flex-shrink-0" />
             <p className="text-xs text-trust font-medium">
-                Estimated delivery: <span className="font-bold">Within 1 day</span> of order confirmation
+                Estimated delivery: <span className="font-bold">Within 24 hours</span> of order confirmation
             </p>
         </div>
 

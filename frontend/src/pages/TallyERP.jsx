@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { bundlesAPI } from '../lib/api';
+import BundleCard from '../components/shop/BundleCard';
 import { useSEO } from '../hooks/useSEO';
 import {
     CheckCircle, ChevronDown, ChevronUp, FileText, Package, Users,
@@ -129,6 +131,27 @@ const FAQItem = ({ q, a }) => {
 // ─────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────
+const TallyBundleSection = () => {
+    const [bundles, setBundles] = useState([]);
+    useEffect(() => {
+        bundlesAPI.getAll({ displayOn: 'tally' }).then(setBundles).catch(() => {});
+    }, []);
+    if (bundles.length === 0) return null;
+    return (
+        <section className="py-xl px-lg bg-surface">
+            <div className="container mx-auto max-w-6xl">
+                <div className="text-center mb-xl">
+                    <h2 className="text-xl font-bold text-text-primary mb-xs">Tally + Training Combos</h2>
+                    <p className="text-sm text-text-secondary">Get Tally Prime with training at special bundle prices</p>
+                </div>
+                <div className="flex gap-md overflow-x-auto snap-x snap-mandatory pb-md scrollbar-hide justify-center">
+                    {bundles.map(b => <div key={b.id} className="snap-start"><BundleCard bundle={b} /></div>)}
+                </div>
+            </div>
+        </section>
+    );
+};
+
 const TallyERP = () => {
     useSEO({ title: 'Tally Prime Dealer in Etah — Shoptify', description: 'Authorized Tally Prime dealer in Etah. Buy genuine licenses with free installation, training and local support.' });
     const formRef = useRef(null);
@@ -264,6 +287,9 @@ const TallyERP = () => {
                         </div>
                     </div>
                 </section>
+
+                {/* ── Tally + Training Bundles ──────────────────── */}
+                <TallyBundleSection />
 
                 {/* ── SECTION 4: Why Buy From Us ───────────────────── */}
                 <section className="py-xl px-lg bg-surface">

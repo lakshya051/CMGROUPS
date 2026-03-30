@@ -2,6 +2,7 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { logAudit } from '../utils/auditLog.js';
 
 const router = express.Router();
 
@@ -24,8 +25,11 @@ router.get('/', async (req, res) => {
         if (search) where.title = { contains: search, mode: 'insensitive' };
         if (minPrice || maxPrice) {
             where.price = {};
-            if (minPrice) where.price.gte = parseFloat(minPrice);
-            if (maxPrice) where.price.lte = parseFloat(maxPrice);
+            const parsedMin = parseFloat(minPrice);
+            const parsedMax = parseFloat(maxPrice);
+            if (Number.isFinite(parsedMin)) where.price.gte = parsedMin;
+            if (Number.isFinite(parsedMax)) where.price.lte = parsedMax;
+            if (Object.keys(where.price).length === 0) delete where.price;
         }
         if (onSale === 'true') {
             where.originalPrice = { not: null };
@@ -183,6 +187,9 @@ router.get('/:id', async (req, res) => {
                 reviews: {
                     include: { user: { select: { name: true } } },
                     orderBy: { createdAt: 'desc' }
+                },
+                quantityTiers: {
+                    orderBy: { minQty: 'asc' }
                 }
             }
         });
@@ -193,6 +200,71 @@ router.get('/:id', async (req, res) => {
         res.json(product);
     } catch (error) {
         console.error('Get product error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/products/:id/related (Public — co-occurrence + same-category fallback)
+router.get('/:id/related', async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        const product = await prisma.product.findFirst({
+            where: { id: productId, isActive: true },
+            select: { id: true, category: true },
+        });
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        const LIMIT = 8;
+        let related = [];
+
+        // Co-occurrence: products bought together in the same orders
+        const orderIds = await prisma.orderItem.findMany({
+            where: { productId },
+            select: { orderId: true },
+            distinct: ['orderId'],
+            take: 50,
+        });
+
+        if (orderIds.length > 0) {
+            const coItems = await prisma.orderItem.findMany({
+                where: {
+                    orderId: { in: orderIds.map(o => o.orderId) },
+                    productId: { not: productId },
+                    product: { isActive: true },
+                },
+                select: { productId: true },
+            });
+
+            const freq = {};
+            coItems.forEach(i => { freq[i.productId] = (freq[i.productId] || 0) + 1; });
+            const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, LIMIT);
+
+            if (sorted.length > 0) {
+                related = await prisma.product.findMany({
+                    where: { id: { in: sorted.map(([id]) => parseInt(id)) }, isActive: true },
+                    select: { id: true, title: true, price: true, images: true, rating: true, stock: true, category: true },
+                });
+                // Re-sort by frequency
+                const idOrder = sorted.map(([id]) => parseInt(id));
+                related.sort((a, b) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
+            }
+        }
+
+        // Fallback: fill with same-category products
+        if (related.length < LIMIT) {
+            const excludeIds = [productId, ...related.map(r => r.id)];
+            const fallback = await prisma.product.findMany({
+                where: { category: product.category, isActive: true, id: { notIn: excludeIds }, stock: { gt: 0 } },
+                select: { id: true, title: true, price: true, images: true, rating: true, stock: true, category: true },
+                orderBy: { rating: 'desc' },
+                take: LIMIT - related.length,
+            });
+            related = [...related, ...fallback];
+        }
+
+        res.json(related);
+    } catch (error) {
+        console.error('Get related products error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -231,8 +303,13 @@ router.post('/', protect, adminOnly, async (req, res) => {
             }
         });
 
-        // Invalidate all product list caches
         cache.delByPrefix('products:');
+
+        logAudit({
+            userId: req.user.id, action: 'CREATE', entity: 'Product', entityId: product.id,
+            details: { after: { title: product.title, price: product.price, category: product.category } },
+            req,
+        });
 
         res.status(201).json(product);
     } catch (error) {
@@ -274,8 +351,13 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
             data: updateData
         });
 
-        // Invalidate caches
         cache.delByPrefix('products:');
+
+        logAudit({
+            userId: req.user.id, action: 'UPDATE', entity: 'Product', entityId: productId,
+            details: { before: { title: oldProduct?.title, price: oldProduct?.price }, after: { title: product.title, price: product.price }, changedFields: Object.keys(updateData) },
+            req,
+        });
 
         // Background Alert Check (non-blocking)
         (async () => {
@@ -349,13 +431,19 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 // DELETE /api/products/:id (Admin only)
 router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
+        const productId = parseInt(req.params.id);
         await prisma.product.update({
-            where: { id: parseInt(req.params.id) },
+            where: { id: productId },
             data: { isActive: false }
         });
 
-        // Invalidate caches
         cache.delByPrefix('products:');
+
+        logAudit({
+            userId: req.user.id, action: 'DELETE', entity: 'Product', entityId: productId,
+            details: { meta: 'Soft-deleted (isActive → false)' },
+            req,
+        });
 
         res.json({ message: 'Product deleted' });
     } catch (error) {
@@ -489,8 +577,13 @@ router.post('/:id/variants/bulk', protect, adminOnly, async (req, res) => {
                 isActive: v.isActive !== undefined ? v.isActive : true,
                 image: v.image || null
             };
-            if (v.id && typeof v.id === 'number') {
-                const updated = await prisma.productVariant.update({ where: { id: v.id }, data });
+            const parsedId = v.id != null ? Number(v.id) : null;
+            if (parsedId && Number.isInteger(parsedId)) {
+                const existing = await prisma.productVariant.findUnique({ where: { id: parsedId } });
+                if (!existing || existing.productId !== productId) {
+                    return res.status(400).json({ error: `Variant ID ${parsedId} does not belong to this product` });
+                }
+                const updated = await prisma.productVariant.update({ where: { id: parsedId }, data });
                 results.push(updated);
             } else {
                 const created = await prisma.productVariant.create({ data });
@@ -544,8 +637,14 @@ router.post('/:id/options', protect, adminOnly, async (req, res) => {
 // PUT /api/products/:id/options/:optionId — update option name and/or values
 router.put('/:id/options/:optionId', protect, adminOnly, async (req, res) => {
     try {
+        const productId = parseInt(req.params.id);
         const optionId = parseInt(req.params.optionId);
         const { name, values } = req.body;
+
+        const existing = await prisma.variantOption.findUnique({ where: { id: optionId } });
+        if (!existing || existing.productId !== productId) {
+            return res.status(404).json({ error: 'Option not found for this product' });
+        }
 
         const updateData = {};
         if (name !== undefined) updateData.name = name.trim();
@@ -582,7 +681,13 @@ router.put('/:id/options/:optionId', protect, adminOnly, async (req, res) => {
 // DELETE /api/products/:id/options/:optionId — delete option and its values
 router.delete('/:id/options/:optionId', protect, adminOnly, async (req, res) => {
     try {
-        await prisma.variantOption.delete({ where: { id: parseInt(req.params.optionId) } });
+        const productId = parseInt(req.params.id);
+        const optionId = parseInt(req.params.optionId);
+        const existing = await prisma.variantOption.findUnique({ where: { id: optionId } });
+        if (!existing || existing.productId !== productId) {
+            return res.status(404).json({ error: 'Option not found for this product' });
+        }
+        await prisma.variantOption.delete({ where: { id: optionId } });
         cache.delByPrefix('products:');
         res.json({ message: 'Option deleted' });
     } catch (error) {
@@ -681,6 +786,63 @@ router.post('/:id/variants/generate', protect, adminOnly, async (req, res) => {
         res.json({ created, total: allVariants.length, variants: allVariants });
     } catch (error) {
         console.error('Generate variants error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ─────────────────────────────────────────────
+// QUANTITY TIERS (Volume Discounts)
+// ─────────────────────────────────────────────
+
+// GET /api/products/:id/quantity-tiers (Public)
+router.get('/:id/quantity-tiers', async (req, res) => {
+    try {
+        const tiers = await prisma.quantityTier.findMany({
+            where: { productId: parseInt(req.params.id) },
+            orderBy: { minQty: 'asc' },
+        });
+        res.json(tiers);
+    } catch (error) {
+        console.error('Get quantity tiers error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/products/:id/quantity-tiers (Admin) — replace all tiers
+router.put('/:id/quantity-tiers', protect, adminOnly, async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        const { tiers } = req.body;
+        if (!Array.isArray(tiers)) return res.status(400).json({ error: 'tiers array is required' });
+
+        await prisma.$transaction(async (tx) => {
+            await tx.quantityTier.deleteMany({ where: { productId } });
+            if (tiers.length > 0) {
+                await tx.quantityTier.createMany({
+                    data: tiers.map(t => ({
+                        productId,
+                        minQty: parseInt(t.minQty),
+                        price: parseFloat(t.price),
+                    })),
+                });
+            }
+        });
+
+        const updated = await prisma.quantityTier.findMany({
+            where: { productId },
+            orderBy: { minQty: 'asc' },
+        });
+
+        cache.delByPrefix('products:');
+        logAudit({
+            userId: req.user.id, action: 'UPDATE', entity: 'QuantityTier', entityId: productId,
+            details: { tiersCount: updated.length },
+            req,
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Update quantity tiers error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

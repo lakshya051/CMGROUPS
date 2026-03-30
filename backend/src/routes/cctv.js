@@ -4,6 +4,8 @@ import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import nodemailer from 'nodemailer';
 import { escapeHtml } from '../utils/escapeHtml.js';
+import { createAdminNotification } from '../utils/notifications.js';
+import { logAudit } from '../utils/auditLog.js';
 
 const enquiryLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -92,6 +94,13 @@ router.post('/enquiry', enquiryLimiter, async (req, res) => {
             console.log('---\n');
         }
 
+        createAdminNotification({
+            title: 'New CCTV Enquiry',
+            message: `${name} — ${propertyType}, ${camerasNeeded} cameras`,
+            type: 'admin',
+            link: '/admin/cctv-enquiries',
+        }).catch(() => {});
+
         res.status(201).json({ success: true, message: 'Enquiry submitted successfully', id: enquiry.id });
     } catch (error) {
         console.error('CCTV enquiry submit error:', error);
@@ -142,13 +151,20 @@ router.patch('/admin/enquiries/:id', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Nothing to update' });
         }
 
+        const enqId = parseInt(req.params.id, 10);
         const enquiry = await cctvEnquiryDelegate.update({
-            where: { id: parseInt(req.params.id, 10) },
+            where: { id: enqId },
             data: {
                 ...(status !== undefined ? { status } : {}),
                 ...(adminNotes !== undefined ? { adminNotes: adminNotes?.trim() || null } : {}),
                 ...(sellerName !== undefined ? { sellerName: sellerName?.trim() || null } : {})
             }
+        });
+
+        logAudit({
+            userId: req.user.id, action: 'UPDATE', entity: 'CCTVEnquiry', entityId: enqId,
+            details: { after: { status, adminNotes, sellerName } },
+            req,
         });
 
         res.json({ success: true, enquiry });

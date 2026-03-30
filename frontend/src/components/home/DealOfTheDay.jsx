@@ -112,7 +112,7 @@ const DealCard = ({ product }) => {
                 <PriceDisplay sellingPrice={displayPrice} originalPrice={displayOriginalPrice} size="sm" showBadge={true} />
                 <div className="flex items-center gap-1 text-[11px] text-trust font-medium">
                     <Zap size={10} />
-                    <span>1-Day Delivery</span>
+                    <span>24-Hour Delivery</span>
                 </div>
                 <button
                     onClick={handleAdd}
@@ -173,7 +173,7 @@ const DealOfTheDay = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <span className="hidden sm:flex items-center gap-1 text-xs font-semibold text-trust bg-trust/10 px-2.5 py-1 rounded-full border border-trust/20">
-                            <Zap size={12} /> 1-Day Delivery
+                            <Zap size={12} /> 24-Hour Delivery
                         </span>
                         <Link
                             to="/products?sort=price_asc"

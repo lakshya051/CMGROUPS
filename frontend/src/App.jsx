@@ -17,8 +17,9 @@ const lazyRetry = (importFn) =>
     lazy(() =>
         importFn().catch(() => {
             const key = 'chunk_reload';
-            if (!sessionStorage.getItem(key)) {
-                sessionStorage.setItem(key, '1');
+            const attempts = Number(sessionStorage.getItem(key) || '0');
+            if (attempts < 2) {
+                sessionStorage.setItem(key, String(attempts + 1));
                 window.location.reload();
                 return new Promise(() => {});
             }
@@ -45,6 +46,9 @@ const OnboardingPage = lazyRetry(() => import('./pages/OnboardingPage'));
 const OurCompanies = lazyRetry(() => import('./pages/OurCompanies'));
 const PrivacyPolicy = lazyRetry(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazyRetry(() => import('./pages/TermsOfService'));
+const RefundPolicy = lazyRetry(() => import('./pages/RefundPolicy'));
+const FAQ = lazyRetry(() => import('./pages/FAQ'));
+const ContactUs = lazyRetry(() => import('./pages/ContactUs'));
 const SignIn = lazyRetry(() => import('./pages/SignIn'));
 const SignUp = lazyRetry(() => import('./pages/SignUp'));
 const Notifications = lazyRetry(() => import('./pages/Notifications'));
@@ -57,6 +61,7 @@ const Cart = lazyRetry(() => import('./pages/shop/Cart'));
 const Wishlist = lazyRetry(() => import('./pages/shop/Wishlist'));
 const Compare = lazyRetry(() => import('./pages/shop/Compare'));
 const Checkout = lazyRetry(() => import('./pages/shop/Checkout'));
+const CategoryPage = lazyRetry(() => import('./pages/shop/CategoryPage'));
 
 // Courses
 const Courses = lazyRetry(() => import('./pages/courses/Courses'));
@@ -66,9 +71,11 @@ const CoursePlayer = lazyRetry(() => import('./pages/courses/CoursePlayer'));
 // User Dashboard
 const UserDashboard = lazyRetry(() => import('./pages/dashboard/UserDashboard'));
 const UserOrders = lazyRetry(() => import('./pages/dashboard/UserOrders'));
+const OrderDetail = lazyRetry(() => import('./pages/dashboard/OrderDetail'));
 const UserServices = lazyRetry(() => import('./pages/dashboard/UserServices'));
 const UserCourses = lazyRetry(() => import('./pages/dashboard/UserCourses'));
 const UserSettings = lazyRetry(() => import('./pages/dashboard/UserSettings'));
+const UserProfile = lazyRetry(() => import('./pages/dashboard/UserProfile'));
 const UserReferrals = lazyRetry(() => import('./pages/dashboard/UserReferrals'));
 
 // Admin
@@ -87,6 +94,9 @@ const AdminEnrollments = lazyRetry(() => import('./pages/admin/AdminEnrollments'
 const AdminTallyEnquiries = lazyRetry(() => import('./pages/admin/AdminTallyEnquiries'));
 const AdminCCTVEnquiries = lazyRetry(() => import('./pages/admin/AdminCCTVEnquiries'));
 const AdminBanners = lazyRetry(() => import('./pages/admin/AdminBanners'));
+const AdminAuditLog = lazyRetry(() => import('./pages/admin/AdminAuditLog'));
+const AdminBundles = lazyRetry(() => import('./pages/admin/AdminBundles'));
+const AdminBundleTemplates = lazyRetry(() => import('./pages/admin/AdminBundleTemplates'));
 
 function App() {
     return (
@@ -105,6 +115,7 @@ function App() {
                                 <Route index element={<Home />} />
                                 <Route path="refurbished" element={<Navigate to="/products" replace />} />
                                 <Route path="products" element={<Products />} />
+                                <Route path="products/category/:slug" element={<CategoryPage />} />
                                 <Route path="products/:id" element={<ProductDetail />} />
                                 <Route path="cart" element={<Cart />} />
                                 <Route path="wishlist" element={<Wishlist />} />
@@ -126,6 +137,9 @@ function App() {
                                 <Route path="our-companies" element={<OurCompanies />} />
                                 <Route path="privacy-policy" element={<PrivacyPolicy />} />
                                 <Route path="terms-of-service" element={<TermsOfService />} />
+                                <Route path="refund-policy" element={<RefundPolicy />} />
+                                <Route path="faq" element={<FAQ />} />
+                                <Route path="contact" element={<ContactUs />} />
                                 <Route path="notifications" element={
                                     <ProtectedRoute><Notifications /></ProtectedRoute>
                                 } />
@@ -139,8 +153,10 @@ function App() {
                             }>
                                 <Route index element={<UserDashboard />} />
                                 <Route path="orders" element={<UserOrders />} />
+                                <Route path="orders/:id" element={<OrderDetail />} />
                                 <Route path="services" element={<UserServices />} />
                                 <Route path="courses" element={<UserCourses />} />
+                                <Route path="profile" element={<UserProfile />} />
                                 <Route path="settings" element={<UserSettings />} />
                                 <Route path="referrals" element={<UserReferrals />} />
                             </Route>
@@ -166,6 +182,9 @@ function App() {
                                 <Route path="tally-enquiries" element={<AdminTallyEnquiries />} />
                                 <Route path="cctv-enquiries" element={<AdminCCTVEnquiries />} />
                                 <Route path="banners" element={<AdminBanners />} />
+                                <Route path="bundles" element={<AdminBundles />} />
+                                <Route path="bundle-templates" element={<AdminBundleTemplates />} />
+                                <Route path="audit-log" element={<AdminAuditLog />} />
                             </Route>
 
                             {/* Auth */}
