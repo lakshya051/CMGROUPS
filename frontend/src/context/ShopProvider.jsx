@@ -11,6 +11,14 @@ export const ShopProvider = ({ children }) => {
     const { user, refreshUser } = useAuth();
     const [cart, setCart] = useState([]);
     const [cartLoading, setCartLoading] = useState(false);
+    const [buyNowItems, setBuyNowItems] = useState(() => {
+        try {
+            const saved = sessionStorage.getItem('buyNowItems');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
 
     const [coupon, setCoupon] = useState(() => {
         try {
@@ -53,6 +61,8 @@ export const ShopProvider = ({ children }) => {
     useEffect(() => {
         if (!user) {
             setCart([]);
+            setWishlist([]);
+            localStorage.removeItem('wishlist');
             return;
         }
 
@@ -181,7 +191,10 @@ export const ShopProvider = ({ children }) => {
             stock = variant ? variant.stock : (productObj.stock || 0);
         }
 
-        const uid = variantId ? `${productId}-${variantId}` : `${productId}`;
+        const bundleInstId = (!isIdOnly && productObj.bundleInfo?.bundleInstanceId) || '';
+        const uid = bundleInstId
+            ? (variantId ? `${productId}-${variantId}-${bundleInstId}` : `${productId}-${bundleInstId}`)
+            : (variantId ? `${productId}-${variantId}` : `${productId}`);
         const newQtyNumber = Number(quantity);
         const existingQuantity = cart.find(item => item.uniqueId === uid)?.quantity || 0;
 
@@ -221,9 +234,12 @@ export const ShopProvider = ({ children }) => {
             }];
         });
 
+        const bundleId = (!isIdOnly && productObj.bundleInfo?.bundleId) || null;
+        const bundleInstanceId = (!isIdOnly && productObj.bundleInfo?.bundleInstanceId) || '';
+
         enqueueCartAction(async () => {
             try {
-                await cartAPI.addItem(productId, variantId, newQtyNumber);
+                await cartAPI.addItem(productId, variantId, newQtyNumber, bundleId ? String(bundleId) : null, bundleInstanceId);
             } catch (err) {
                 console.error('Failed to add item to cart:', err);
                 toast.error(getErrorMessage(err, 'Failed to add to cart'));
@@ -242,7 +258,7 @@ export const ShopProvider = ({ children }) => {
 
         enqueueCartAction(async () => {
             try {
-                await cartAPI.removeItem(item.productId || item.id, item.variantId || null);
+                await cartAPI.removeItem(item.productId || item.id, item.variantId || null, item.bundleInfo?.bundleInstanceId || '');
             } catch (err) {
                 console.error('Failed to remove item from cart:', err);
                 toast.error(getErrorMessage(err, 'Failed to remove from cart'));
@@ -270,7 +286,7 @@ export const ShopProvider = ({ children }) => {
 
         enqueueCartAction(async () => {
             try {
-                await cartAPI.updateItem(item.productId || item.id, item.variantId || null, boundedQty);
+                await cartAPI.updateItem(item.productId || item.id, item.variantId || null, boundedQty, item.bundleInfo?.bundleInstanceId || '');
             } catch (err) {
                 console.error('Failed to update cart quantity:', err);
                 toast.error(getErrorMessage(err, 'Failed to update quantity'));
@@ -278,6 +294,21 @@ export const ShopProvider = ({ children }) => {
             }
         });
     }, [cart, enqueueCartAction, removeFromCart]);
+
+    const removeBundleFromCart = useCallback((bundleInstanceId) => {
+        if (!bundleInstanceId) return;
+        setCart(prev => prev.filter(item => item.bundleInfo?.bundleInstanceId !== bundleInstanceId));
+
+        enqueueCartAction(async () => {
+            try {
+                await cartAPI.removeBundle(bundleInstanceId);
+            } catch (err) {
+                console.error('Failed to remove bundle from cart:', err);
+                toast.error(getErrorMessage(err, 'Failed to remove bundle'));
+                try { setCart(await cartAPI.get()); } catch { /* ignore */ }
+            }
+        });
+    }, [enqueueCartAction]);
 
     const clearCart = useCallback(() => {
         setCart([]);
@@ -290,38 +321,130 @@ export const ShopProvider = ({ children }) => {
     const applyCoupon = (couponData) => setCoupon(couponData);
     const removeCoupon = () => setCoupon(null);
 
-    const placeOrder = async (orderData) => {
-        // Kill all pending cart queue actions immediately so they never fire.
-        // The order API validates stock independently inside a DB transaction.
-        cartGen.current += 1;
+    const setBuyNow = useCallback((items) => {
+        setBuyNowItems(items);
+        try {
+            if (items.length > 0) {
+                sessionStorage.setItem('buyNowItems', JSON.stringify(items));
+            } else {
+                sessionStorage.removeItem('buyNowItems');
+            }
+        } catch { /* ignore */ }
+    }, []);
 
-        const items = cart.map(item => ({
-            productId: item.productId || item.id,
-            variantId: item.variantId || null,
-            quantity: item.quantity,
-            price: item.price,
-        }));
-        const order = await ordersAPI.place(
-            items,
-            orderData.total,
-            orderData.paymentMethod,
-            orderData.shippingAddress || null,
-            orderData.referralCode || null,
-            orderData.useWallet || false,
-            orderData.walletUsed || 0,
-            coupon?.code || null,
-            coupon?.discount || 0,
-            orderData.latitude || null,
-            orderData.longitude || null,
-            orderData.googleMapLink || null
-        );
-
-        clearCart();
-        try { await cartAPI.clear(); } catch { /* ignore */ }
-        if (orderData.useWallet && refreshUser) {
-            await refreshUser();
+    const initBuyNow = useCallback((productObj, quantity = 1, variant = null) => {
+        if (!user) {
+            toast.error('Please sign in to continue');
+            return false;
         }
-        return order;
+        const productId = productObj.id;
+        const variantId = variant?.id || null;
+        const price = variant?.price ?? productObj.price;
+        const stock = variant?.stock ?? productObj.stock;
+        if (stock <= 0) {
+            toast.error('This item is out of stock');
+            return false;
+        }
+        if (quantity > stock) {
+            toast.error(`Only ${stock} items available`);
+            return false;
+        }
+        setBuyNow([{
+            ...productObj,
+            uniqueId: variantId ? `${productId}-${variantId}` : `${productId}`,
+            productId,
+            variantId,
+            variantName: variant?.name || null,
+            variantCombination: variant?.combination || null,
+            price,
+            stock,
+            quantity,
+        }]);
+        return true;
+    }, [user, setBuyNow]);
+
+    const initBuyNowMultiple = useCallback((itemEntries) => {
+        if (!user) {
+            toast.error('Please sign in to continue');
+            return false;
+        }
+        const built = [];
+        for (const { product, quantity, variant, bundleInfo } of itemEntries) {
+            const productId = product.id;
+            const variantId = variant?.id || null;
+            const price = variant?.price ?? product.price;
+            const stock = variant?.stock ?? product.stock;
+            if (stock <= 0) continue;
+            built.push({
+                ...product,
+                ...(bundleInfo ? { bundleInfo } : {}),
+                uniqueId: variantId ? `${productId}-${variantId}` : `${productId}`,
+                productId,
+                variantId,
+                variantName: variant?.name || null,
+                variantCombination: variant?.combination || null,
+                price,
+                stock,
+                quantity: Math.min(quantity, stock),
+            });
+        }
+        if (built.length === 0) {
+            toast.error('No in-stock items available');
+            return false;
+        }
+        setBuyNow(built);
+        return true;
+    }, [user, setBuyNow]);
+
+    const clearBuyNow = useCallback(() => setBuyNow([]), [setBuyNow]);
+
+    const placeOrder = async (orderData) => {
+        try {
+            // Kill all pending cart queue actions immediately so they never fire.
+            // The order API validates stock independently inside a DB transaction.
+            cartGen.current += 1;
+
+            const isBuyNow = orderData.isBuyNow && buyNowItems.length > 0;
+            const sourceItems = isBuyNow ? buyNowItems : cart;
+            const items = sourceItems.map(item => ({
+                productId: item.productId || item.id,
+                variantId: item.variantId || null,
+                quantity: item.quantity,
+                price: item.price,
+                bundleId: item.bundleInfo?.bundleId || null,
+                bundleInstanceId: item.bundleInfo?.bundleInstanceId || null,
+            }));
+            const order = await ordersAPI.place(
+                items,
+                orderData.total,
+                orderData.paymentMethod,
+                orderData.shippingAddress || null,
+                orderData.referralCode || null,
+                orderData.useWallet || false,
+                orderData.walletUsed || 0,
+                coupon?.code || null,
+                coupon?.discount || 0,
+                orderData.latitude || null,
+                orderData.longitude || null,
+                orderData.googleMapLink || null,
+                orderData.giftWrap || false,
+                orderData.giftMessage || null
+            );
+
+            if (isBuyNow) {
+                clearBuyNow();
+            } else {
+                clearCart();
+                try { await cartAPI.clear(); } catch { /* ignore */ }
+            }
+            if (orderData.useWallet && refreshUser) {
+                await refreshUser();
+            }
+            return order;
+        } catch (err) {
+            toast.error(getErrorMessage(err, 'Order failed'));
+            throw err;
+        }
     };
 
     const toggleWishlist = async (productId) => {
@@ -375,17 +498,50 @@ export const ShopProvider = ({ children }) => {
             toast.error('No in-stock items in this bundle');
             return;
         }
-        productItems.forEach(bi => {
+
+        const bundleInfo = { bundleId: bundle.id, bundleInstanceId, bundleName: bundle.name, bundlePrice: bundle.bundlePrice };
+        const newEntries = productItems.map(bi => {
             const prod = bi.product;
-            const variant = prod.hasVariants && prod.variants?.length > 0 ? prod.variants[0] : null;
-            addToCart(
-                { ...prod, bundleInfo: { bundleId: bundle.id, bundleInstanceId, bundleName: bundle.name, bundlePrice: bundle.bundlePrice } },
-                bi.quantity,
-                variant
-            );
+            const variant = prod.hasVariants && prod.variants?.length > 0
+                ? (bi.variantId ? prod.variants.find(v => v.id === bi.variantId) : prod.variants[0])
+                : null;
+            const variantId = variant?.id || null;
+            const uid = variantId
+                ? `${prod.id}-${variantId}-${bundleInstanceId}`
+                : `${prod.id}-${bundleInstanceId}`;
+            return {
+                ...prod,
+                bundleInfo,
+                uniqueId: uid,
+                productId: prod.id,
+                variantId,
+                variantName: variant?.name || null,
+                variantCombination: variant?.combination || null,
+                price: variant?.price ?? prod.price,
+                stock: variant?.stock ?? prod.stock,
+                quantity: bi.quantity,
+            };
         });
+
+        setCart(prev => [...prev, ...newEntries]);
+
+        enqueueCartAction(async () => {
+            try {
+                for (const entry of newEntries) {
+                    await cartAPI.addItem(
+                        entry.productId, entry.variantId, entry.quantity,
+                        String(bundle.id), bundleInstanceId
+                    );
+                }
+            } catch (err) {
+                console.error('Failed to add bundle to cart:', err);
+                toast.error(getErrorMessage(err, 'Failed to add bundle to cart'));
+                try { setCart(await cartAPI.get()); } catch { /* ignore */ }
+            }
+        });
+
         toast.success(`Added "${bundle.name}" bundle to cart`);
-    }, [user, addToCart]);
+    }, [user, enqueueCartAction]);
 
     const clearCompare = () => setCompareList([]);
 
@@ -395,10 +551,15 @@ export const ShopProvider = ({ children }) => {
             cartLoading,
             addToCart,
             addBundleToCart,
+            removeBundleFromCart,
             removeFromCart,
             updateCartQuantity,
             clearCart,
             placeOrder,
+            buyNowItems,
+            initBuyNow,
+            initBuyNowMultiple,
+            clearBuyNow,
             wishlist,
             toggleWishlist,
             compareList,

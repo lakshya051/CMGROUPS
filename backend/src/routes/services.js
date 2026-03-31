@@ -8,6 +8,8 @@ import { generateServiceInvoicePdf } from '../utils/serviceInvoiceGenerator.js';
 import { createUserNotification, createAdminNotification } from '../utils/notifications.js';
 import { uploadPdfBuffer } from '../utils/cloudinary.js';
 import { logAudit } from '../utils/auditLog.js';
+import { syncRecord } from '../utils/sheetsSync.js';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -49,8 +51,6 @@ const getServiceSettings = async () => {
     const settings = await withDbRetry(() => prisma.serviceSettings.findFirst());
     return settings || getDefaultServiceSettings();
 };
-
-import crypto from 'crypto';
 
 /** Generate a 6-digit numeric OTP string (cryptographically secure) */
 const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
@@ -118,6 +118,9 @@ router.get('/available-slots', async (req, res) => {
         if (!date) return res.status(400).json({ error: 'Date is required' });
 
         const targetDate = new Date(date);
+        if (isNaN(targetDate.getTime())) {
+            return res.status(400).json({ error: 'Invalid date' });
+        }
         targetDate.setHours(0, 0, 0, 0);
         const nextDate = new Date(targetDate);
         nextDate.setDate(nextDate.getDate() + 1);
@@ -173,6 +176,9 @@ router.post('/book', protect, async (req, res) => {
         }
 
         const targetDate = new Date(date);
+        if (isNaN(targetDate.getTime())) {
+            return res.status(400).json({ error: 'Invalid date' });
+        }
         targetDate.setHours(0, 0, 0, 0);
         const nextDate = new Date(targetDate);
         nextDate.setDate(nextDate.getDate() + 1);
@@ -242,6 +248,8 @@ router.post('/book', protect, async (req, res) => {
         if (!booking) {
             return res.status(400).json({ error: 'Selected time slot is no longer available.' });
         }
+
+        syncRecord('ServiceBookings', booking).catch(console.error);
 
         // Respond immediately — notifications fire in background
         res.status(201).json({ ...booking, pickupOtp: undefined });
@@ -488,7 +496,13 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
         if (finalPrice !== undefined) updateData.finalPrice = parseFloat(finalPrice);
         if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
         if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
-        if (estimatedCompletionDate !== undefined) updateData.estimatedCompletionDate = new Date(estimatedCompletionDate);
+        if (estimatedCompletionDate !== undefined) {
+            const estimatedDateObj = new Date(estimatedCompletionDate);
+            if (isNaN(estimatedDateObj.getTime())) {
+                return res.status(400).json({ error: 'Invalid estimatedCompletionDate' });
+            }
+            updateData.estimatedCompletionDate = estimatedDateObj;
+        }
 
         const booking = await prisma.serviceBooking.update({
             where: { id: bookingId },
@@ -597,7 +611,7 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
                         if (!existingReferral) {
                             await prisma.$transaction(async (tx) => {
-                                const serviceTypeObj = await tx.serviceType.findUnique({
+                                const serviceTypeObj = await tx.serviceType.findFirst({
                                     where: { title: fullBooking.serviceType }
                                 });
 
@@ -664,13 +678,15 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             }
         }
 
+        syncRecord('ServiceBookings', booking).catch(console.error);
+
         // Admin gets full booking including OTP for pickup verification
         res.json(booking);
 
         // Email + in-app notify after response — do not block admin UI on SMTP latency
         if (status) {
             setImmediate(() => {
-                void sendServiceNotification(booking, status);
+                sendServiceNotification(booking, status).catch((err) => console.error('sendServiceNotification error (deferred):', err));
                 if (booking.user?.id) {
                     const isCompleted = status === 'Completed';
                     createUserNotification({
@@ -755,7 +771,7 @@ router.post('/:id/verify-otp', protect, async (req, res) => {
 
         const notifyBooking = { ...updated, user: booking.user };
         setImmediate(() => {
-            void sendServiceNotification(notifyBooking, 'In Progress');
+            sendServiceNotification(notifyBooking, 'In Progress').catch((err) => console.error('sendServiceNotification error (deferred):', err));
             createUserNotification({
                 userId: booking.userId,
                 title: 'Device Picked Up',
@@ -811,7 +827,7 @@ router.post('/:id/regenerate-otp', protect, adminOnly, async (req, res) => {
         res.json({ success: true, message: 'New OTP generated and sent to customer.', booking: safeBooking });
 
         setImmediate(() => {
-            void sendServiceNotification(updated, 'Confirmed');
+            sendServiceNotification(updated, 'Confirmed').catch((err) => console.error('sendServiceNotification error (deferred):', err));
             createUserNotification({
                 userId: updated.userId,
                 title: 'Pickup OTP Updated',

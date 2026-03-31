@@ -80,12 +80,12 @@ const assertAvailableStock = async (db, { productId, variantId = null, requested
     }
 };
 
-const formatCartItem = (item) => {
+const formatCartItem = (item, bundleMap = {}) => {
     const base = item.product;
     const variant = item.variant;
     const variantId = variant ? variant.id : null;
 
-    return {
+    const result = {
         ...base,
         uniqueId: variantId ? `${base.id}-${variantId}` : `${base.id}`,
         variantId,
@@ -98,6 +98,22 @@ const formatCartItem = (item) => {
         quantity: item.quantity,
         cartItemId: item.id,
     };
+
+    if (item.bundleInstanceId) {
+        result.uniqueId = variantId
+            ? `${base.id}-${variantId}-${item.bundleInstanceId}`
+            : `${base.id}-${item.bundleInstanceId}`;
+        const bundleData = bundleMap[item.bundleId] || {};
+        result.bundleInfo = {
+            bundleId: item.bundleId || null,
+            bundleInstanceId: item.bundleInstanceId,
+            bundleName: bundleData.name || null,
+            bundlePrice: bundleData.bundlePrice ?? null,
+            hasService: bundleData.hasService || false,
+        };
+    }
+
+    return result;
 };
 
 const fetchFullCart = async (userId) => {
@@ -106,20 +122,77 @@ const fetchFullCart = async (userId) => {
         include: { product: true, variant: true },
         orderBy: { createdAt: 'asc' },
     });
-    return items.map(formatCartItem);
+
+    const bundleIdStrs = [...new Set(items.filter(i => i.bundleId).map(i => i.bundleId))];
+    const numericBundleIds = bundleIdStrs.map(s => parseInt(s)).filter(Number.isFinite);
+    const byobTemplateIds = bundleIdStrs
+        .filter(s => s.startsWith('byob-'))
+        .map(s => parseInt(s.split('-')[1]))
+        .filter(Number.isFinite);
+    let bundleMap = {};
+
+    const [bundles, templates] = await Promise.all([
+        numericBundleIds.length > 0
+            ? prisma.bundle.findMany({
+                where: { id: { in: numericBundleIds } },
+                select: {
+                    id: true, name: true, bundlePrice: true,
+                    items: { where: { itemType: 'service' }, select: { id: true }, take: 1 },
+                },
+            })
+            : [],
+        byobTemplateIds.length > 0
+            ? prisma.bundleTemplate.findMany({
+                where: { id: { in: byobTemplateIds } },
+                select: { id: true, name: true, discount: true },
+            })
+            : [],
+    ]);
+
+    for (const b of bundles) {
+        bundleMap[String(b.id)] = { name: b.name, bundlePrice: b.bundlePrice, hasService: b.items.length > 0 };
+    }
+
+    for (const t of templates) {
+        bundleMap[`byob-${t.id}`] = { name: t.name, discount: t.discount, isByob: true };
+    }
+
+    const byobInstancePrices = {};
+    for (const item of items) {
+        if (!item.bundleId || !item.bundleId.startsWith('byob-') || !item.bundleInstanceId) continue;
+        const key = item.bundleInstanceId;
+        if (!byobInstancePrices[key]) byobInstancePrices[key] = { catalogTotal: 0, discount: bundleMap[item.bundleId]?.discount || 0 };
+        const unitPrice = item.variant ? item.variant.price : item.product?.price || 0;
+        byobInstancePrices[key].catalogTotal += unitPrice * item.quantity;
+    }
+    for (const [key, info] of Object.entries(byobInstancePrices)) {
+        byobInstancePrices[key].bundlePrice = Math.round(info.catalogTotal * (1 - info.discount / 100));
+    }
+
+    return items.map(item => {
+        const formatted = formatCartItem(item, bundleMap);
+        if (formatted.bundleInfo && item.bundleId?.startsWith('byob-') && item.bundleInstanceId) {
+            const instancePrice = byobInstancePrices[item.bundleInstanceId];
+            if (instancePrice) {
+                formatted.bundleInfo.bundlePrice = instancePrice.bundlePrice;
+            }
+        }
+        return formatted;
+    });
 };
 
-const findCartItem = (db, userId, productId, variantId) =>
+const findCartItem = (db, userId, productId, variantId, bundleInstanceId = '') =>
     db.cartItem.findFirst({
         where: {
             userId,
             productId,
             variantId,
+            bundleInstanceId,
         },
     });
 
-const cartItemKey = (productId, variantId) =>
-    `${Number(productId)}:${variantId == null ? 'null' : Number(variantId)}`;
+const cartItemKey = (productId, variantId, bundleInstanceId = '') =>
+    `${Number(productId)}:${variantId == null ? 'null' : Number(variantId)}:${bundleInstanceId}`;
 
 // GET /api/cart - fetch full cart from DB
 router.get('/', async (req, res) => {
@@ -135,7 +208,7 @@ router.get('/', async (req, res) => {
 // POST /api/cart/items - add item or increment quantity
 router.post('/items', async (req, res) => {
     try {
-        const { productId, variantId = null, quantity = 1 } = req.body;
+        const { productId, variantId = null, quantity = 1, bundleId = null, bundleInstanceId = '' } = req.body;
         const userId = req.user.id;
 
         if (!productId) {
@@ -145,9 +218,11 @@ router.post('/items', async (req, res) => {
         const numProductId = parseId(productId, 'productId');
         const numVariantId = variantId == null ? null : parseId(variantId, 'variantId');
         const numQuantity = parseQuantity(quantity);
+        const safeBundleInstanceId = bundleInstanceId ? String(bundleInstanceId) : '';
+        const safeBundleId = bundleId ? String(bundleId) : null;
 
         await prisma.$transaction(async (tx) => {
-            const existing = await findCartItem(tx, userId, numProductId, numVariantId);
+            const existing = await findCartItem(tx, userId, numProductId, numVariantId, safeBundleInstanceId);
             const nextQuantity = (existing?.quantity || 0) + numQuantity;
 
             await assertAvailableStock(tx, {
@@ -170,6 +245,8 @@ router.post('/items', async (req, res) => {
                     productId: numProductId,
                     variantId: numVariantId,
                     quantity: numQuantity,
+                    bundleId: safeBundleId,
+                    bundleInstanceId: safeBundleInstanceId,
                 },
             });
         }, { isolationLevel: 'Serializable' });
@@ -187,7 +264,7 @@ router.post('/items', async (req, res) => {
 // PATCH /api/cart/items - set exact quantity for an item
 router.patch('/items', async (req, res) => {
     try {
-        const { productId, variantId = null, quantity } = req.body;
+        const { productId, variantId = null, quantity, bundleInstanceId = '' } = req.body;
         const userId = req.user.id;
 
         if (!productId || quantity == null) {
@@ -197,9 +274,10 @@ router.patch('/items', async (req, res) => {
         const numProductId = parseId(productId, 'productId');
         const numVariantId = variantId == null ? null : parseId(variantId, 'variantId');
         const numQuantity = parseQuantity(quantity, { allowZero: true });
+        const safeBundleInstanceId = bundleInstanceId ? String(bundleInstanceId) : '';
 
         await prisma.$transaction(async (tx) => {
-            const existing = await findCartItem(tx, userId, numProductId, numVariantId);
+            const existing = await findCartItem(tx, userId, numProductId, numVariantId, safeBundleInstanceId);
             if (!existing) {
                 throw createHttpError(404, 'Item not in cart');
             }
@@ -235,7 +313,7 @@ router.patch('/items', async (req, res) => {
 // Using POST instead of DELETE because DELETE with body is unreliable across proxies
 router.post('/items/remove', async (req, res) => {
     try {
-        const { productId, variantId = null } = req.body;
+        const { productId, variantId = null, bundleInstanceId = '' } = req.body;
         const userId = req.user.id;
 
         if (!productId) {
@@ -244,7 +322,8 @@ router.post('/items/remove', async (req, res) => {
 
         const numProductId = parseId(productId, 'productId');
         const numVariantId = variantId == null ? null : parseId(variantId, 'variantId');
-        const existing = await findCartItem(prisma, userId, numProductId, numVariantId);
+        const safeBundleInstanceId = bundleInstanceId ? String(bundleInstanceId) : '';
+        const existing = await findCartItem(prisma, userId, numProductId, numVariantId, safeBundleInstanceId);
 
         if (existing) {
             await prisma.cartItem.delete({ where: { id: existing.id } });
@@ -266,6 +345,7 @@ router.post('/sync', async (req, res) => {
         const { items } = req.body;
         const userId = req.user.id;
 
+        const syncWarnings = [];
         if (items && Array.isArray(items)) {
             const incomingItems = new Map();
 
@@ -279,20 +359,23 @@ router.post('/sync', async (req, res) => {
                 const quantity = Number(localItem.quantity) || 1;
                 if (!Number.isInteger(quantity) || quantity <= 0) continue;
 
-                const key = cartItemKey(productId, variantId);
+                const bundleInstanceId = localItem.bundleInfo?.bundleInstanceId || '';
+                const bundleId = localItem.bundleInfo?.bundleId ? String(localItem.bundleInfo.bundleId) : null;
+
+                const key = cartItemKey(productId, variantId, bundleInstanceId);
                 const existingIncoming = incomingItems.get(key);
 
                 if (!existingIncoming || quantity > existingIncoming.quantity) {
-                    incomingItems.set(key, { productId, variantId, quantity });
+                    incomingItems.set(key, { productId, variantId, quantity, bundleId, bundleInstanceId });
                 }
             }
 
             const existingItems = await prisma.cartItem.findMany({
                 where: { userId },
-                select: { id: true, productId: true, variantId: true, quantity: true },
+                select: { id: true, productId: true, variantId: true, quantity: true, bundleInstanceId: true, bundleId: true },
             });
             const existingByKey = new Map(
-                existingItems.map((item) => [cartItemKey(item.productId, item.variantId), item])
+                existingItems.map((item) => [cartItemKey(item.productId, item.variantId, item.bundleInstanceId || ''), item])
             );
 
             const productIds = [...new Set([...incomingItems.values()].map(i => i.productId))];
@@ -317,7 +400,7 @@ router.post('/sync', async (req, res) => {
             const variantMap = new Map(variants.map(v => [v.id, v]));
 
             for (const incoming of incomingItems.values()) {
-                const key = cartItemKey(incoming.productId, incoming.variantId);
+                const key = cartItemKey(incoming.productId, incoming.variantId, incoming.bundleInstanceId || '');
                 const existing = existingByKey.get(key);
                 let allowedQuantity = 0;
 
@@ -345,6 +428,7 @@ router.post('/sync', async (req, res) => {
                         `Failed to validate stock for cart item productId=${incoming.productId}:`,
                         err.message
                     );
+                    syncWarnings.push({ productId: incoming.productId, error: err.message });
                     continue;
                 }
 
@@ -372,6 +456,8 @@ router.post('/sync', async (req, res) => {
                             productId: incoming.productId,
                             variantId: incoming.variantId,
                             quantity: allowedQuantity,
+                            bundleId: incoming.bundleId || null,
+                            bundleInstanceId: incoming.bundleInstanceId || '',
                         },
                     });
                 } catch (err) {
@@ -381,10 +467,28 @@ router.post('/sync', async (req, res) => {
         }
 
         const cart = await fetchFullCart(userId);
-        res.json({ success: true, cart });
+        res.json({ success: true, cart, warnings: syncWarnings.length > 0 ? syncWarnings : undefined });
     } catch (error) {
         console.error('Sync cart error:', error);
         res.status(500).json({ error: 'Failed to sync cart' });
+    }
+});
+
+// POST /api/cart/bundle/remove - remove all items in a bundle instance
+router.post('/bundle/remove', async (req, res) => {
+    try {
+        const { bundleInstanceId } = req.body;
+        if (!bundleInstanceId) {
+            return res.status(400).json({ error: 'bundleInstanceId is required' });
+        }
+        await prisma.cartItem.deleteMany({
+            where: { userId: req.user.id, bundleInstanceId: String(bundleInstanceId) },
+        });
+        const cart = await fetchFullCart(req.user.id);
+        res.json({ success: true, cart });
+    } catch (error) {
+        console.error('Remove bundle from cart error:', error);
+        res.status(500).json({ error: 'Failed to remove bundle from cart' });
     }
 });
 

@@ -74,7 +74,7 @@ export function usePushNotifications() {
 
         const json = subscription.toJSON();
         const headers = await getAuthHeaders();
-        await fetch(`${API_BASE}/push/subscribe`, {
+        const res = await fetch(`${API_BASE}/push/subscribe`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -82,6 +82,7 @@ export function usePushNotifications() {
                 keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
             }),
         });
+        if (!res.ok) throw new Error('Push subscription failed');
 
         localStorage.setItem(LS_KEY, 'true');
         setIsSubscribed(true);
@@ -99,11 +100,12 @@ export function usePushNotifications() {
             await subscription.unsubscribe();
 
             const headers = await getAuthHeaders();
-            await fetch(`${API_BASE}/push/unsubscribe`, {
+            const res = await fetch(`${API_BASE}/push/unsubscribe`, {
                 method: 'DELETE',
                 headers,
                 body: JSON.stringify({ endpoint }),
             });
+            if (!res.ok) throw new Error('Push unsubscribe failed');
         }
 
         localStorage.removeItem(LS_KEY);
@@ -127,7 +129,7 @@ export function usePushNotifications() {
             }
             const json = existing.toJSON();
             const headers = await getAuthHeaders();
-            await fetch(`${API_BASE}/push/subscribe`, {
+            const res = await fetch(`${API_BASE}/push/subscribe`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -135,6 +137,7 @@ export function usePushNotifications() {
                     keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
                 }),
             });
+            if (!res.ok) throw new Error('Push subscription refresh failed');
         } catch (err) {
             console.warn('Push refresh failed silently:', err);
         }

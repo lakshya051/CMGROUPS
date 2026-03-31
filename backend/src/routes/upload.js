@@ -61,9 +61,9 @@ router.delete('/', protect, adminOnly, async (req, res) => {
         }
 
         const publicId = getPublicIdFromUrl(url);
-        if (publicId) {
-            await deleteImage(publicId);
-        }
+        if (!publicId) return res.status(400).json({ error: 'Could not extract public ID from URL' });
+
+        await deleteImage(publicId);
 
         res.json({ success: true });
     } catch (error) {

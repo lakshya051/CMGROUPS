@@ -7,6 +7,7 @@ import { generateInvoice } from '../utils/invoiceGenerator.js';
 import { calculateOrderReferralPoints } from '../utils/referralHelper.js';
 import { createUserNotification, createAdminNotification } from '../utils/notifications.js';
 import { logAudit } from '../utils/auditLog.js';
+import { syncRecord } from '../utils/sheetsSync.js';
 
 const router = express.Router();
 
@@ -74,7 +75,7 @@ router.post('/', optionalProtect, async (req, res) => {
     const checkoutStart = Date.now();
     const checkoutRequestId = `ord-${checkoutStart}-${Math.floor(Math.random() * 10000)}`;
     try {
-        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink, couponCode, discountAmount } = req.body;
+        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink, couponCode, discountAmount, giftWrap, giftMessage } = req.body;
 
         if (!items || items.length === 0) {
             return res.status(400).json({ error: 'No items in order' });
@@ -213,6 +214,70 @@ router.post('/', optionalProtect, async (req, res) => {
             }
         }
 
+        // Apply bundle pricing adjustments: replace catalog-price sum with actual bundle price
+        const bundleGroups = {};
+        for (const item of items) {
+            if (item.bundleInstanceId && item.bundleId) {
+                if (!bundleGroups[item.bundleInstanceId]) {
+                    bundleGroups[item.bundleInstanceId] = { bundleId: String(item.bundleId), items: [] };
+                }
+                bundleGroups[item.bundleInstanceId].items.push(item);
+            }
+        }
+
+        for (const [, group] of Object.entries(bundleGroups)) {
+            let groupCatalogTotal = 0;
+            for (const item of group.items) {
+                const qty = parseInt(item.quantity, 10);
+                if (item.variantId) {
+                    const variant = variantMap.get(parseInt(item.variantId, 10));
+                    if (variant) groupCatalogTotal += variant.price * qty;
+                } else {
+                    const pid = parseInt(item.productId, 10);
+                    const product = productMap.get(pid);
+                    if (product) {
+                        const tiers = tiersByProduct[pid];
+                        let unitPrice = product.price;
+                        if (tiers && tiers.length > 0) {
+                            const totalQtyForProduct = totalRequestedProducts[pid] || qty;
+                            const applicableTier = tiers.find(t => totalQtyForProduct >= t.minQty);
+                            if (applicableTier) unitPrice = applicableTier.price;
+                        }
+                        groupCatalogTotal += unitPrice * qty;
+                    }
+                }
+            }
+
+            let bundlePrice = groupCatalogTotal;
+            const bundleIdStr = group.bundleId;
+
+            if (bundleIdStr.startsWith('byob-')) {
+                const templateId = parseInt(bundleIdStr.split('-')[1]);
+                if (Number.isFinite(templateId)) {
+                    const template = await prisma.bundleTemplate.findUnique({
+                        where: { id: templateId },
+                        select: { discount: true, isActive: true },
+                    });
+                    if (template && template.isActive) {
+                        bundlePrice = Math.round(groupCatalogTotal * (1 - template.discount / 100));
+                    }
+                }
+            } else {
+                const numBundleId = parseInt(bundleIdStr);
+                if (Number.isFinite(numBundleId)) {
+                    const bundle = await prisma.bundle.findUnique({
+                        where: { id: numBundleId },
+                        select: { bundlePrice: true, isActive: true },
+                    });
+                    if (bundle && bundle.isActive) {
+                        bundlePrice = bundle.bundlePrice;
+                    }
+                }
+            }
+
+            computedSubtotal = computedSubtotal - groupCatalogTotal + bundlePrice;
+        }
+
         // Server-side coupon validation
         let serverDiscount = 0;
         let validatedCoupon = null;
@@ -343,6 +408,8 @@ router.post('/', optionalProtect, async (req, res) => {
                 latitude: latitude ? parseFloat(latitude) : null,
                 longitude: longitude ? parseFloat(longitude) : null,
                 googleMapLink: googleMapLink || null,
+                giftWrap: giftWrap || false,
+                giftMessage: giftWrap && giftMessage ? String(giftMessage).slice(0, 300) : null,
             };
             if (req.user) {
                 orderData.user = { connect: { id: req.user.id } };
@@ -373,13 +440,27 @@ router.post('/', optionalProtect, async (req, res) => {
                     throw new Error('Invalid item data in cart');
                 }
 
+                const bundleIdStr = item.bundleId ? String(item.bundleId) : '';
+                let numericBundleId = null;
+                let bundleTemplateId = null;
+
+                if (bundleIdStr.startsWith('byob-')) {
+                    const tplId = parseInt(bundleIdStr.split('-')[1], 10);
+                    if (Number.isFinite(tplId)) bundleTemplateId = tplId;
+                } else if (bundleIdStr) {
+                    const parsed = parseInt(bundleIdStr, 10);
+                    if (Number.isFinite(parsed)) numericBundleId = parsed;
+                }
+
                 return {
                     orderId: createdOrder.id,
                     productId: pId,
                     variantId: vId,
                     quantity: qty,
                     price: actualPrice,
-                    bundleId: item.bundleId ? parseInt(item.bundleId, 10) : null,
+                    bundleId: numericBundleId,
+                    bundleTemplateId,
+                    bundleInstanceId: item.bundleInstanceId || null,
                 };
             });
 
@@ -477,12 +558,12 @@ router.post('/', optionalProtect, async (req, res) => {
                 link: '/admin/orders',
             }).catch(() => {});
 
-            // Low-stock alerts for admins (variant-aware)
+            // Low-stock alerts for admins (uses fresh DB data post-transaction)
             const LOW_STOCK_THRESHOLD = 5;
             for (const item of order.items) {
                 const prod = item.product;
                 if (!prod) continue;
-                const stockToCheck = item.variantId ? (variantMap.get(item.variantId)?.stock ?? prod.stock) : prod.stock;
+                const stockToCheck = prod.stock;
                 if (stockToCheck <= LOW_STOCK_THRESHOLD && stockToCheck > 0) {
                     createAdminNotification({
                         title: 'Low Stock Alert',
@@ -493,31 +574,42 @@ router.post('/', optionalProtect, async (req, res) => {
                 }
             }
 
-            // Auto-create service bookings for bundle orders that include services
+            // Auto-create service bookings for bundle orders that include services.
+            // Only fixed bundles (numeric IDs) can contain services; BYOB template
+            // bundles (prefixed "byob-") don't have service slots, so parseInt
+            // naturally filters them out.
             if (userId) {
                 (async () => {
                     const bundleIds = [...new Set(items.filter(i => i.bundleId).map(i => parseInt(i.bundleId)))].filter(Number.isFinite);
                     if (bundleIds.length === 0) return;
 
-                    const bundlesWithServices = await prisma.bundle.findMany({
-                        where: { id: { in: bundleIds } },
+                    const bundlesWithItems = await prisma.bundle.findMany({
+                        where: { id: { in: bundleIds }, isActive: true },
                         include: {
                             items: {
-                                where: { itemType: 'service' },
                                 include: { serviceType: true }
                             }
                         }
                     });
 
-                    for (const bundle of bundlesWithServices) {
+                    const orderedProductIds = new Set(items.map(i => parseInt(i.productId, 10)).filter(Number.isFinite));
+
+                    for (const bundle of bundlesWithItems) {
+                        const bundleProductIds = bundle.items
+                            .filter(bi => bi.itemType === 'product' && bi.productId)
+                            .map(bi => bi.productId);
+                        const hasMatchingProducts = bundleProductIds.some(pid => orderedProductIds.has(pid));
+                        if (!hasMatchingProducts) continue;
+
                         for (const bi of bundle.items) {
-                            if (bi.serviceType) {
+                            if (bi.itemType === 'service' && bi.serviceType) {
                                 const addr = order.shippingAddress || {};
                                 await prisma.serviceBooking.create({
                                     data: {
                                         userId,
+                                        orderId: order.id,
                                         serviceType: bi.serviceType.title,
-                                        description: `Auto-booked from bundle: ${bundle.name}`,
+                                        description: `Auto-booked from bundle: ${bundle.name} (Order #${order.id})`,
                                         status: 'Pending',
                                         date: new Date(),
                                         customerName: addr.fullName || null,
@@ -532,6 +624,8 @@ router.post('/', optionalProtect, async (req, res) => {
                     }
                 })().catch(err => console.error('Bundle service auto-booking error (non-blocking):', err));
             }
+
+            syncRecord('Orders', order).catch(console.error);
 
             logCheckoutTiming(checkoutRequestId, 'async_notifications_complete', asyncStart);
         });
@@ -787,16 +881,24 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
         }
         const orderId = parseInt(req.params.id);
+        if (Number.isNaN(orderId)) {
+            return res.status(400).json({ error: 'Invalid order ID' });
+        }
+
+        const orderWithItems = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: { items: { include: { product: true } } }
+        });
+
+        if (!orderWithItems) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
 
         // If cancelling, restore stock inside a transaction
         if (status === 'Cancelled') {
-            const order = await prisma.order.findUnique({
-                where: { id: orderId },
-                include: { items: true }
-            });
-            if (order && order.status !== 'Cancelled') {
+            if (orderWithItems.status !== 'Cancelled') {
                 await prisma.$transaction(async (tx) => {
-                    await restoreStockForOrderItems(tx, order.items);
+                    await restoreStockForOrderItems(tx, orderWithItems.items);
                     await tx.order.update({ where: { id: orderId }, data: { status: 'Cancelled' } });
                 });
             }
@@ -804,11 +906,6 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
 
         const updateData = { status };
         let instantReferralInjection = false;
-
-        const orderWithItems = await prisma.order.findUnique({
-            where: { id: orderId },
-            include: { items: { include: { product: true } } }
-        });
 
         if (status === 'Delivered' && orderWithItems) {
             if (!orderWithItems.isPaid) {
@@ -940,6 +1037,8 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 console.error('In-app notification error:', notifErr);
             }
         }
+
+        syncRecord('Orders', order).catch(console.error);
 
         res.json(order);
     } catch (error) {
@@ -1192,7 +1291,7 @@ router.post('/:id/cancel', protect, async (req, res) => {
         res.json({ message: 'Order cancelled successfully', order: result.updatedOrder, refund: result.walletTx });
     } catch (error) {
         console.error('Cancel order error:', error);
-        res.status(500).json({ error: 'Failed to cancel order: ' + error.message });
+        res.status(500).json({ error: 'Failed to cancel order' });
     }
 });
 
@@ -1246,6 +1345,7 @@ router.post('/:id/return', protect, async (req, res) => {
 
         res.json({ message: 'Return request submitted', order: updatedOrder });
     } catch (error) {
+        console.error('Request return error:', error);
         res.status(500).json({ error: 'Failed to request return' });
     }
 });
@@ -1326,6 +1426,7 @@ router.put('/:id/refund', protect, adminOnly, async (req, res) => {
 
         res.json({ message: 'Return approved and refunded', order: updatedOrder });
     } catch (error) {
+        console.error('Process refund error:', error);
         res.status(500).json({ error: 'Failed to process refund' });
     }
 });
@@ -1344,7 +1445,13 @@ router.get('/:id/invoice', protect, async (req, res) => {
                         phone: true
                     }
                 },
-                items: { include: { product: true } }
+                items: {
+                    include: {
+                        product: true,
+                        bundle: { select: { id: true, name: true, bundlePrice: true } },
+                        bundleTemplate: { select: { id: true, name: true, discount: true } }
+                    }
+                }
             }
         });
 

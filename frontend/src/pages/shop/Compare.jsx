@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
-import { Trash2, X, ShoppingCart, Star } from 'lucide-react';
+import { Trash2, X, ShoppingCart, Star, Zap } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import SectionLoader from '../../components/ui/SectionLoader';
 import { productsAPI } from '../../lib/api';
 import { handleImageError } from '../../utils/image';
+import { MAX_COMPARE_ITEMS } from '../../constants';
 
 const Compare = () => {
-    const { compareList, removeFromCompare, addToCart, clearCompare } = useShop();
+    const { compareList, removeFromCompare, addToCart, clearCompare, initBuyNow } = useShop();
+    const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -34,7 +36,7 @@ const Compare = () => {
                     <Trash2 size={32} className="text-text-muted" />
                 </div>
                 <h1 className="text-3xl font-heading font-bold mb-4 text-text-primary">Compare List is Empty</h1>
-                <p className="text-text-secondary mb-8">Add up to 4 products to compare their specifications side by side.</p>
+                <p className="text-text-secondary mb-8">Add up to {MAX_COMPARE_ITEMS} products to compare their specifications side by side.</p>
                 <Link to="/products">
                     <Button size="lg">Browse Products</Button>
                 </Link>
@@ -115,11 +117,30 @@ const Compare = () => {
                                                     ? 'View Options'
                                                     : 'Add to Cart'}
                                         </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="w-full gap-2 mt-2 border-primary text-primary hover:bg-primary hover:text-white"
+                                            disabled={(p.totalStock ?? p.stock) === 0 || (p.hasVariants && p.variants?.length > 1)}
+                                            onClick={() => {
+                                                const variant = p.hasVariants && p.variants?.length === 1 ? p.variants[0] : null;
+                                                if (initBuyNow(p, 1, variant)) {
+                                                    navigate('/checkout', { state: { buyNow: true } });
+                                                }
+                                            }}
+                                        >
+                                            <Zap size={16} />
+                                            {(p.totalStock ?? p.stock) === 0
+                                                ? 'Out of Stock'
+                                                : p.hasVariants && p.variants?.length > 1
+                                                    ? 'View Options'
+                                                    : 'Buy Now'}
+                                        </Button>
                                     </div>
                                 </th>
                             ))}
-                            {/* Fill empty slots up to 4 */}
-                            {[...Array(4 - products.length)].map((_, i) => (
+                            {/* Fill empty slots up to MAX_COMPARE_ITEMS */}
+                            {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => (
                                 <th key={`empty-${i}`} className="w-64 p-4 align-middle border-l border-b border-border-default bg-page-bg">
                                     <Link to="/products" className="flex flex-col items-center justify-center text-text-muted hover:text-trust transition-colors py-10">
                                         <div className="w-12 h-12 rounded-full border bg-surface border-dashed border-border-default flex items-center justify-center mb-2 font-bold text-xl">
@@ -138,14 +159,14 @@ const Compare = () => {
                             {products.map(p => (
                                 <td key={p.id} className="p-4 text-center border-l border-b border-border-default font-medium text-text-primary">{p.brand || '-'}</td>
                             ))}
-                            {[...Array(4 - products.length)].map((_, i) => <td key={`empty-brand-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
+                            {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-brand-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                         </tr>
                         <tr className="hover:bg-surface-hover">
                             <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">Category</td>
                             {products.map(p => (
                                 <td key={p.id} className="p-4 text-center border-l border-b border-border-default text-text-primary">{p.category}</td>
                             ))}
-                            {[...Array(4 - products.length)].map((_, i) => <td key={`empty-category-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
+                            {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-category-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                         </tr>
                         <tr className="hover:bg-surface-hover">
                             <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">Condition</td>
@@ -162,7 +183,7 @@ const Compare = () => {
                                     )}
                                 </td>
                             ))}
-                            {[...Array(4 - products.length)].map((_, i) => <td key={`empty-condition-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
+                            {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-condition-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                         </tr>
                         <tr className="hover:bg-surface-hover">
                             <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">Rating</td>
@@ -174,12 +195,12 @@ const Compare = () => {
                                     </div>
                                 </td>
                             ))}
-                            {[...Array(4 - products.length)].map((_, i) => <td key={`empty-rating-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
+                            {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-rating-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                         </tr>
 
                         {/* Specs section */}
                         <tr>
-                            <td colSpan={5} className="bg-page-bg p-3 font-bold text-sm tracking-widest uppercase text-text-muted border-b border-border-default text-center">
+                            <td colSpan={MAX_COMPARE_ITEMS + 1} className="bg-page-bg p-3 font-bold text-sm tracking-widest uppercase text-text-muted border-b border-border-default text-center">
                                 Technical Specifications
                             </td>
                         </tr>
@@ -195,7 +216,7 @@ const Compare = () => {
                                         )}
                                     </td>
                                 ))}
-                                {[...Array(4 - products.length)].map((_, i) => <td key={`empty-spec-${key}-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
+                                {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-spec-${key}-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                             </tr>
                         ))}
                     </tbody>

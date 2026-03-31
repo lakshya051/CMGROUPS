@@ -132,7 +132,7 @@ const BookingModal = ({
             })
             .finally(() => { if (mounted) setSlotsLoading(false); });
         return () => { mounted = false; };
-    }, [isOpen, selectedService, formik.values.date]);
+    }, [isOpen, selectedService?.id, formik.values.date]);
 
     const handleClose = () => {
         setIsSubmitted(false);

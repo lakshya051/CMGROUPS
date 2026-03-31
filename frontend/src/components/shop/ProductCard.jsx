@@ -7,7 +7,7 @@ import { useShop } from '../../context/ShopContext';
 import { handleImageError } from '../../utils/image';
 
 const ProductCard = ({ product }) => {
-    const { addToCart, toggleWishlist, wishlist, addToCompare } = useShop();
+    const { addToCart, toggleWishlist, wishlist, addToCompare, initBuyNow } = useShop();
     const navigate = useNavigate();
     const isWishlisted = useMemo(
         () => wishlist.includes(product.id),
@@ -75,6 +75,18 @@ const ProductCard = ({ product }) => {
         e.preventDefault();
         addToCompare(product.id);
     }, [addToCompare, product.id]);
+
+    const handleBuyNow = useCallback((e) => {
+        e.preventDefault();
+        if (isVariableProduct || hasMultipleVariants) {
+            navigate(`/products/${product.id}`);
+            return;
+        }
+        if (isOutOfStock) return;
+        if (initBuyNow(product, 1, effectiveVariant || null)) {
+            navigate('/checkout', { state: { buyNow: true } });
+        }
+    }, [initBuyNow, effectiveVariant, hasMultipleVariants, isVariableProduct, isOutOfStock, navigate, product]);
 
     return (
         <div className={`glass-panel group relative flex flex-col overflow-hidden h-full ${isOutOfStock ? 'opacity-90' : ''}`}>
@@ -205,6 +217,18 @@ const ProductCard = ({ product }) => {
                         >
                             {(isVariableProduct || hasMultipleVariants) ? <Eye size={18} /> : <ShoppingCart size={18} />}
                         </Button>
+                        <button
+                            disabled={isOutOfStock && !isVariableProduct && !hasMultipleVariants}
+                            className={`rounded-full h-10 w-10 p-0 flex items-center justify-center shrink-0 border-2 transition-colors ${
+                                isOutOfStock && !isVariableProduct && !hasMultipleVariants
+                                    ? 'border-border-default text-text-muted cursor-not-allowed opacity-50'
+                                    : 'border-primary text-primary hover:bg-primary hover:text-white'
+                            }`}
+                            onClick={handleBuyNow}
+                            aria-label={(isVariableProduct || hasMultipleVariants) ? "View Options" : "Buy Now"}
+                        >
+                            <Zap size={16} />
+                        </button>
                     </div>
                 </div>
             </div>

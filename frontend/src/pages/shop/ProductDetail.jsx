@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { alertsAPI, productsAPI } from '../../lib/api';
@@ -17,8 +17,9 @@ import toast from 'react-hot-toast';
 
 const ProductDetail = () => {
     const { id } = useParams();
-    const { addToCart, toggleWishlist, wishlist, addToCompare } = useShop();
+    const { addToCart, toggleWishlist, wishlist, addToCompare, initBuyNow } = useShop();
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -35,50 +36,64 @@ const ProductDetail = () => {
     const [productBundles, setProductBundles] = useState([]);
 
     useEffect(() => {
+        let cancelled = false;
         productsAPI.getById(id)
             .then(data => {
+                if (cancelled) return;
                 setProduct(data);
                 if (data) saveToRecentlyViewed(data);
             })
-            .catch(console.error)
-            .finally(() => setLoading(false));
+            .catch(err => { if (!cancelled) console.error(err); })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
     }, [id, saveToRecentlyViewed]);
 
     useEffect(() => {
-        if (id) {
-            productsAPI.getRelated(id)
-                .then(setRelatedProducts)
-                .catch(() => setRelatedProducts([]));
-            bundlesAPI.getForProduct(id)
-                .then(setProductBundles)
-                .catch(() => setProductBundles([]));
-        }
+        if (!id) return;
+        let cancelled = false;
+        productsAPI.getRelated(id)
+            .then(data => { if (!cancelled) setRelatedProducts(data); })
+            .catch(() => { if (!cancelled) setRelatedProducts([]); });
+        bundlesAPI.getForProduct(id)
+            .then(data => { if (!cancelled) setProductBundles(data); })
+            .catch(() => { if (!cancelled) setProductBundles([]); });
+        return () => { cancelled = true; };
     }, [id]);
 
     useEffect(() => {
-        if (user && product) {
-            alertsAPI.getAll().then(alerts => {
-                const productAlerts = alerts.filter(a => a.productId === parseInt(id));
-                setIsStockAlertSet(productAlerts.some(a => a.type === 'STOCK'));
-                setIsPriceAlertSet(productAlerts.some(a => a.type === 'PRICE_DROP'));
-            }).catch(err => console.error(err));
-        }
+        if (!user || !product) return;
+        let cancelled = false;
+        alertsAPI.getAll().then(alerts => {
+            if (cancelled) return;
+            const productAlerts = alerts.filter(a => a.productId === parseInt(id));
+            setIsStockAlertSet(productAlerts.some(a => a.type === 'STOCK'));
+            setIsPriceAlertSet(productAlerts.some(a => a.type === 'PRICE_DROP'));
+        }).catch(err => { if (!cancelled) console.error(err); });
+        return () => { cancelled = true; };
     }, [user, id, product]);
 
     useEffect(() => {
         if (!product) return;
+        let cancelled = false;
         if (product.hasVariants && product.variantOptions?.length > 0) {
             const initial = {};
             product.variantOptions.forEach(opt => { initial[opt.name] = null; });
-            setSelectedOptions(initial);
-            setSelectedVariant(null);
+            if (!cancelled) {
+                setSelectedOptions(initial);
+                setSelectedVariant(null);
+            }
         }
+        return () => { cancelled = true; };
     }, [product]);
 
     useEffect(() => {
         if (!product?.hasVariants || !product.variants) return;
+        let cancelled = false;
         const allSelected = Object.values(selectedOptions).every(v => v !== null);
-        if (!allSelected) { setSelectedVariant(null); return; }
+        if (!allSelected) {
+            if (!cancelled) setSelectedVariant(null);
+            return () => { cancelled = true; };
+        }
 
         const match = product.variants.find(v => {
             if (!v.combination) return false;
@@ -86,12 +101,13 @@ const ProductDetail = () => {
                 ([key, val]) => v.combination[key] === val
             );
         });
-        setSelectedVariant(match || null);
+        if (!cancelled) setSelectedVariant(match || null);
 
         if (match?.image) {
             const imgIdx = product.images?.indexOf(match.image);
-            if (imgIdx >= 0) setActiveImageIdx(imgIdx);
+            if (imgIdx >= 0 && !cancelled) setActiveImageIdx(imgIdx);
         }
+        return () => { cancelled = true; };
     }, [selectedOptions, product]);
 
     const handleOptionSelect = (optionName, value) => {
@@ -214,6 +230,42 @@ const ProductDetail = () => {
         setErrorMsg("");
         const variantToAdd = hasMultipleVariants ? selectedVariant : (hasSingleVariant ? variants[0] : null);
         addToCart(product, 1, variantToAdd);
+    };
+
+    const handleBuyNow = () => {
+        if (isVariableProduct) {
+            if (!allOptionsSelected) {
+                setShake(true);
+                setErrorMsg(`Please select ${firstUnselectedOption}`);
+                setTimeout(() => setShake(false), 500);
+                return;
+            }
+            if (!selectedVariant) {
+                setShake(true);
+                setErrorMsg("This combination is not available");
+                setTimeout(() => setShake(false), 500);
+                return;
+            }
+            if (selectedVariant.stock <= 0) return;
+            setErrorMsg("");
+            if (initBuyNow(product, 1, selectedVariant)) {
+                navigate('/checkout', { state: { buyNow: true } });
+            }
+            return;
+        }
+
+        if (hasMultipleVariants && !selectedVariant) {
+            setShake(true);
+            setErrorMsg("Please select an option above");
+            setTimeout(() => setShake(false), 500);
+            return;
+        }
+        if (isCurrentlyOutOfStock) return;
+        setErrorMsg("");
+        const variantToAdd = hasMultipleVariants ? selectedVariant : (hasSingleVariant ? variants[0] : null);
+        if (initBuyNow(product, 1, variantToAdd)) {
+            navigate('/checkout', { state: { buyNow: true } });
+        }
     };
 
     return (
@@ -528,9 +580,19 @@ const ProductDetail = () => {
                                 </Button>
                             </>
                         ) : (
-                            <Button size="lg" className="flex-1 gap-2" onClick={handleAddToCartClick}>
-                                <ShoppingCart size={20} /> Add to Cart
-                            </Button>
+                            <>
+                                <Button size="lg" className="flex-1 gap-2" onClick={handleAddToCartClick}>
+                                    <ShoppingCart size={20} /> Add to Cart
+                                </Button>
+                                <Button
+                                    size="lg"
+                                    className="flex-1 gap-2 border-primary text-primary hover:bg-primary hover:text-white"
+                                    variant="outline"
+                                    onClick={handleBuyNow}
+                                >
+                                    <Zap size={20} /> Buy Now
+                                </Button>
+                            </>
                         )}
 
                         <Button

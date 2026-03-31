@@ -11,6 +11,7 @@ const validateLimiter = rateLimit({
 
 const router = express.Router();
 const DISCOUNT_TYPES = ['percent', 'fixed'];
+const APPLICABLE_TO_VALUES = ['all', 'products', 'bundles', 'services', 'courses'];
 
 const parseOptionalNumber = (value, fieldName, { integer = false, min = 0 } = {}) => {
     if (value === undefined) return undefined;
@@ -86,13 +87,20 @@ const buildCouponData = (body, { partial = false } = {}) => {
         data.active = body.active;
     }
 
+    if (body.applicableTo !== undefined) {
+        if (!APPLICABLE_TO_VALUES.includes(body.applicableTo)) {
+            throw new Error(`applicableTo must be one of: ${APPLICABLE_TO_VALUES.join(', ')}`);
+        }
+        data.applicableTo = body.applicableTo;
+    }
+
     return data;
 };
 
 // POST /api/coupons/validate (Public - validate a coupon code)
 router.post('/validate', validateLimiter, async (req, res) => {
     try {
-        const { code } = req.body;
+        const { code, cartItems } = req.body;
 
         if (!code) return res.status(400).json({ error: 'Coupon code is required' });
 
@@ -110,12 +118,28 @@ router.post('/validate', validateLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Coupon usage limit reached' });
         }
 
+        if (coupon.applicableTo !== 'all' && Array.isArray(cartItems) && cartItems.length > 0) {
+            const hasApplicableItem = cartItems.some(item => {
+                if (coupon.applicableTo === 'bundles') return !!item.bundleId;
+                if (coupon.applicableTo === 'products') return !!item.productId && !item.bundleId;
+                if (coupon.applicableTo === 'services') return !!item.serviceTypeId;
+                if (coupon.applicableTo === 'courses') return !!item.courseId;
+                return false;
+            });
+            if (!hasApplicableItem) {
+                return res.status(400).json({
+                    error: `This coupon is only applicable to ${coupon.applicableTo}. Add eligible items to your cart.`,
+                });
+            }
+        }
+
         res.json({
             valid: true,
             discountType: coupon.discountType,
             value: coupon.value,
             code: coupon.code,
             minOrderAmount: coupon.minOrderAmount,
+            applicableTo: coupon.applicableTo,
         });
     } catch (error) {
         console.error('Validate coupon error:', error);
@@ -202,7 +226,9 @@ router.patch('/:id', protect, adminOnly, async (req, res) => {
 // DELETE /api/coupons/:id (Admin - delete coupon)
 router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
-        await prisma.coupon.delete({ where: { id: parseInt(req.params.id) } });
+        const couponId = parseInt(req.params.id);
+        if (Number.isNaN(couponId)) return res.status(400).json({ error: 'Invalid coupon ID' });
+        await prisma.coupon.delete({ where: { id: couponId } });
         res.json({ message: 'Coupon deleted' });
     } catch (error) {
         console.error('Delete coupon error:', error);

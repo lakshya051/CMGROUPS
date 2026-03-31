@@ -5,9 +5,12 @@ const prisma = new PrismaClient({
     log: ['error'],
 });
 
-// Gracefully disconnect on process exit (important for serverless/pooled DBs)
-process.on('beforeExit', async () => {
+const shutdown = async () => {
     await prisma.$disconnect();
-});
+    process.exit(0);
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 export default prisma;

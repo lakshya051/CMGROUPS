@@ -5,6 +5,7 @@ import { X, ArrowRight } from 'lucide-react';
 import Button from '../ui/Button';
 import { productsAPI } from '../../lib/api';
 import { handleImageError } from '../../utils/image';
+import { MAX_COMPARE_ITEMS } from '../../constants';
 
 const CompareWidget = () => {
     const { compareList, removeFromCompare, clearCompare } = useShop();
@@ -16,8 +17,12 @@ const CompareWidget = () => {
             setProducts([]);
             return;
         }
+        let cancelled = false;
         Promise.all(compareList.map(id => productsAPI.getById(id).catch(() => null)))
-            .then(results => setProducts(results.filter(Boolean)));
+            .then(results => {
+                if (!cancelled) setProducts(results.filter(Boolean));
+            });
+        return () => { cancelled = true; };
     }, [compareList]);
 
     if (compareList.length === 0) return null;
@@ -26,7 +31,7 @@ const CompareWidget = () => {
         <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 safe-bottom">
             <div className="glass-panel p-4 shadow-sm border border-border-default w-80 max-w-[calc(100vw-2rem)] bg-surface/95 backdrop-blur-xl">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-border-default">
-                    <h3 className="font-bold text-sm">Compare Products ({compareList.length}/4)</h3>
+                    <h3 className="font-bold text-sm">Compare Products ({compareList.length}/{MAX_COMPARE_ITEMS})</h3>
                     <button onClick={clearCompare} className="text-xs text-text-muted hover:text-error underline">
                         Clear all
                     </button>

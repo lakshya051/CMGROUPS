@@ -30,7 +30,27 @@ const ReviewSection = ({ productId }) => {
     };
 
     useEffect(() => {
-        fetchReviews();
+        const controller = new AbortController();
+        let cancelled = false;
+        setLoading(true);
+        (async () => {
+            try {
+                const data = await reviewsAPI.getForProduct(productId, { signal: controller.signal });
+                if (cancelled) return;
+                setReviews(Array.isArray(data) ? data : []);
+            } catch (error) {
+                if (cancelled) return;
+                if (error?.message === 'Request cancelled' || error?.name === 'AbortError') return;
+                console.error('Failed to fetch reviews:', error);
+                setReviews([]);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
     }, [productId]);
 
     const handleImageUpload = (e) => {

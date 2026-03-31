@@ -24,7 +24,8 @@ import {
     ArrowRight,
     ScrollText,
     Layers,
-    Puzzle
+    Puzzle,
+    Table2,
 } from 'lucide-react';
 import PointsBadge from '../ui/PointsBadge';
 
@@ -83,6 +84,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
         { name: 'Enrollments', path: '/admin/enrollments', icon: <ClipboardList size={20} /> },
         { name: 'Tally Prime Enquiries', path: '/admin/tally-enquiries', icon: <FileText size={20} /> },
         { name: 'CCTV Enquiries', path: '/admin/cctv-enquiries', icon: <FileText size={20} /> },
+        { name: 'Google Sheets', path: '/admin/sheets', icon: <Table2 size={20} /> },
         { name: 'Audit Log', path: '/admin/audit-log', icon: <ScrollText size={20} /> },
     ];
 

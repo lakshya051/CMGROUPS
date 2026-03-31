@@ -29,12 +29,12 @@ import uploadRoutes from './routes/upload.js';
 import contactRoutes from './routes/contact.js';
 import bundleRoutes from './routes/bundles.js';
 import bundleTemplateRoutes from './routes/bundleTemplates.js';
-
-dotenv.config();
+import sheetsRoutes from './routes/sheets.js';
 
 const app = express();
 if (process.env.TRUST_PROXY) {
-    app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
+    const proxyVal = Number(process.env.TRUST_PROXY);
+    app.set('trust proxy', Number.isNaN(proxyVal) ? 1 : proxyVal);
 }
 
 const limiter = rateLimit({
@@ -63,7 +63,15 @@ const sensitiveLimiter = rateLimit({
 
 app.use(compression());
 app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'", "https:"],
+        },
+    },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 if (process.env.NODE_ENV === 'production') {
@@ -79,15 +87,16 @@ const defaultOrigins = [
     'http://localhost:3000',
     'https://cmgroups.vercel.app',
 ];
-const corsOrigins = process.env.CORS_ORIGINS
+const envOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
-    : defaultOrigins;
+    : [];
+const corsOrigins = envOrigins.length > 0 ? envOrigins : defaultOrigins;
 app.use(cors({
     origin: corsOrigins,
     credentials: true
 }));
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static('uploads', {
     maxAge: '30d',
     etag: true,
@@ -117,6 +126,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/bundles', bundleRoutes);
 app.use('/api/bundle-templates', bundleTemplateRoutes);
+app.use('/api/admin/sheets', sheetsRoutes);
 
 app.get('/', (req, res) => {
     res.json({ status: 'Shoptify API is running', version: '2.0.0' });
@@ -126,14 +136,18 @@ app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
 
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found' });
+});
+
 app.use((err, req, res, next) => {
-    console.error(err.stack);
+    console.error(err instanceof Error ? err.stack : err);
     if (res.headersSent) {
         return next(err);
     }
     res.status(500).json({
         error: 'Something went wrong!',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: process.env.NODE_ENV === 'development' ? (err instanceof Error ? err.message : String(err)) : undefined
     });
 });
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { productsAPI } from '../../lib/api';
 import { useShop } from '../../context/ShopContext';
 import { ShoppingCart, Clock, ChevronLeft, ChevronRight, Flame, Zap } from 'lucide-react';
@@ -49,7 +49,8 @@ const CountdownTimer = () => {
 };
 
 const DealCard = ({ product }) => {
-    const { addToCart } = useShop();
+    const { addToCart, initBuyNow } = useShop();
+    const navigate = useNavigate();
     const variants = product.variants || [];
     const isVariableProduct = product.hasVariants && variants.length > 0;
     const hasMultipleVariants = !isVariableProduct && variants.length > 1;
@@ -83,6 +84,15 @@ const DealCard = ({ product }) => {
         addToCart(product, 1, singleVariant || undefined);
     };
 
+    const handleBuyNow = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isVariableProduct || hasMultipleVariants) return;
+        if (initBuyNow(product, 1, singleVariant || null)) {
+            navigate('/checkout', { state: { buyNow: true } });
+        }
+    };
+
     return (
         <Link
             to={`/products/${product.id}`}
@@ -114,13 +124,23 @@ const DealCard = ({ product }) => {
                     <Zap size={10} />
                     <span>24-Hour Delivery</span>
                 </div>
-                <button
-                    onClick={handleAdd}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold text-xs rounded-lg transition-colors"
-                >
-                    <ShoppingCart size={14} />
-                    {(isVariableProduct || hasMultipleVariants) ? 'View options' : 'Add to Cart'}
-                </button>
+                <div className="flex gap-1.5">
+                    <button
+                        onClick={handleAdd}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold text-xs rounded-lg transition-colors"
+                    >
+                        <ShoppingCart size={14} />
+                        {(isVariableProduct || hasMultipleVariants) ? 'View options' : 'Add to Cart'}
+                    </button>
+                    {!isVariableProduct && !hasMultipleVariants && (
+                        <button
+                            onClick={handleBuyNow}
+                            className="flex items-center justify-center gap-1 py-2 px-3 border-2 border-primary text-primary hover:bg-primary hover:text-white font-bold text-xs rounded-lg transition-colors"
+                        >
+                            <Zap size={12} />
+                        </button>
+                    )}
+                </div>
             </div>
         </Link>
     );

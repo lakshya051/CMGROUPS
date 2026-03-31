@@ -71,14 +71,24 @@ router.get('/:id/products', async (req, res) => {
 
         const categories = [...new Set(template.slots.map(s => s.category))];
         const products = await prisma.product.findMany({
-            where: { category: { in: categories }, isActive: true, stock: { gt: 0 } },
-            select: { id: true, title: true, price: true, images: true, category: true, stock: true, rating: true },
+            where: { category: { in: categories }, isActive: true },
+            select: {
+                id: true, title: true, price: true, images: true, category: true, stock: true, rating: true,
+                hasVariants: true,
+                variants: {
+                    where: { isActive: true, stock: { gt: 0 } },
+                    orderBy: { price: 'asc' },
+                    select: { id: true, name: true, price: true, stock: true, combination: true, image: true },
+                },
+            },
             orderBy: { rating: 'desc' },
         });
 
+        const inStock = products.filter(p => p.hasVariants ? p.variants.length > 0 : p.stock > 0);
+
         const grouped = {};
         for (const slot of template.slots) {
-            grouped[slot.id] = products.filter(p => p.category === slot.category);
+            grouped[slot.id] = inStock.filter(p => p.category === slot.category);
         }
 
         res.json({ template, productsBySlot: grouped });
@@ -91,31 +101,124 @@ router.get('/:id/products', async (req, res) => {
 // POST /api/bundle-templates/:id/calculate — calculate discounted price
 router.post('/:id/calculate', async (req, res) => {
     try {
+        const templateId = parseInt(req.params.id);
+        if (!Number.isFinite(templateId)) return res.status(400).json({ error: 'Invalid template ID' });
+
         const template = await prisma.bundleTemplate.findUnique({
-            where: { id: parseInt(req.params.id) },
+            where: { id: templateId },
+            include: templateInclude,
         });
         if (!template) return res.status(404).json({ error: 'Template not found' });
+        if (!template.isActive) return res.status(404).json({ error: 'Template not found' });
 
-        const { productIds } = req.body;
-        if (!Array.isArray(productIds) || productIds.length === 0) {
-            return res.status(400).json({ error: 'productIds array is required' });
+        const { productIds, selections } = req.body;
+
+        // Support both legacy productIds array and new selections array with variantId
+        let items = [];
+        if (Array.isArray(selections) && selections.length > 0) {
+            items = selections.map(s => ({
+                productId: parseInt(typeof s === 'object' ? s.productId : s),
+                variantId: typeof s === 'object' && s.variantId ? parseInt(s.variantId) : null,
+            })).filter(s => Number.isFinite(s.productId));
+        } else if (Array.isArray(productIds) && productIds.length > 0) {
+            items = productIds.map(id => ({ productId: parseInt(id), variantId: null })).filter(s => Number.isFinite(s.productId));
         }
 
-        const products = await prisma.product.findMany({
-            where: { id: { in: productIds.map(id => parseInt(id)) }, isActive: true },
-            select: { id: true, price: true, title: true },
+        if (items.length === 0) {
+            return res.status(400).json({ error: 'productIds or selections array is required' });
+        }
+        if (items.length > 50) return res.status(400).json({ error: 'Too many products (max 50)' });
+
+        const parsedIds = [...new Set(items.map(s => s.productId))];
+        const variantIds = items.map(s => s.variantId).filter(Number.isFinite);
+
+        const [products, variants] = await Promise.all([
+            prisma.product.findMany({
+                where: { id: { in: parsedIds }, isActive: true },
+                select: { id: true, price: true, title: true, category: true },
+            }),
+            variantIds.length > 0
+                ? prisma.productVariant.findMany({
+                    where: { id: { in: variantIds }, isActive: true },
+                    select: { id: true, productId: true, price: true },
+                })
+                : [],
+        ]);
+
+        const productMap = new Map(products.map(p => [p.id, p]));
+        const variantMap = new Map(variants.map(v => [v.id, v]));
+
+        const slotCategories = new Set(template.slots.map(s => s.category));
+        const invalidProducts = products.filter(p => !slotCategories.has(p.category));
+        if (invalidProducts.length > 0) {
+            return res.status(400).json({
+                error: `Products don't match template categories: ${invalidProducts.map(p => p.title).join(', ')}`,
+            });
+        }
+
+        let totalPrice = 0;
+        for (const sel of items) {
+            if (sel.variantId && variantMap.has(sel.variantId)) {
+                totalPrice += variantMap.get(sel.variantId).price;
+            } else {
+                const prod = productMap.get(sel.productId);
+                if (prod) totalPrice += prod.price;
+            }
+        }
+
+        let discountedPrice, savings, discount;
+
+        if (template.templateType === 'mixMatch' && template.mixMatchQty && template.mixMatchPrice) {
+            discount = 0;
+            if (items.length >= template.mixMatchQty) {
+                discountedPrice = template.mixMatchPrice;
+                savings = totalPrice - discountedPrice;
+            } else {
+                discountedPrice = totalPrice;
+                savings = 0;
+            }
+        } else {
+            discount = Number(template.discount) || 0;
+            if (template.discountType === 'tiered' && template.discountTiers) {
+                try {
+                    const tiers = (typeof template.discountTiers === 'string' ? JSON.parse(template.discountTiers) : template.discountTiers) || [];
+                    const sorted = [...tiers].sort((a, b) => b.minItems - a.minItems);
+                    const applicable = sorted.find(t => items.length >= t.minItems);
+                    if (applicable) discount = applicable.discount;
+                } catch { /* use flat discount */ }
+            }
+            discountedPrice = Math.round(totalPrice * (1 - discount / 100));
+            savings = totalPrice - discountedPrice;
+        }
+
+        res.json({
+            totalPrice,
+            discountedPrice,
+            savings,
+            discountPercent: discount,
+            itemCount: items.length,
+            templateType: template.templateType,
+            mixMatchQty: template.mixMatchQty,
+            mixMatchPrice: template.mixMatchPrice,
+            mixMatchReached: template.templateType === 'mixMatch' ? items.length >= (template.mixMatchQty || 0) : null,
+            nextTier: template.discountType === 'tiered' ? getNextTier(template, items.length) : null,
         });
-
-        const totalPrice = products.reduce((sum, p) => sum + p.price, 0);
-        const discountedPrice = Math.round(totalPrice * (1 - template.discount / 100));
-        const savings = totalPrice - discountedPrice;
-
-        res.json({ totalPrice, discountedPrice, savings, discountPercent: template.discount });
     } catch (error) {
         console.error('Calculate bundle price error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
+
+function getNextTier(template, currentCount) {
+    if (template.discountType !== 'tiered' || !template.discountTiers) return null;
+    try {
+        const tiers = (typeof template.discountTiers === 'string' ? JSON.parse(template.discountTiers) : template.discountTiers) || [];
+        const sorted = [...tiers].sort((a, b) => a.minItems - b.minItems);
+        return sorted.find(t => t.minItems > currentCount) || null;
+    } catch {
+        return null;
+    }
+}
 
 // POST /api/bundle-templates — create template (admin)
 router.post('/', protect, adminOnly, async (req, res) => {
@@ -129,7 +232,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 name,
                 description: description || null,
                 image: image || null,
-                discount: parseFloat(discount) || 10,
+                discount: discount != null ? parseFloat(discount) : 10,
                 slots: {
                     create: (slots || []).map((slot, idx) => ({
                         label: slot.label,

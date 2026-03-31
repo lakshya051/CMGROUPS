@@ -24,6 +24,7 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
         Processing: 'text-blue-700 bg-blue-400/10 border-blue-400/20',
         Confirmed: 'text-success bg-success/10 border-success/20',
         Shipped: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+        OutForDelivery: 'text-indigo-600 bg-indigo-400/10 border-indigo-400/20',
         Delivered: 'text-success bg-success/10 border-success/20',
         Cancelled: 'text-error bg-error/10 border-error/20',
     };
@@ -272,6 +273,7 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                                             <option value="Processing">Processing</option>
                                             <option value="Confirmed">Confirmed</option>
                                             <option value="Shipped">Shipped</option>
+                                            <option value="OutForDelivery">Out for Delivery</option>
                                             <option value="Delivered">Delivered</option>
                                             <option value="Cancelled">Cancelled</option>
                                         </select>
@@ -430,6 +432,7 @@ const AdminOrders = () => {
             case 'Processing': return 'text-blue-700 bg-blue-400/10 border-blue-400/20';
             case 'Confirmed': return 'text-success bg-success/10 border-success/20';
             case 'Shipped': return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
+            case 'OutForDelivery': return 'text-indigo-600 bg-indigo-400/10 border-indigo-400/20';
             case 'Delivered': return 'text-success bg-success/10 border-success/20';
             case 'Cancelled': return 'text-error bg-error/10 border-error/20';
             default: return 'text-text-muted bg-page-bg border-border-default';
@@ -452,16 +455,25 @@ const AdminOrders = () => {
             {/* Filters & Search */}
             <div className="bg-surface border border-border-default shadow-sm rounded-lg p-sm flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="flex items-center gap-xs overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
-                    {['All', 'Processing', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled', 'Returns'].map(status => (
+                    {[
+                        { value: 'All', label: 'All' },
+                        { value: 'Processing', label: 'Processing' },
+                        { value: 'Confirmed', label: 'Confirmed' },
+                        { value: 'Shipped', label: 'Shipped' },
+                        { value: 'OutForDelivery', label: 'Out for Delivery' },
+                        { value: 'Delivered', label: 'Delivered' },
+                        { value: 'Cancelled', label: 'Cancelled' },
+                        { value: 'Returns', label: 'Returns' },
+                    ].map(({ value, label }) => (
                         <button
-                            key={status}
-                            onClick={() => setFilter(status)}
-                            className={`px-sm py-xs rounded text-sm font-semibold transition-colors whitespace-nowrap border ${filter === status
+                            key={value}
+                            onClick={() => setFilter(value)}
+                            className={`px-sm py-xs rounded text-sm font-semibold transition-colors whitespace-nowrap border ${filter === value
                                 ? 'bg-buy-primary text-text-primary border-buy-primary shadow-sm hover:bg-buy-primary-hover'
                                 : 'bg-page-bg text-text-secondary border-border-default hover:bg-surface-hover hover:text-text-primary'
                                 }`}
                         >
-                            {status}
+                            {label}
                         </button>
                     ))}
                 </div>
@@ -523,7 +535,8 @@ const AdminOrders = () => {
                                                 <span className={`px-2 py-1 rounded text-xs font-semibold border ${getStatusColor(order.status, order.returnStatus)}`}>
                                                     {order.returnStatus === 'Requested' ? 'Return Requested' :
                                                         order.returnStatus === 'Completed' ? 'Returned' :
-                                                            order.status}
+                                                            order.status === 'OutForDelivery' ? 'Out for Delivery' :
+                                                                order.status}
                                                 </span>
                                                 {order.cancelReason && <div className="text-xs text-error mt-1 max-w-[120px] truncate" title={order.cancelReason}>Reason: {order.cancelReason}</div>}
                                             </td>
@@ -582,6 +595,7 @@ const AdminOrders = () => {
                                                                 <option value="Processing">Processing</option>
                                                                 <option value="Confirmed">Confirmed</option>
                                                                 <option value="Shipped">Shipped</option>
+                                                                <option value="OutForDelivery">Out for Delivery</option>
                                                                 <option value="Delivered">Delivered</option>
                                                                 <option value="Cancelled">Cancelled</option>
                                                             </select>

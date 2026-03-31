@@ -62,6 +62,7 @@ const Wishlist = lazyRetry(() => import('./pages/shop/Wishlist'));
 const Compare = lazyRetry(() => import('./pages/shop/Compare'));
 const Checkout = lazyRetry(() => import('./pages/shop/Checkout'));
 const CategoryPage = lazyRetry(() => import('./pages/shop/CategoryPage'));
+const BundleDetail = lazyRetry(() => import('./pages/shop/BundleDetail'));
 
 // Courses
 const Courses = lazyRetry(() => import('./pages/courses/Courses'));
@@ -97,6 +98,7 @@ const AdminBanners = lazyRetry(() => import('./pages/admin/AdminBanners'));
 const AdminAuditLog = lazyRetry(() => import('./pages/admin/AdminAuditLog'));
 const AdminBundles = lazyRetry(() => import('./pages/admin/AdminBundles'));
 const AdminBundleTemplates = lazyRetry(() => import('./pages/admin/AdminBundleTemplates'));
+const AdminSheetsSync = lazyRetry(() => import('./pages/admin/AdminSheetsSync'));
 
 function App() {
     return (
@@ -117,6 +119,7 @@ function App() {
                                 <Route path="products" element={<Products />} />
                                 <Route path="products/category/:slug" element={<CategoryPage />} />
                                 <Route path="products/:id" element={<ProductDetail />} />
+                                <Route path="bundles/:idOrSlug" element={<BundleDetail />} />
                                 <Route path="cart" element={<Cart />} />
                                 <Route path="wishlist" element={<Wishlist />} />
                                 <Route path="compare" element={<Compare />} />
@@ -184,6 +187,7 @@ function App() {
                                 <Route path="banners" element={<AdminBanners />} />
                                 <Route path="bundles" element={<AdminBundles />} />
                                 <Route path="bundle-templates" element={<AdminBundleTemplates />} />
+                                <Route path="sheets" element={<AdminSheetsSync />} />
                                 <Route path="audit-log" element={<AdminAuditLog />} />
                             </Route>
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Package, ArrowRight, ArrowUpRight, ShoppingBag, TrendingUp, Store, Wrench } from 'lucide-react';
-import { ordersAPI } from '../../lib/api';
+import { Package, ArrowRight, ArrowUpRight, ShoppingBag, TrendingUp, Store, Wrench, Star } from 'lucide-react';
+import { ordersAPI, reviewsAPI } from '../../lib/api';
 import { Link } from 'react-router-dom';
 import { useSEO } from '../../hooks/useSEO';
+import { handleImageError } from '../../utils/image';
 
 const StatCard = ({ title, value, icon, trend }) => (
     <div className="bg-surface border border-border-default rounded-lg shadow-sm p-md hover:shadow-md transition-shadow">
@@ -47,6 +48,7 @@ const UserDashboard = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [statsError, setStatsError] = useState(false);
+    const [pendingBundleReviews, setPendingBundleReviews] = useState([]);
     useSEO({ title: 'My Dashboard — Shoptify', description: 'Manage your orders, services and account.', noIndex: true });
 
     useEffect(() => {
@@ -54,6 +56,9 @@ const UserDashboard = () => {
             .then(data => setStats(data))
             .catch(() => setStatsError(true))
             .finally(() => setLoading(false));
+        reviewsAPI.getPendingBundles()
+            .then(data => setPendingBundleReviews(Array.isArray(data) ? data : []))
+            .catch(() => {});
     }, []);
 
     const getStatusColor = (status) => {
@@ -61,6 +66,7 @@ const UserDashboard = () => {
             case 'Processing': return 'bg-blue-500/10 text-blue-700 border-blue-500/20';
             case 'Confirmed': return 'bg-success/10 text-success border-success/20';
             case 'Shipped': return 'bg-orange-400/10 text-orange-400 border-orange-400/20';
+            case 'OutForDelivery': return 'bg-indigo-400/10 text-indigo-600 border-indigo-400/20';
             case 'Delivered': return 'bg-success/10 text-success border-success/20';
             case 'Cancelled': return 'bg-error/10 text-error border-error/20';
             default: return 'bg-page-bg text-text-muted border-border-default';
@@ -92,6 +98,33 @@ const UserDashboard = () => {
                     cta="Book My Service"
                 />
             </div>
+
+            {/* Pending Bundle Reviews */}
+            {pendingBundleReviews.length > 0 && (
+                <div className="bg-warning/5 border border-warning/20 rounded-lg p-4">
+                    <h2 className="text-sm font-bold text-text-primary mb-3 flex items-center gap-2">
+                        <Star size={16} className="text-warning" />
+                        Rate your recent bundle purchases
+                    </h2>
+                    <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                        {pendingBundleReviews.map(b => (
+                            <Link
+                                key={b.id}
+                                to={`/bundles/${b.slug || b.id}`}
+                                className="flex items-center gap-3 bg-surface border border-border-default rounded-lg px-3 py-2.5 shrink-0 hover:border-warning/40 transition-colors"
+                            >
+                                <div className="w-10 h-10 rounded bg-page-bg border border-border-default overflow-hidden flex items-center justify-center shrink-0">
+                                    {b.image ? <img src={b.image} alt={b.name} onError={handleImageError} className="w-full h-full object-cover" /> : <Package size={18} className="text-text-muted" />}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-text-primary truncate max-w-[160px]">{b.name}</p>
+                                    <p className="text-[11px] text-warning font-semibold">Leave a review</p>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Stats Grid */}
             {loading ? (
@@ -149,7 +182,7 @@ const UserDashboard = () => {
                                                 </td>
                                                 <td className="p-sm">
                                                     <span className={`px-2 py-1 rounded text-xs font-bold border ${getStatusColor(order.status)}`}>
-                                                        {order.status}
+                                                        {order.status === 'OutForDelivery' ? 'Out for Delivery' : order.status}
                                                     </span>
                                                 </td>
                                                 <td className="p-sm">

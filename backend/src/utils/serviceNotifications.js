@@ -46,12 +46,15 @@ export async function sendServiceNotification(booking, newStatus) {
                 break;
 
             case 'Completed': {
-                const invoiceLink = booking.invoiceUrl ? `<br/><a href="${booking.invoiceUrl}">Download Invoice</a>` : '';
+                const safeInvoiceUrl = booking.invoiceUrl && /^https?:\/\//i.test(booking.invoiceUrl)
+                    ? escapeHtml(booking.invoiceUrl)
+                    : null;
+                const invoiceLink = safeInvoiceUrl ? `<br/><a href="${safeInvoiceUrl}">Download Invoice</a>` : '';
                 subject = `Service Completed — ${bookingRef}`;
                 bodyMessage = `
                     <p>Your device has been repaired and is ready for delivery!</p>
-                    <p><strong>Final Amount:</strong> ₹${booking.finalPrice ?? 'N/A'}</p>
-                    ${booking.invoiceUrl ? `<p><strong>Invoice:</strong> ${invoiceLink}</p>` : ''}
+                    <p><strong>Final Amount:</strong> ₹${escapeHtml(String(booking.finalPrice ?? 'N/A'))}</p>
+                    ${safeInvoiceUrl ? `<p><strong>Invoice:</strong> ${invoiceLink}</p>` : ''}
                     <p>When the technician delivers your device, share the Delivery OTP below to confirm receipt.</p>
                 `;
                 showDeliveryOtp = Boolean(booking.deliveryOtp);
@@ -77,7 +80,7 @@ export async function sendServiceNotification(booking, newStatus) {
             <div style="background-color:#FEF3C7;color:#92400E;padding:15px;border-radius:6px;margin:20px 0;">
                 <p style="margin:0 0 8px 0;font-weight:700;">Pickup Verification OTP</p>
                 <p style="margin:0 0 10px 0;">Share this OTP with our technician when they arrive to collect your device.</p>
-                <div style="font-size:32px;letter-spacing:8px;font-weight:700;text-align:center;margin:12px 0;">${booking.pickupOtp}</div>
+                <div style="font-size:32px;letter-spacing:8px;font-weight:700;text-align:center;margin:12px 0;">${escapeHtml(String(booking.pickupOtp))}</div>
                 <p style="margin:0;font-size:12px;">Do not share this OTP with anyone else.</p>
             </div>`
             : '';
@@ -87,7 +90,7 @@ export async function sendServiceNotification(booking, newStatus) {
             <div style="background-color:#DBEAFE;color:#1E40AF;padding:15px;border-radius:6px;margin:20px 0;">
                 <p style="margin:0 0 8px 0;font-weight:700;">Delivery Verification OTP</p>
                 <p style="margin:0 0 10px 0;">Share this OTP with the technician when receiving your device to confirm delivery.</p>
-                <div style="font-size:32px;letter-spacing:8px;font-weight:700;text-align:center;margin:12px 0;">${booking.deliveryOtp}</div>
+                <div style="font-size:32px;letter-spacing:8px;font-weight:700;text-align:center;margin:12px 0;">${escapeHtml(String(booking.deliveryOtp))}</div>
                 <p style="margin:0;font-size:12px;">Do not share this OTP with anyone else.</p>
             </div>`
             : '';

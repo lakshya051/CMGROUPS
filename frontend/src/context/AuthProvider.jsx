@@ -8,7 +8,7 @@ import {
     getRedirectResult,
     GoogleAuthProvider,
     signOut,
-    sendPasswordResetEmail,
+    sendEmailVerification,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { AuthContext } from './AuthContext';
@@ -43,9 +43,11 @@ export const AuthProvider = ({ children }) => {
             }
         });
 
+        let cancelled = false;
         const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
             if (fbUser) {
                 const idToken = await fbUser.getIdToken();
+                if (cancelled) return;
                 tokenRef.current = idToken;
                 setFirebaseUser(fbUser);
 
@@ -55,6 +57,7 @@ export const AuthProvider = ({ children }) => {
                     const res = await fetch(`${API_BASE}/auth/me`, {
                         headers: { Authorization: `Bearer ${idToken}` },
                     });
+                    if (cancelled) return;
                     if (res.ok) {
                         const data = await res.json();
                         setUser(data.user);
@@ -67,6 +70,7 @@ export const AuthProvider = ({ children }) => {
                         if (auth) await signOut(auth);
                     }
                 } catch (err) {
+                    if (cancelled) return;
                     console.error('Failed to fetch DB user:', err);
                     setUser(null);
                     setFirebaseUser(null);
@@ -80,10 +84,13 @@ export const AuthProvider = ({ children }) => {
                 tokenRef.current = null;
                 setTokenGetter(null);
             }
-            setLoading(false);
+            if (!cancelled) setLoading(false);
         });
 
-        return unsubscribe;
+        return () => {
+            cancelled = true;
+            unsubscribe();
+        };
     }, []);
 
     // Auto-refresh token every 50 minutes
@@ -99,6 +106,11 @@ export const AuthProvider = ({ children }) => {
     const registerWithEmail = useCallback(async (email, password, name, referredByCode) => {
         if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
         const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+        sendEmailVerification(cred.user).catch((err) => {
+            console.warn('Failed to send verification email:', err);
+        });
+
         const idToken = await cred.user.getIdToken();
         tokenRef.current = idToken;
         setTokenGetter(() => Promise.resolve(tokenRef.current));
@@ -116,6 +128,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('referralCode');
         return cred;
     }, []);
+
+    const resendVerificationEmail = useCallback(async () => {
+        if (!firebaseUser) throw new Error('Not signed in');
+        if (firebaseUser.emailVerified) throw new Error('Email already verified');
+        await sendEmailVerification(firebaseUser);
+    }, [firebaseUser]);
 
     const completeGoogleSignIn = useCallback(async (cred, referredByCode) => {
         const idToken = await cred.user.getIdToken();
@@ -221,11 +239,23 @@ export const AuthProvider = ({ children }) => {
                     }
                     return { cred, user: dbUser };
                 },
+                emailVerified: firebaseUser?.emailVerified ?? false,
                 registerWithEmail,
+                resendVerificationEmail,
                 loginWithGoogle,
-                resetPassword: (email) => {
-                    if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
-                    return sendPasswordResetEmail(auth, email);
+                resetPassword: async (email) => {
+                    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        const err = new Error(data.error || 'Failed to send reset email');
+                        err.code = 'api/reset-failed';
+                        throw err;
+                    }
+                    return data;
                 },
             }}
         >

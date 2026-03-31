@@ -3,17 +3,38 @@ import PDFDocument from 'pdfkit';
 export function generateInvoice(order, user, res) {
     const doc = new PDFDocument({ margin: 50 });
 
+    doc.on('error', (err) => {
+        console.error('PDF generation error:', err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Invoice generation failed' });
+        }
+    });
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.id}.pdf"`);
 
     doc.pipe(res);
 
-    // Group items by sellerName
     const grouped = {};
+
     (order.items || []).forEach(item => {
         const seller = item.product?.sellerName || 'Shoptify';
-        if (!grouped[seller]) grouped[seller] = [];
-        grouped[seller].push(item);
+        if (!grouped[seller]) grouped[seller] = { standalone: [], bundles: {} };
+
+        if (item.bundleInstanceId) {
+            if (!grouped[seller].bundles[item.bundleInstanceId]) {
+                grouped[seller].bundles[item.bundleInstanceId] = {
+                    bundleId: item.bundleId,
+                    templateId: item.bundleTemplateId,
+                    bundle: item.bundle || null,
+                    bundleTemplate: item.bundleTemplate || null,
+                    items: [],
+                };
+            }
+            grouped[seller].bundles[item.bundleInstanceId].items.push(item);
+        } else {
+            grouped[seller].standalone.push(item);
+        }
     });
     const sellerNames = Object.keys(grouped);
 
@@ -45,9 +66,6 @@ export function generateInvoice(order, user, res) {
     let subtotal = 0;
 
     for (const sellerName of sellerNames) {
-        const items = grouped[sellerName];
-
-        // Seller section heading
         doc
             .font('Helvetica-Bold')
             .fontSize(11)
@@ -55,7 +73,6 @@ export function generateInvoice(order, user, res) {
             .text(sellerName, 50, y);
         y += 18;
 
-        // Table header
         doc
             .font('Helvetica')
             .fontSize(10)
@@ -74,7 +91,58 @@ export function generateInvoice(order, user, res) {
 
         y += 25;
 
+        const sellerData = grouped[sellerName];
+        const items = sellerData.standalone;
         let sectionSubtotal = 0;
+
+        for (const [, bundleGroup] of Object.entries(sellerData.bundles)) {
+            if (y > 680) { doc.addPage(); y = 50; }
+
+            const bundleName = bundleGroup.bundle?.name
+                || bundleGroup.bundleTemplate?.name
+                || 'Custom Bundle';
+
+            doc.font('Helvetica-Bold').fontSize(9).fillColor('#1e3a5f')
+                .text(`Bundle: ${bundleName}`, 50, y);
+            y += 14;
+
+            let catalogTotal = 0;
+            bundleGroup.items.forEach(item => {
+                if (y > 700) { doc.addPage(); y = 50; }
+                const lineTotal = item.quantity * item.price;
+                catalogTotal += lineTotal;
+
+                doc
+                    .font('Helvetica').fontSize(9).fillColor('#555555')
+                    .text('  ' + (item.product?.title || 'Item').substring(0, 33), 50, y)
+                    .text(`Rs. ${item.price.toLocaleString()}`, 280, y, { width: 90, align: 'right' })
+                    .text(item.quantity.toString(), 370, y, { width: 90, align: 'right' })
+                    .text(`Rs. ${lineTotal.toLocaleString()}`, 400, y, { align: 'right' });
+                y += 16;
+            });
+
+            let bundleActualPrice = catalogTotal;
+            if (bundleGroup.bundle?.bundlePrice != null) {
+                bundleActualPrice = bundleGroup.bundle.bundlePrice;
+            } else if (bundleGroup.bundleTemplate?.discount) {
+                bundleActualPrice = Math.round(catalogTotal * (1 - bundleGroup.bundleTemplate.discount / 100));
+            }
+
+            if (bundleActualPrice < catalogTotal) {
+                const discount = catalogTotal - bundleActualPrice;
+                if (y > 700) { doc.addPage(); y = 50; }
+                doc
+                    .font('Helvetica-Bold').fontSize(9).fillColor('#2e7d32')
+                    .text('  Bundle Discount', 50, y)
+                    .text(`- Rs. ${discount.toLocaleString()}`, 400, y, { align: 'right' });
+                y += 16;
+            }
+
+            sectionSubtotal += bundleActualPrice;
+            subtotal += bundleActualPrice;
+            y += 4;
+        }
+
         items.forEach(item => {
             if (y > 700) {
                 doc.addPage();
@@ -85,16 +153,14 @@ export function generateInvoice(order, user, res) {
             subtotal += lineTotal;
 
             doc
-                .fontSize(10)
-                .fillColor('#000000')
-                .text(item.product.title.substring(0, 35) + (item.product.title.length > 35 ? '...' : ''), 50, y)
+                .font('Helvetica').fontSize(10).fillColor('#000000')
+                .text((item.product?.title || 'Unknown Product').substring(0, 35) + ((item.product?.title || '').length > 35 ? '...' : ''), 50, y)
                 .text(`Rs. ${item.price.toLocaleString()}`, 280, y, { width: 90, align: 'right' })
                 .text(item.quantity.toString(), 370, y, { width: 90, align: 'right' })
                 .text(`Rs. ${lineTotal.toLocaleString()}`, 400, y, { align: 'right' });
             y += 20;
         });
 
-        // Section subtotal
         doc
             .strokeColor('#cccccc')
             .lineWidth(0.5)
@@ -112,7 +178,6 @@ export function generateInvoice(order, user, res) {
         y += 25;
     }
 
-    // Grand totals separator
     doc
         .strokeColor('#aaaaaa')
         .lineWidth(1)
@@ -121,9 +186,24 @@ export function generateInvoice(order, user, res) {
         .stroke();
 
     y += 15;
+
+    const discountAmount = order.discountAmount || 0;
+    const walletUsed = order.walletUsed || 0;
+
+    if (discountAmount > 0) {
+        doc
+            .fontSize(10)
+            .fillColor('#2e7d32')
+            .font('Helvetica')
+            .text('Coupon Discount:', 350, y, { width: 100, align: 'right' })
+            .text(`- Rs. ${discountAmount.toLocaleString()}`, 450, y, { align: 'right' });
+        y += 15;
+    }
+
+    const afterDiscount = subtotal - discountAmount;
     const gstRate = 0.18;
-    const taxableAmount = subtotal / (1 + gstRate);
-    const gstAmount = subtotal - taxableAmount;
+    const taxableAmount = afterDiscount / (1 + gstRate);
+    const gstAmount = afterDiscount - taxableAmount;
 
     doc
         .fontSize(10)
@@ -136,9 +216,21 @@ export function generateInvoice(order, user, res) {
         .text('IGST (18%):', 350, y, { width: 100, align: 'right' })
         .text(`Rs. ${gstAmount.toFixed(2)}`, 450, y, { align: 'right' });
     y += 20;
+
+    if (walletUsed > 0) {
+        doc
+            .fontSize(10)
+            .fillColor('#1e3a5f')
+            .font('Helvetica')
+            .text('Wallet Used:', 350, y, { width: 100, align: 'right' })
+            .text(`- Rs. ${walletUsed.toLocaleString()}`, 450, y, { align: 'right' });
+        y += 20;
+    }
+
     doc
         .fontSize(12)
         .font('Helvetica-Bold')
+        .fillColor('#000000')
         .text('Total Amount:', 350, y, { width: 100, align: 'right' })
         .text(`Rs. ${order.total.toLocaleString()}`, 450, y, { align: 'right' });
 

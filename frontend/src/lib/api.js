@@ -24,8 +24,9 @@ const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 }
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeout);
 
+        const onCallerAbort = () => controller.abort();
         if (callerSignal) {
-            callerSignal.addEventListener('abort', () => controller.abort(), { once: true });
+            callerSignal.addEventListener('abort', onCallerAbort, { once: true });
         }
 
         try {
@@ -36,6 +37,7 @@ const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 }
                 signal: controller.signal,
             });
             clearTimeout(timer);
+            if (callerSignal) callerSignal.removeEventListener('abort', onCallerAbort);
 
             const text = await response.text();
             let data = {};
@@ -43,7 +45,7 @@ const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 }
                 data = text ? JSON.parse(text) : {};
             } catch {
                 if (!response.ok) throw new Error('Something went wrong');
-                return text;
+                data = { _rawText: text };
             }
 
             if (!response.ok) {
@@ -55,11 +57,14 @@ const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 }
             return data;
         } catch (err) {
             clearTimeout(timer);
+            if (callerSignal) callerSignal.removeEventListener('abort', onCallerAbort);
 
             if (callerSignal?.aborted) throw new Error('Request cancelled');
 
             if (err.name === 'AbortError') {
                 lastError = new Error('Request timed out');
+                lastError.isTimeout = true;
+                throw lastError;
             } else {
                 lastError = err;
             }
@@ -108,6 +113,8 @@ export const productsAPI = {
     getById: (id) => apiFetch(`/products/${id}`),
 
     getRelated: (id) => apiFetch(`/products/${id}/related`),
+
+    getCoPurchased: (id) => apiFetch(`/products/${id}/co-purchased`),
 
     create: (productData) =>
         apiFetch('/products', {
@@ -175,10 +182,10 @@ export const productsAPI = {
 
 // ============ ORDERS ============
 export const ordersAPI = {
-    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0, latitude = null, longitude = null, googleMapLink = null) =>
+    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0, latitude = null, longitude = null, googleMapLink = null, giftWrap = false, giftMessage = null) =>
         apiFetch('/orders', {
             method: 'POST',
-            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink })
+            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink, giftWrap, giftMessage })
         }),
 
     getById: (id) => apiFetch(`/orders/detail/${id}`),
@@ -264,28 +271,34 @@ export const addressesAPI = {
 export const cartAPI = {
     get: () => apiFetch('/cart'),
 
-    addItem: (productId, variantId = null, quantity = 1) =>
+    addItem: (productId, variantId = null, quantity = 1, bundleId = null, bundleInstanceId = '') =>
         apiFetch('/cart/items', {
             method: 'POST',
-            body: JSON.stringify({ productId, variantId, quantity }),
+            body: JSON.stringify({ productId, variantId, quantity, bundleId, bundleInstanceId }),
         }),
 
-    updateItem: (productId, variantId = null, quantity) =>
+    updateItem: (productId, variantId = null, quantity, bundleInstanceId = '') =>
         apiFetch('/cart/items', {
             method: 'PATCH',
-            body: JSON.stringify({ productId, variantId, quantity }),
+            body: JSON.stringify({ productId, variantId, quantity, bundleInstanceId }),
         }),
 
-    removeItem: (productId, variantId = null) =>
+    removeItem: (productId, variantId = null, bundleInstanceId = '') =>
         apiFetch('/cart/items/remove', {
             method: 'POST',
-            body: JSON.stringify({ productId, variantId }),
+            body: JSON.stringify({ productId, variantId, bundleInstanceId }),
         }),
 
     sync: (items) => apiFetch('/cart/sync', {
         method: 'POST',
         body: JSON.stringify({ items }),
     }),
+
+    removeBundle: (bundleInstanceId) =>
+        apiFetch('/cart/bundle/remove', {
+            method: 'POST',
+            body: JSON.stringify({ bundleInstanceId }),
+        }),
 
     clear: () => apiFetch('/cart', { method: 'DELETE' }),
 };
@@ -317,7 +330,7 @@ export const notificationsAPI = {
 
 // ============ REVIEWS ============
 export const reviewsAPI = {
-    getForProduct: (productId) => apiFetch(`/reviews/${productId}`),
+    getForProduct: (productId, options = {}) => apiFetch(`/reviews/${productId}`, options),
 
     create: (productId, rating, comment, images = []) =>
         apiFetch(`/reviews/${productId}`, {
@@ -326,7 +339,20 @@ export const reviewsAPI = {
         }),
 
     voteHelpful: (reviewId) =>
-        apiFetch(`/reviews/${reviewId}/helpful`, { method: 'POST' })
+        apiFetch(`/reviews/${reviewId}/helpful`, { method: 'POST' }),
+
+    getForBundle: (bundleId) => apiFetch(`/reviews/bundle/${bundleId}`),
+
+    createBundleReview: (bundleId, rating, comment) =>
+        apiFetch(`/reviews/bundle/${bundleId}`, {
+            method: 'POST',
+            body: JSON.stringify({ rating, comment })
+        }),
+
+    voteBundleHelpful: (reviewId) =>
+        apiFetch(`/reviews/bundle/${reviewId}/helpful`, { method: 'POST' }),
+
+    getPendingBundles: () => apiFetch('/reviews/pending-bundles'),
 };
 
 // ============ SERVICES ============
@@ -491,10 +517,10 @@ export const serviceTypesAPI = {
 
 // ============ COUPONS ============
 export const couponsAPI = {
-    validate: (code) =>
+    validate: (code, cartItems = []) =>
         apiFetch('/coupons/validate', {
             method: 'POST',
-            body: JSON.stringify({ code })
+            body: JSON.stringify({ code, cartItems })
         }),
 
     getAll: () => apiFetch('/coupons'),
@@ -613,7 +639,10 @@ export const bundlesAPI = {
         return apiFetch(`/bundles${query ? `?${query}` : ''}`);
     },
     getById: (id) => apiFetch(`/bundles/${id}`),
+    getBySlug: (slug) => apiFetch(`/bundles/by-slug/${slug}`),
     getForProduct: (productId) => apiFetch(`/bundles/for-product/${productId}`),
+    getSuggestions: (productIds) => apiFetch(`/bundles/suggestions?productIds=${productIds.join(',')}`),
+    getAnalytics: () => apiFetch('/bundles/analytics'),
     getAllAdmin: () => apiFetch('/bundles/admin'),
     create: (data) => apiFetch('/bundles', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiFetch(`/bundles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -625,7 +654,10 @@ export const bundleTemplatesAPI = {
     getAll: () => apiFetch('/bundle-templates'),
     getById: (id) => apiFetch(`/bundle-templates/${id}`),
     getProducts: (id) => apiFetch(`/bundle-templates/${id}/products`),
-    calculate: (id, productIds) => apiFetch(`/bundle-templates/${id}/calculate`, { method: 'POST', body: JSON.stringify({ productIds }) }),
+    calculate: (id, productIds, selections = null) => apiFetch(`/bundle-templates/${id}/calculate`, {
+        method: 'POST',
+        body: JSON.stringify(selections ? { selections } : { productIds }),
+    }),
     getAllAdmin: () => apiFetch('/bundle-templates/admin'),
     create: (data) => apiFetch('/bundle-templates', { method: 'POST', body: JSON.stringify(data) }),
     update: (id, data) => apiFetch(`/bundle-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -636,6 +668,20 @@ export const bundleTemplatesAPI = {
 export const quantityTiersAPI = {
     get: (productId) => apiFetch(`/products/${productId}/quantity-tiers`),
     update: (productId, tiers) => apiFetch(`/products/${productId}/quantity-tiers`, { method: 'PUT', body: JSON.stringify({ tiers }) }),
+};
+
+// ============ GOOGLE SHEETS ============
+export const sheetsAPI = {
+    getStatus: () => apiFetch('/admin/sheets/status'),
+
+    syncAll: () =>
+        apiFetch('/admin/sheets/sync', { method: 'POST' }, { timeout: 120000, retries: 1 }),
+
+    syncSheet: (sheetName) =>
+        apiFetch(`/admin/sheets/sync/${sheetName}`, { method: 'POST' }, { timeout: 60000, retries: 1 }),
+
+    importProducts: () =>
+        apiFetch('/admin/sheets/import/products', { method: 'POST' }, { timeout: 180000, retries: 1 }),
 };
 
 // ============ REFERRALS ============

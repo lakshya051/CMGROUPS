@@ -122,7 +122,8 @@ router.get('/', async (req, res) => {
         if (cached) return res.json(cached);
 
         const usePagination = page !== undefined || limit !== undefined;
-        const take = usePagination ? parseInt(limit) || 12 : undefined;
+        const parsedLimit = parseInt(limit, 10);
+        const take = usePagination ? Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20)) : undefined;
         const skip = usePagination ? ((parseInt(page) || 1) - 1) * take : undefined;
 
         const include = {
@@ -201,11 +202,21 @@ router.get('/:id/player', protect, async (req, res) => {
             where: { courseId, userId: req.user.id, status: { in: ['Approved', 'Enrolled', 'Completed'] } }
         });
         if (!application) {
-            // Also check legacy enrollment just in case
             const legacyEnc = await prisma.enrollment.findFirst({
                 where: { courseId, userId: req.user.id }
             });
             if (!legacyEnc) return res.status(403).json({ error: 'You do not have access to this course. Please enroll first.' });
+
+            const course = await prisma.course.findUnique({
+                where: { id: courseId },
+                include: { materials: { orderBy: { createdAt: 'asc' } } }
+            });
+
+            let progress = 0;
+            if (legacyEnc.status === 'Completed') progress = 100;
+            else if (legacyEnc.status === 'Active') progress = legacyEnc.progress ?? 15;
+
+            return res.json({ course, enrollment: { progress } });
         }
 
         const course = await prisma.course.findUnique({

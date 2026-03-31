@@ -94,14 +94,37 @@ const UserOrders = () => {
 
     // ─── Handlers ───────────────────────────────────────────────
     const handleBuyAgain = (order) => {
+        let addedCount = 0
+        const outOfStock = []
+
         order.items.forEach(item => {
-            if (item.product) {
-                const variant = item.variantId ? { id: item.variantId, price: item.price, stock: item.product.stock } : null
-                addToCart(item.product, item.quantity, variant)
+            if (!item.product) return
+            const stock = item.product.stock ?? 0
+            if (stock <= 0) {
+                outOfStock.push(item.product.title || 'Unknown Product')
+                return
             }
+            const qty = Math.min(item.quantity, stock)
+            const variant = item.variantId
+                ? { id: item.variantId, price: item.price, stock }
+                : null
+            addToCart(item.product, qty, variant)
+            addedCount++
         })
-        toast.success('Items added to cart!')
-        navigate('/checkout')
+
+        if (addedCount === 0) {
+            toast.error(outOfStock.length > 0
+                ? 'All items are currently out of stock'
+                : 'No items could be added to cart')
+            return
+        }
+
+        if (outOfStock.length > 0) {
+            toast(`${outOfStock.length} item${outOfStock.length > 1 ? 's' : ''} skipped (out of stock)`, { icon: '⚠️' })
+        }
+
+        toast.success(`${addedCount} item${addedCount > 1 ? 's' : ''} added to cart!`)
+        navigate('/cart')
     }
 
     const handleCancelOrder = async () => {

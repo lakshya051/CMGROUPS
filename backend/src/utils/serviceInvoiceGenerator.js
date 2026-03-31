@@ -88,17 +88,20 @@ export function generateServiceInvoicePdf(booking, invoiceData, sellerName) {
 
             doc.fillColor('#000000').font('Helvetica');
 
+            const laborCost = Number(invoiceData.laborCost) || 0;
+            const partsCost = Number(invoiceData.partsCost) || 0;
+
             // Diagnostic / Labor Fee
             doc
                 .text('Diagnostic / Labor Fee', 50, y)
-                .text(`₹${invoiceData.laborCost.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
+                .text(`₹${laborCost.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
             y += 20;
 
             // Hardware / Software (only when partsCost > 0)
-            if (invoiceData.partsCost > 0) {
+            if (partsCost > 0) {
                 doc
                     .text('Hardware / Software', 50, y)
-                    .text(`₹${invoiceData.partsCost.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
+                    .text(`₹${partsCost.toFixed(2)}`, 450, y, { width: 100, align: 'right' });
                 y += 16;
 
                 if (invoiceData.partsNotes) {
@@ -126,7 +129,7 @@ export function generateServiceInvoicePdf(booking, invoiceData, sellerName) {
             y += 12;
 
             // ── Totals ───────────────────────────────────────────────────────
-            const total = invoiceData.totalAmount;
+            const total = Number(invoiceData.totalAmount) || 0;
 
             doc
                 .fillColor('#000000')

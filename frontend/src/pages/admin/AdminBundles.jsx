@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { bundlesAPI, productsAPI, serviceTypesAPI, uploadAPI } from '../../lib/api';
-import { Plus, Edit2, Trash2, Search, X, Layers, Package, Wrench } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Layers, Package, Wrench, BarChart3, Copy, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { handleImageError } from '../../utils/image';
 
@@ -10,6 +10,9 @@ const AdminBundles = () => {
     const [bundles, setBundles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [activeTab, setActiveTab] = useState('bundles');
+    const [analytics, setAnalytics] = useState(null);
+    const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState(null);
     const [allProducts, setAllProducts] = useState([]);
@@ -30,6 +33,16 @@ const AdminBundles = () => {
     };
 
     useEffect(() => { fetchBundles(); }, []);
+
+    useEffect(() => {
+        if (activeTab === 'analytics' && !analytics) {
+            setAnalyticsLoading(true);
+            bundlesAPI.getAnalytics()
+                .then(setAnalytics)
+                .catch(() => toast.error('Failed to load analytics'))
+                .finally(() => setAnalyticsLoading(false));
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         if (showModal) {
@@ -128,12 +141,21 @@ const AdminBundles = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const parsedPrice = parseFloat(form.bundlePrice);
+        if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+            toast.error('Please enter a valid bundle price');
+            return;
+        }
+        if (form.items.length === 0) {
+            toast.error('Please add at least one item to the bundle');
+            return;
+        }
         try {
             const data = {
                 name: form.name,
                 description: form.description || null,
                 image: form.image || null,
-                bundlePrice: parseFloat(form.bundlePrice),
+                bundlePrice: parsedPrice,
                 displayOn: form.displayOn,
                 startDate: form.startDate || null,
                 endDate: form.endDate || null,
@@ -170,15 +192,58 @@ const AdminBundles = () => {
         b.name.toLowerCase().includes(search.toLowerCase())
     );
 
+    const handleDuplicate = async (bundle) => {
+        try {
+            const data = {
+                name: `${bundle.name} (Copy)`,
+                description: bundle.description || null,
+                image: bundle.image || null,
+                bundlePrice: bundle.bundlePrice,
+                displayOn: bundle.displayOn || ['home'],
+                items: (bundle.items || []).map(it => ({
+                    productId: it.productId || null,
+                    variantId: it.variantId || null,
+                    quantity: it.quantity,
+                    serviceTypeId: it.serviceTypeId || null,
+                    courseId: it.courseId || null,
+                    itemType: it.itemType,
+                })),
+            };
+            await bundlesAPI.create(data);
+            toast.success('Bundle duplicated');
+            fetchBundles();
+        } catch { toast.error('Failed to duplicate'); }
+    };
+
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
                 <h1 className="text-2xl font-heading font-bold">Product Bundles</h1>
                 <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors">
                     <Plus size={18} /> Create Bundle
                 </button>
             </div>
 
+            {/* Tabs */}
+            <div className="flex gap-1 mb-4 bg-page-bg rounded-lg p-1 w-fit">
+                <button
+                    onClick={() => setActiveTab('bundles')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'bundles' ? 'bg-surface text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                >
+                    <Layers size={14} className="inline mr-1.5" />Bundles
+                </button>
+                <button
+                    onClick={() => setActiveTab('analytics')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'analytics' ? 'bg-surface text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                >
+                    <BarChart3 size={14} className="inline mr-1.5" />Analytics
+                </button>
+            </div>
+
+            {activeTab === 'analytics' ? (
+                <BundleAnalyticsPanel analytics={analytics} loading={analyticsLoading} />
+            ) : (
+            <>
             <div className="relative mb-4">
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                 <input
@@ -213,7 +278,10 @@ const AdminBundles = () => {
                                     ))}
                                 </div>
                             </div>
-                            <div className="flex gap-2 flex-shrink-0">
+                            <div className="flex gap-1 flex-shrink-0">
+                                <button onClick={() => handleDuplicate(bundle)} title="Duplicate" className="p-2 hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-primary">
+                                    <Copy size={16} />
+                                </button>
                                 <button onClick={() => openEdit(bundle)} className="p-2 hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-trust">
                                     <Edit2 size={16} />
                                 </button>
@@ -359,8 +427,80 @@ const AdminBundles = () => {
                     </div>
                 </div>
             )}
+            </>
+            )}
         </div>
     );
 };
+
+function BundleAnalyticsPanel({ analytics, loading }) {
+    if (loading) return <div className="text-center py-12 text-text-muted">Loading analytics...</div>;
+    if (!analytics) return <div className="text-center py-12 text-text-muted">No analytics data available</div>;
+
+    const allStats = [
+        ...(analytics.fixedBundles || []),
+        ...(analytics.byobTemplates || []),
+    ].sort((a, b) => b.revenue - a.revenue);
+
+    const totalRevenue = allStats.reduce((s, r) => s + r.revenue, 0);
+    const totalUnitsSold = allStats.reduce((s, r) => s + r.unitsSold, 0);
+
+    return (
+        <div className="space-y-6">
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-surface border border-border-default rounded-lg p-4">
+                    <p className="text-xs text-text-muted uppercase tracking-wide">Total Bundle Revenue</p>
+                    <p className="text-2xl font-bold text-text-primary mt-1">₹{totalRevenue.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="bg-surface border border-border-default rounded-lg p-4">
+                    <p className="text-xs text-text-muted uppercase tracking-wide">Total Units Sold</p>
+                    <p className="text-2xl font-bold text-text-primary mt-1">{totalUnitsSold.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="bg-surface border border-border-default rounded-lg p-4">
+                    <p className="text-xs text-text-muted uppercase tracking-wide">Active Bundles</p>
+                    <p className="text-2xl font-bold text-text-primary mt-1">{allStats.length}</p>
+                </div>
+            </div>
+
+            {/* Per-bundle stats */}
+            {allStats.length === 0 ? (
+                <div className="text-center py-8 text-text-muted">No bundle order data yet</div>
+            ) : (
+                <div className="bg-surface border border-border-default rounded-lg overflow-hidden">
+                    <div className="p-3 border-b border-border-default bg-page-bg">
+                        <h3 className="text-sm font-bold text-text-primary flex items-center gap-1.5">
+                            <TrendingUp size={14} className="text-trust" />
+                            Bundle Performance
+                        </h3>
+                    </div>
+                    <div className="divide-y divide-border-default">
+                        {allStats.map((stat, idx) => (
+                            <div key={idx} className="flex items-center gap-4 p-3">
+                                <div className="w-10 h-10 bg-page-bg border border-border-default rounded-lg flex items-center justify-center shrink-0">
+                                    {stat.image ? (
+                                        <img src={stat.image} alt="" className="w-full h-full object-contain rounded-lg" />
+                                    ) : (
+                                        <Layers size={16} className="text-trust" />
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-text-primary truncate">{stat.name}</p>
+                                    <p className="text-xs text-text-muted">
+                                        {stat.type === 'byob' ? 'BYOB Template' : 'Fixed Bundle'}
+                                    </p>
+                                </div>
+                                <div className="text-right shrink-0 space-y-0.5">
+                                    <p className="text-sm font-bold text-text-primary">₹{stat.revenue.toLocaleString('en-IN')}</p>
+                                    <p className="text-[10px] text-text-muted">{stat.unitsSold} units · {stat.lineItems} line items</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default AdminBundles;

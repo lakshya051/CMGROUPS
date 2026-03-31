@@ -40,12 +40,12 @@ export async function createUserNotification({
         });
 
         if (push?.enabled) {
-            void sendPushToUserDevices({
+            sendPushToUserDevices({
                 userId,
                 title: push.title || title,
                 body: push.body || message,
                 link,
-            });
+            }).catch((err) => console.error('Push notification error:', err.message));
         }
 
         return notification;

@@ -188,6 +188,10 @@ router.patch('/users/:id/role', protect, adminOnly, async (req, res) => {
             select: { id: true, name: true, email: true, role: true }
         });
 
+        if (!oldUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
         const user = await prisma.user.update({
             where: { id: userId },
             data: { role },
@@ -715,7 +719,11 @@ router.get('/audit-logs', protect, adminOnly, async (req, res) => {
         const where = {};
         if (entity) where.entity = entity;
         if (action) where.action = action;
-        if (userId) where.userId = parseInt(userId);
+        const parsedUserId = parseInt(userId);
+        if (userId && Number.isNaN(parsedUserId)) {
+            return res.status(400).json({ error: 'Invalid userId' });
+        }
+        if (userId) where.userId = parsedUserId;
         if (search) {
             where.OR = [
                 { entityId: { contains: search, mode: 'insensitive' } },

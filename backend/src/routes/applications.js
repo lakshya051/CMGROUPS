@@ -11,6 +11,13 @@ router.post('/', protect, async (req, res) => {
     try {
         const { courseId, name, email, phone, message } = req.body;
 
+        if (!courseId || !name || !email || !phone) {
+            return res.status(400).json({ error: 'courseId, name, email, and phone are required' });
+        }
+        if (Number.isNaN(parseInt(courseId))) {
+            return res.status(400).json({ error: 'Invalid courseId' });
+        }
+
         const existingApplication = await prisma.courseApplication.findFirst({
             where: {
                 userId: req.user.id,
@@ -120,8 +127,8 @@ router.put('/:id/status', protect, adminOnly, async (req, res) => {
 
         res.json(application);
     } catch (error) {
-        console.error(error);
-        res.status(404).json({ error: 'Application not found' });
+        console.error('Update application status error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 

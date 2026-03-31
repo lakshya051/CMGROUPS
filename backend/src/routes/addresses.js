@@ -27,6 +27,13 @@ router.post('/', protect, async (req, res) => {
             return res.status(400).json({ error: 'address, city, pincode, and phone are required' });
         }
 
+        if (latitude !== undefined && Number.isNaN(parseFloat(latitude))) {
+            return res.status(400).json({ error: 'Invalid latitude' });
+        }
+        if (longitude !== undefined && Number.isNaN(parseFloat(longitude))) {
+            return res.status(400).json({ error: 'Invalid longitude' });
+        }
+
         const newAddress = await prisma.address.create({
             data: {
                 userId: req.user.id,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -9,6 +9,7 @@ import {
     CheckCircle, CreditCard, Shield, AlertCircle, Copy,
 } from 'lucide-react';
 import { checkoutSchema } from '../../utils/validationSchemas';
+import { computeBundleAwareSubtotal, computeBundleSavings } from '../../utils/bundleUtils';
 import { addressesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
 import { useSEO } from '../../hooks/useSEO';
@@ -23,9 +24,11 @@ const buildMapsUrl = (lat, lng) =>
     `https://www.google.com/maps?q=${lat},${lng}`;
 
 const Checkout = () => {
-    const { cart, placeOrder, coupon } = useShop();
+    const { cart, placeOrder, coupon, buyNowItems } = useShop();
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const isBuyNowMode = location.state?.buyNow === true;
     useSEO({ title: 'Checkout — Shoptify', description: 'Complete your order.', noIndex: true });
 
     const [step, setStep] = useState(1);
@@ -39,6 +42,8 @@ const Checkout = () => {
     const placingOrderRef = useRef(false);
     const [referralCode, setReferralCode] = useState('');
     const [useWallet, setUseWallet] = useState(false);
+    const [giftWrap, setGiftWrap] = useState(false);
+    const [giftMessage, setGiftMessage] = useState('');
 
     const [gps, setGps] = useState({ lat: null, lng: null });
     const [manualLink, setManualLink] = useState('');
@@ -62,7 +67,10 @@ const Checkout = () => {
             .catch(() => { });
     }, [user]);
 
-    const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const checkoutItems = isBuyNowMode && buyNowItems.length > 0 ? buyNowItems : cart;
+    const hasGiftableBundle = checkoutItems.some(item => item.bundleInfo?.isGiftable);
+    const subtotal = computeBundleAwareSubtotal(checkoutItems);
+    const bundleSavings = computeBundleSavings(checkoutItems);
     const couponDiscount = coupon?.discount || 0;
     const deliveryFee = subtotal < FREE_DELIVERY_THRESHOLD ? 40 : 0;
     const tax = Math.round((subtotal - couponDiscount) * 0.18);
@@ -221,6 +229,9 @@ const Checkout = () => {
                 latitude: finalLatitude,
                 longitude: finalLongitude,
                 googleMapLink: finalMapLink,
+                isBuyNow: isBuyNowMode && buyNowItems.length > 0,
+                giftWrap,
+                giftMessage: giftWrap ? giftMessage.trim() : null,
             });
 
             orderSuccessRef.current = true;
@@ -233,7 +244,7 @@ const Checkout = () => {
             const errorMessage = err.message || 'Failed to place order. Please try again.';
             setOrderError(errorMessage);
             if (errorMessage.includes('Insufficient stock')) {
-                setTimeout(() => navigate('/cart'), 3500);
+                setTimeout(() => navigate(isBuyNowMode ? '/products' : '/cart'), 3500);
             }
         } finally {
             placingOrderRef.current = false;
@@ -250,10 +261,20 @@ const Checkout = () => {
     };
 
     useEffect(() => {
-        if (cart.length === 0 && step !== 3 && !orderId && !placingOrderRef.current && !orderSuccessRef.current) {
+        if (checkoutItems.length === 0 && !isBuyNowMode && step !== 3 && !orderId && !placingOrderRef.current && !orderSuccessRef.current) {
             navigate('/cart', { replace: true });
         }
-    }, [cart.length, step, orderId, navigate]);
+    }, [checkoutItems.length, isBuyNowMode, step, orderId, navigate]);
+
+    useEffect(() => {
+        if (!isBuyNowMode || step === 3 || orderId || orderSuccessRef.current) return;
+        const timer = setTimeout(() => {
+            if (buyNowItems.length === 0) {
+                navigate('/products', { replace: true });
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [isBuyNowMode, buyNowItems.length, step, orderId, navigate]);
 
     if (step === 3) {
         return (
@@ -302,7 +323,7 @@ const Checkout = () => {
                     )}
                 </div>
 
-                {cart.some?.(item => item.bundleInfo?.bundleId) && (
+                {checkoutItems.some?.(item => item.bundleInfo?.hasService) && (
                     <div className="max-w-md mx-auto bg-trust/5 border border-trust/20 rounded-lg p-4 mb-6 text-sm text-text-secondary">
                         Your order includes a service combo. Installation/service will be scheduled after delivery. Check status in <span className="font-semibold text-trust">Dashboard &gt; Services</span>.
                     </div>
@@ -363,12 +384,18 @@ const Checkout = () => {
                         isProcessing={isProcessing}
                         finalTotal={finalTotal}
                         onPlaceOrder={handlePlaceOrder}
+                        hasGiftableBundle={hasGiftableBundle}
+                        giftWrap={giftWrap}
+                        onGiftWrapChange={setGiftWrap}
+                        giftMessage={giftMessage}
+                        onGiftMessageChange={setGiftMessage}
                     />
                 </div>
 
                 <OrderSummaryPanel
-                    cart={cart}
+                    cart={checkoutItems}
                     subtotal={subtotal}
+                    bundleSavings={bundleSavings}
                     tax={tax}
                     couponDiscount={couponDiscount}
                     deliveryFee={deliveryFee}

@@ -45,6 +45,7 @@ model User {
   enrollments        Enrollment[]
   attendances        Attendance[]
   auditLogs          AuditLog[]
+  bundleReviews      BundleReview[] @relation("BundleReviews")
 
   @@index([firebaseUid])
   @@index([role])
@@ -71,6 +72,7 @@ model Course {
   enrollments  Enrollment[] // kept for backward compat
   materials    CourseMaterial[]
   attendances  Attendance[]
+  bundleItems  BundleItem[]
 }
 
 model CourseDuration {
@@ -249,18 +251,20 @@ model Wishlist {
 }
 
 model CartItem {
-  id        Int             @id @default(autoincrement())
-  userId    Int
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId Int
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId Int?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  quantity  Int             @default(1)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id               Int             @id @default(autoincrement())
+  userId           Int
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId        Int
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId        Int?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity         Int             @default(1)
+  bundleId         String?
+  bundleInstanceId String          @default("")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  @@unique([userId, productId, variantId])
+  @@unique([userId, productId, variantId, bundleInstanceId])
   @@index([userId])
 }
 
@@ -279,13 +283,15 @@ model Order {
   referralCodeUsed String?
   couponCode       String?
   discountAmount   Float    @default(0)
+  giftWrap         Boolean  @default(false)
+  giftMessage      String?
   createdAt        DateTime @default(now())
 
   // Cancellation & Return Fields
   cancelReason       String?
   returnReason       String?
-  returnStatus       String    @default("None") // "None", "Requested", "Approved", "Rejected", "Completed"
-  refundStatus       String    @default("None") // "None", "Pending", "Processed"
+  returnStatus       String    @default("None")
+  refundStatus       String    @default("None")
   refundAmount       Float?
   deliveredAt        DateTime?
   referralEligibleAt DateTime?
@@ -295,8 +301,9 @@ model Order {
   longitude     Float?
   googleMapLink String?
 
-  items     OrderItem[]
-  referrals Referral[]
+  items           OrderItem[]
+  referrals       Referral[]
+  serviceBookings ServiceBooking[]
 
   @@index([userId])
   @@index([status])
@@ -307,20 +314,26 @@ model Order {
 }
 
 model OrderItem {
-  id        Int             @id @default(autoincrement())
-  orderId   Int
-  order     Order           @relation(fields: [orderId], references: [id])
-  productId Int
-  product   Product         @relation(fields: [productId], references: [id])
-  quantity  Int
-  price     Float
-  variantId Int?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id])
-  bundleId  Int?
+  id               Int             @id @default(autoincrement())
+  orderId          Int
+  order            Order           @relation(fields: [orderId], references: [id])
+  productId        Int
+  product          Product         @relation(fields: [productId], references: [id])
+  quantity         Int
+  price            Float
+  variantId        Int?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+  bundleId         Int?
+  bundle           Bundle?         @relation(fields: [bundleId], references: [id])
+  bundleInstanceId String?
+  bundleTemplateId Int?
+  bundleTemplate   BundleTemplate? @relation(fields: [bundleTemplateId], references: [id])
 
   @@index([orderId])
   @@index([productId])
   @@index([variantId])
+  @@index([bundleId])
+  @@index([bundleTemplateId])
 }
 
 model Review {
@@ -345,6 +358,8 @@ model ServiceBooking {
   id               Int       @id @default(autoincrement())
   userId           Int
   user             User      @relation(fields: [userId], references: [id])
+  orderId          Int?
+  order            Order?    @relation(fields: [orderId], references: [id])
   serviceType      String
   description      String?
   deviceType       String?
@@ -408,6 +423,7 @@ model ServiceBooking {
   @@index([date])
   @@index([date, timeSlot, status])
   @@index([technicianId])
+  @@index([orderId])
 }
 
 model Technician {
@@ -444,13 +460,14 @@ model ServiceInvoice {
 model Coupon {
   id             Int       @id @default(autoincrement())
   code           String    @unique
-  discountType   String // "percent" or "fixed"
+  discountType   String
   value          Float
   active         Boolean   @default(true)
   expiresAt      DateTime?
   minOrderAmount Float?
   maxUses        Int?
   usedCount      Int       @default(0)
+  applicableTo   String    @default("all")
 }
 
 model Referral {
@@ -728,16 +745,20 @@ model AuditLog {
 model Bundle {
   id          Int          @id @default(autoincrement())
   name        String
+  slug        String?      @unique
   description String?
   image       String?
   bundlePrice Float
   isActive    Boolean      @default(true)
+  isGiftable  Boolean      @default(false)
   displayOn   String[]     @default(["home"])
   startDate   DateTime?
   endDate     DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   items       BundleItem[]
+  orderItems  OrderItem[]
+  reviews     BundleReview[]
 
   @@index([isActive])
   @@index([isActive, startDate, endDate])
@@ -754,21 +775,46 @@ model BundleItem {
   serviceTypeId Int?
   serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
   courseId      Int?
+  course        Course?      @relation(fields: [courseId], references: [id])
   itemType      String       @default("product")
+  position      Int          @default(0)
 
   @@index([bundleId])
 }
 
+model BundleReview {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation("BundleReviews", fields: [userId], references: [id])
+  bundleId     Int
+  bundle       Bundle   @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  rating       Int
+  comment      String?
+  isVerified   Boolean  @default(false)
+  helpfulVotes Int      @default(0)
+  voters       Int[]    @default([])
+  createdAt    DateTime @default(now())
+
+  @@index([bundleId, createdAt])
+  @@index([userId, bundleId])
+}
+
 model BundleTemplate {
-  id          Int                  @id @default(autoincrement())
-  name        String
-  description String?
-  image       String?
-  discount    Float                @default(10)
-  isActive    Boolean              @default(true)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  slots       BundleTemplateSlot[]
+  id            Int                  @id @default(autoincrement())
+  name          String
+  description   String?
+  image         String?
+  discount      Float                @default(10)
+  discountType  String               @default("flat")
+  discountTiers Json?
+  templateType  String               @default("slot")
+  mixMatchQty   Int?
+  mixMatchPrice Float?
+  isActive      Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  slots         BundleTemplateSlot[]
+  orderItems    OrderItem[]
 
   @@index([isActive])
 }

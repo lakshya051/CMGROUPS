@@ -1,43 +1,68 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
-import { ShoppingCart, Layers, Wrench, Percent } from 'lucide-react';
+import { ShoppingCart, Layers, Wrench, Percent, Zap } from 'lucide-react';
 import { handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
+const resolveVariant = (bi) => {
+    const prod = bi.product;
+    if (!prod?.hasVariants || !prod.variants?.length) return null;
+    if (bi.variantId) {
+        return prod.variants.find(v => v.id === bi.variantId) || prod.variants[0];
+    }
+    return prod.variants[0];
+};
+
 const BundleCard = ({ bundle, compact = false }) => {
-    const { addToCart } = useShop();
+    const { addBundleToCart, initBuyNowMultiple } = useShop();
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const hasService = bundle.items?.some(bi => bi.itemType === 'service');
     const productItems = bundle.items?.filter(bi => bi.itemType === 'product' && bi.product) || [];
     const itemCount = bundle.items?.length || 0;
+    const inStockItems = productItems.filter(bi => bi.product.stock > 0);
+    const isPartial = inStockItems.length > 0 && inStockItems.length < productItems.length;
 
     const handleAddBundle = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!user) {
-            toast.error('Please sign in to add items to your cart');
-            return;
-        }
-
-        const bundleInstanceId = `bundle-${bundle.id}-${Date.now()}`;
-        const addedItems = productItems.filter(bi => bi.product && bi.product.stock > 0);
-        if (addedItems.length === 0) {
+        if (inStockItems.length === 0) {
             toast.error('All items in this bundle are out of stock');
             return;
         }
-        addedItems.forEach(bi => {
-            const prod = bi.product;
-            const variant = prod.hasVariants && prod.variants?.length > 0 ? prod.variants[0] : null;
-            addToCart(
-                { ...prod, bundleInfo: { bundleId: bundle.id, bundleInstanceId, bundleName: bundle.name, bundlePrice: bundle.bundlePrice } },
-                bi.quantity,
-                variant
-            );
-        });
-        toast.success(`Added "${bundle.name}" bundle to cart (${addedItems.length} item${addedItems.length > 1 ? 's' : ''})`);
+        if (isPartial) {
+            toast(`Some items are out of stock. Adding ${inStockItems.length} of ${productItems.length} items.`, { icon: '⚠️' });
+        }
+        addBundleToCart(bundle);
+    };
+
+    const handleBuyBundleNow = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!user) {
+            toast.error('Please sign in to continue');
+            return;
+        }
+        if (inStockItems.length === 0) {
+            toast.error('All items in this bundle are out of stock');
+            return;
+        }
+        if (isPartial) {
+            toast(`Some items are out of stock. Buying ${inStockItems.length} of ${productItems.length} items.`, { icon: '⚠️' });
+        }
+        const bundleInstanceId = `bundle-${bundle.id}-${Date.now()}`;
+        const entries = inStockItems.map(bi => ({
+            product: bi.product,
+            quantity: bi.quantity,
+            variant: resolveVariant(bi),
+            bundleInfo: { bundleId: bundle.id, bundleInstanceId, bundleName: bundle.name, bundlePrice: bundle.bundlePrice },
+        }));
+        if (initBuyNowMultiple(entries)) {
+            navigate('/checkout', { state: { buyNow: true } });
+        }
     };
 
     if (compact) {
@@ -63,9 +88,17 @@ const BundleCard = ({ bundle, compact = false }) => {
                     </div>
                     <button
                         onClick={handleAddBundle}
+                        aria-label="Add bundle to cart"
                         className="flex-shrink-0 p-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded-lg transition-colors"
                     >
                         <ShoppingCart size={16} />
+                    </button>
+                    <button
+                        onClick={handleBuyBundleNow}
+                        aria-label="Buy bundle now"
+                        className="flex-shrink-0 p-2 border-2 border-primary text-primary hover:bg-primary hover:text-white rounded-lg transition-colors"
+                    >
+                        <Zap size={16} />
                     </button>
                 </div>
             </div>
@@ -127,6 +160,13 @@ const BundleCard = ({ bundle, compact = false }) => {
                     >
                         <ShoppingCart size={16} />
                         Add Bundle to Cart
+                    </button>
+                    <button
+                        onClick={handleBuyBundleNow}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-primary text-primary hover:bg-primary hover:text-white text-sm font-bold rounded-lg transition-colors"
+                    >
+                        <Zap size={16} />
+                        Buy Bundle Now
                     </button>
                 </div>
             </div>

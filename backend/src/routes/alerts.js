@@ -39,6 +39,11 @@ router.post('/:productId', protect, async (req, res) => {
             return res.status(400).json({ error: 'Invalid alert type' });
         }
 
+        if (priceThreshold !== undefined) {
+            const pt = parseFloat(priceThreshold);
+            if (!Number.isFinite(pt)) return res.status(400).json({ error: 'Invalid priceThreshold' });
+        }
+
         const product = await prisma.product.findUnique({ where: { id: productId } });
         if (!product) return res.status(404).json({ error: 'Product not found' });
 

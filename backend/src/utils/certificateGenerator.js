@@ -1,10 +1,22 @@
 import PDFDocument from 'pdfkit';
 
 export function generateCertificate(enrollment, res) {
+    if (!enrollment?.user?.name || !enrollment?.course?.title) {
+        res.status(500).json({ error: 'Incomplete enrollment data for certificate generation' });
+        return;
+    }
+
     const doc = new PDFDocument({
         layout: 'landscape',
         size: 'A4',
         margin: 50
+    });
+
+    doc.on('error', (err) => {
+        console.error('PDF generation error:', err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Certificate generation failed' });
+        }
     });
 
     res.setHeader('Content-Type', 'application/pdf');

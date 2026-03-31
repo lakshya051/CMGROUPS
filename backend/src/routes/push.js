@@ -14,6 +14,11 @@ router.post('/subscribe', protect, async (req, res) => {
             return res.status(400).json({ error: 'Invalid push subscription payload.' });
         }
 
+        const existing = await prisma.pushSubscription.findUnique({ where: { endpoint } });
+        if (existing && existing.userId !== req.user.id) {
+            return res.status(403).json({ error: 'This push endpoint is already registered to another account.' });
+        }
+
         await prisma.pushSubscription.upsert({
             where: { endpoint },
             update: {

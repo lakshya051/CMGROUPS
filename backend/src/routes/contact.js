@@ -1,8 +1,8 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import nodemailer from 'nodemailer';
 import { escapeHtml } from '../utils/escapeHtml.js';
 import { createAdminNotification } from '../utils/notifications.js';
+import { transporter } from '../utils/nodemailer.js';
 
 const contactLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -11,11 +11,6 @@ const contactLimiter = rateLimit({
 });
 
 const router = express.Router();
-
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-});
 
 router.post('/', contactLimiter, async (req, res) => {
     try {
@@ -30,7 +25,7 @@ router.post('/', contactLimiter, async (req, res) => {
             console.warn('Contact form: SMTP not configured, email not sent');
             return res.status(503).json({ error: 'Email service unavailable' });
         } else if (adminEmail) {
-            transporter.sendMail({
+            await transporter.sendMail({
                 from: process.env.EMAIL_USER,
                 to: adminEmail,
                 replyTo: email,
@@ -48,7 +43,7 @@ router.post('/', contactLimiter, async (req, res) => {
                         </table>
                     </div>
                 `,
-            }).catch(err => console.error('Contact form email failed:', err));
+            });
         }
 
         createAdminNotification({

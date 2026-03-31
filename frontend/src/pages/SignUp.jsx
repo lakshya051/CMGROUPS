@@ -52,7 +52,10 @@ export default function SignUp() {
         try {
             const refCode = localStorage.getItem('referralCode') || undefined;
             await registerWithEmail(email, password, name.trim(), refCode);
-            toast.success('Account created successfully!');
+            toast.success(
+                'Account created! A verification link has been sent to your email.',
+                { duration: 6000 }
+            );
             navigate('/onboarding', { replace: true });
         } catch (err) {
             const msg = err.code === 'auth/email-already-in-use'
@@ -71,7 +74,9 @@ export default function SignUp() {
     const handleGoogle = async () => {
         try {
             const refCode = localStorage.getItem('referralCode') || undefined;
-            const { user: dbUser } = await loginWithGoogle(refCode);
+            const result = await loginWithGoogle(refCode);
+            if (result?.redirectStarted) return;
+            const dbUser = result?.user;
             navigate(needsPhoneCapture(dbUser) ? '/onboarding' : '/', { replace: true });
         } catch (err) {
             if (err.code === 'auth/popup-closed-by-user') return;

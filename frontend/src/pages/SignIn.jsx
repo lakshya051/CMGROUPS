@@ -27,23 +27,32 @@ export default function SignIn() {
         try {
             if (resetMode) {
                 await resetPassword(email);
-                toast.success('Password reset email sent! Check your inbox.');
+                toast.success(
+                    'If an account exists for this email, a reset link has been sent. Check your inbox and spam folder.',
+                    { duration: 6000 }
+                );
                 setResetMode(false);
             } else {
                 const { user: dbUser } = await loginWithEmail(email, password);
                 navigate(needsPhoneCapture(dbUser) ? '/onboarding' : '/', { replace: true });
             }
         } catch (err) {
-            const msg = err.code === 'auth/invalid-credential'
-                ? 'Invalid email or password'
-                : err.code === 'auth/user-not-found'
-                    ? 'No account found with this email'
-                    : err.code === 'auth/too-many-requests'
-                        ? 'Too many attempts. Please try again later.'
-                        : err.code === 'auth/operation-not-allowed'
-                            ? FIREBASE_OPERATION_NOT_ALLOWED
-                            : err.message;
-            toast.error(msg);
+            console.error(`[Auth ${resetMode ? 'reset' : 'login'}]`, err.code || err.message, err);
+            const resetErrors = {
+                'auth/invalid-email': 'Please enter a valid email address.',
+                'auth/missing-email': 'Please enter your email address.',
+                'auth/user-not-found': 'No account found with this email.',
+                'auth/too-many-requests': 'Too many attempts. Please try again later.',
+                'auth/operation-not-allowed': FIREBASE_OPERATION_NOT_ALLOWED,
+            };
+            const loginErrors = {
+                'auth/invalid-credential': 'Invalid email or password.',
+                'auth/user-not-found': 'No account found with this email.',
+                'auth/too-many-requests': 'Too many attempts. Please try again later.',
+                'auth/operation-not-allowed': FIREBASE_OPERATION_NOT_ALLOWED,
+            };
+            const map = resetMode ? resetErrors : loginErrors;
+            toast.error(map[err.code] || err.message);
         } finally {
             setLoading(false);
         }
@@ -51,7 +60,9 @@ export default function SignIn() {
 
     const handleGoogle = async () => {
         try {
-            const { user: dbUser } = await loginWithGoogle();
+            const result = await loginWithGoogle();
+            if (result?.redirectStarted) return;
+            const dbUser = result?.user;
             navigate(needsPhoneCapture(dbUser) ? '/onboarding' : '/', { replace: true });
         } catch (err) {
             if (err.code === 'auth/popup-closed-by-user') return;

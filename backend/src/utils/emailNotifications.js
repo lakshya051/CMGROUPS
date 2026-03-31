@@ -1,12 +1,5 @@
-import nodemailer from 'nodemailer';
-
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
+import { transporter } from './nodemailer.js';
+import { escapeHtml } from './escapeHtml.js';
 
 export async function sendOrderConfirmationEmail(email, orderId, total, options = {}) {
     const { paymentOtp = null, paymentMethod = null, isPaid = false } = options;
@@ -32,7 +25,7 @@ export async function sendOrderConfirmationEmail(email, orderId, total, options 
                 <div style="background-color: #FEF3C7; color: #92400E; padding: 15px; border-radius: 6px; margin: 20px 0;">
                     <p style="margin: 0 0 8px 0; font-weight: 700;">${otpTitle}</p>
                     <p style="margin: 0 0 10px 0;">Use this OTP to verify payment for your order.</p>
-                    <div style="font-size: 28px; letter-spacing: 6px; font-weight: 700; text-align: center; margin: 12px 0;">${paymentOtp}</div>
+                    <div style="font-size: 28px; letter-spacing: 6px; font-weight: 700; text-align: center; margin: 12px 0;">${escapeHtml(String(paymentOtp))}</div>
                     <p style="margin: 0;">${otpHint}</p>
                 </div>
             `
@@ -54,14 +47,14 @@ export async function sendOrderConfirmationEmail(email, orderId, total, options 
     const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
-        subject: `Order Confirmed - Shoptify #${orderId}`,
+        subject: `Order Confirmed - Shoptify #${String(orderId)}`,
         html: `
             <div style="font-family: Arial, sans-serif; max-w-lg mx-auto p-6 bg-gray-50 border border-gray-100 rounded-lg">
                 <h2 style="color: #333; margin-bottom: 20px;">Order Confirmation</h2>
                 <p style="color: #555; line-height: 1.6;">Hello,</p>
                 <p style="color: #555; line-height: 1.6;">Thank you for shopping with Shoptify!</p>
-                <p style="color: #555; line-height: 1.6;">Your order <strong>#${orderId}</strong> for <strong>Rs.${total}</strong> has been confirmed.</p>
-                <p style="color: #555; line-height: 1.6;">Payment mode: <strong>${paymentModeLabel}</strong></p>
+                <p style="color: #555; line-height: 1.6;">Your order <strong>#${escapeHtml(String(orderId))}</strong> for <strong>Rs.${escapeHtml(String(total))}</strong> has been confirmed.</p>
+                <p style="color: #555; line-height: 1.6;">Payment mode: <strong>${escapeHtml(paymentModeLabel)}</strong></p>
                 ${otpBlock}
                 <div style="background-color: #E0E7FF; color: #3730A3; padding: 15px; border-radius: 6px; margin: 20px 0;">
                     We are currently processing your order and will notify you once it's shipped or ready for pickup.

@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import { escapeHtml } from '../utils/escapeHtml.js';
 import { createAdminNotification } from '../utils/notifications.js';
 import { logAudit } from '../utils/auditLog.js';
+import { syncRecord } from '../utils/sheetsSync.js';
 
 const enquiryLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -47,6 +48,8 @@ router.post('/enquiry', enquiryLimiter, async (req, res) => {
         if (message && typeof message === 'string' && message.length > 1000) {
             return res.status(400).json({ error: 'Message must be 1000 characters or fewer' });
         }
+
+        if (typeof phone !== 'string') return res.status(400).json({ error: 'Phone must be a string' });
 
         const cleanPhone = phone.replace(/\D/g, '');
         if (cleanPhone.length !== 10) {
@@ -93,6 +96,8 @@ router.post('/enquiry', enquiryLimiter, async (req, res) => {
             console.log(`Name: ${name} | Phone: ${cleanPhone} | City: ${city} | Property: ${propertyType} | Cameras: ${camerasNeeded}`);
             console.log('---\n');
         }
+
+        syncRecord('CCTVEnquiries', enquiry).catch(console.error);
 
         createAdminNotification({
             title: 'New CCTV Enquiry',
@@ -166,6 +171,8 @@ router.patch('/admin/enquiries/:id', protect, adminOnly, async (req, res) => {
             details: { after: { status, adminNotes, sellerName } },
             req,
         });
+
+        syncRecord('CCTVEnquiries', enquiry).catch(console.error);
 
         res.json({ success: true, enquiry });
     } catch (error) {

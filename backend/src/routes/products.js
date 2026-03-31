@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { logAudit } from '../utils/auditLog.js';
+import { syncRecord, debouncedSyncProducts } from '../utils/sheetsSync.js';
 
 const router = express.Router();
 
@@ -174,8 +175,10 @@ router.get('/:id', async (req, res) => {
         const cached = cache.get(cacheKey);
         if (cached) return res.json(cached);
 
+        const paramId = parseInt(req.params.id);
+        if (Number.isNaN(paramId)) return res.status(400).json({ error: 'Invalid product ID' });
         const product = await prisma.product.findFirst({
-            where: { id: parseInt(req.params.id), isActive: true },
+            where: { id: paramId, isActive: true },
             include: {
                 variantOptions: {
                     include: { values: { orderBy: { position: 'asc' } } },
@@ -269,6 +272,56 @@ router.get('/:id/related', async (req, res) => {
     }
 });
 
+// GET /api/products/:id/co-purchased — co-purchased products with caching
+router.get('/:id/co-purchased', async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        if (!Number.isFinite(productId)) return res.status(400).json({ error: 'Invalid product ID' });
+
+        const cacheKey = `coPurchased:${productId}`;
+        const cached = cache.get(cacheKey);
+        if (cached) return res.json(cached);
+
+        const orderIds = await prisma.orderItem.findMany({
+            where: { productId },
+            select: { orderId: true },
+            distinct: ['orderId'],
+            take: 100,
+        });
+
+        if (orderIds.length === 0) return res.json([]);
+
+        const coItems = await prisma.orderItem.findMany({
+            where: {
+                orderId: { in: orderIds.map(o => o.orderId) },
+                productId: { not: productId },
+                product: { isActive: true },
+            },
+            select: { productId: true },
+        });
+
+        const freq = {};
+        coItems.forEach(i => { freq[i.productId] = (freq[i.productId] || 0) + 1; });
+        const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+        let products = [];
+        if (sorted.length > 0) {
+            products = await prisma.product.findMany({
+                where: { id: { in: sorted.map(([id]) => parseInt(id)) }, isActive: true, stock: { gt: 0 } },
+                select: { id: true, title: true, price: true, originalPrice: true, images: true, rating: true, stock: true, category: true },
+            });
+            const idOrder = sorted.map(([id]) => parseInt(id));
+            products.sort((a, b) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
+        }
+
+        cache.set(cacheKey, products, 300);
+        res.json(products);
+    } catch (error) {
+        console.error('Get co-purchased products error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // POST /api/products (Admin only)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
@@ -311,6 +364,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
             req,
         });
 
+        syncRecord('Products', product).catch(console.error);
+
         res.status(201).json(product);
     } catch (error) {
         console.error('Create product error:', error);
@@ -322,15 +377,28 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
-        const ALLOWED_FIELDS = ['title', 'description', 'price', 'stock', 'category', 'brand', 'unit', 'gstPercent', 'isActive'];
+        if (Number.isNaN(productId)) return res.status(400).json({ error: 'Invalid product ID' });
         const body = req.body;
 
         const oldProduct = await prisma.product.findUnique({ where: { id: productId } });
+        if (!oldProduct) return res.status(404).json({ error: 'Product not found' });
 
         const updateData = {};
-        for (const field of ALLOWED_FIELDS) {
-            if (body[field] !== undefined) updateData[field] = body[field];
+        if (body.title !== undefined) updateData.title = String(body.title);
+        if (body.description !== undefined) updateData.description = body.description;
+        if (body.category !== undefined) updateData.category = String(body.category);
+        if (body.brand !== undefined) updateData.brand = body.brand;
+        if (body.price !== undefined) {
+            const p = parseFloat(body.price);
+            if (!Number.isFinite(p) || p < 0) return res.status(400).json({ error: 'Invalid price' });
+            updateData.price = p;
         }
+        if (body.stock !== undefined) {
+            const s = parseInt(body.stock);
+            if (Number.isNaN(s) || s < 0) return res.status(400).json({ error: 'Invalid stock' });
+            updateData.stock = s;
+        }
+        if (body.isActive !== undefined) updateData.isActive = body.isActive === true || body.isActive === 'true';
         if (body.referrerPoints !== undefined) updateData.referrerPoints = body.referrerPoints === null ? null : parseFloat(body.referrerPoints);
         if (body.refereePoints !== undefined) updateData.refereePoints = body.refereePoints === null ? null : parseFloat(body.refereePoints);
 
@@ -358,6 +426,8 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
             details: { before: { title: oldProduct?.title, price: oldProduct?.price }, after: { title: product.title, price: product.price }, changedFields: Object.keys(updateData) },
             req,
         });
+
+        syncRecord('Products', product).catch(console.error);
 
         // Background Alert Check (non-blocking)
         (async () => {
@@ -432,6 +502,11 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
+        if (Number.isNaN(productId)) return res.status(400).json({ error: 'Invalid product ID' });
+
+        const existing = await prisma.product.findUnique({ where: { id: productId } });
+        if (!existing) return res.status(404).json({ error: 'Product not found' });
+
         await prisma.product.update({
             where: { id: productId },
             data: { isActive: false }
@@ -476,11 +551,16 @@ router.post('/:id/variants', protect, adminOnly, async (req, res) => {
         const { name, price, originalPrice, stock, sku, combination, isActive, image } = req.body;
         const productId = parseInt(req.params.id);
 
+        const parsedPrice = parseFloat(price);
+        const parsedStock = parseInt(stock || 0);
+        if (!Number.isFinite(parsedPrice) || parsedPrice < 0) return res.status(400).json({ error: 'Invalid variant price' });
+        if (Number.isNaN(parsedStock) || parsedStock < 0) return res.status(400).json({ error: 'Invalid variant stock' });
+
         const variantData = {
             productId,
             name: name || null,
-            price: parseFloat(price),
-            stock: parseInt(stock || 0),
+            price: parsedPrice,
+            stock: parsedStock,
             sku: sku || null,
             combination: combination || null,
             isActive: isActive !== undefined ? isActive : true,
@@ -492,6 +572,7 @@ router.post('/:id/variants', protect, adminOnly, async (req, res) => {
         const variant = await prisma.productVariant.create({ data: variantData });
 
         cache.delByPrefix('products:');
+        debouncedSyncProducts();
         res.status(201).json(variant);
     } catch (error) {
         console.error('Create variant error:', error);
@@ -527,6 +608,7 @@ router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
         });
 
         cache.delByPrefix('products:');
+        debouncedSyncProducts();
         res.json(variant);
     } catch (error) {
         console.error('Update variant error:', error);
@@ -550,6 +632,7 @@ router.delete('/:id/variants/:variantId', protect, adminOnly, async (req, res) =
         });
 
         cache.delByPrefix('products:');
+        debouncedSyncProducts();
         res.json({ message: 'Variant deleted' });
     } catch (error) {
         console.error('Delete variant error:', error);
@@ -592,6 +675,7 @@ router.post('/:id/variants/bulk', protect, adminOnly, async (req, res) => {
         }
 
         cache.delByPrefix('products:');
+        debouncedSyncProducts();
         res.json({ variants: results });
     } catch (error) {
         console.error('Bulk save variants error:', error);
@@ -739,6 +823,10 @@ router.post('/:id/variants/generate', protect, adminOnly, async (req, res) => {
         };
 
         const optionArrays = options.map(opt => opt.values.map(v => ({ optionName: opt.name, value: v.value })));
+        const totalCombinations = optionArrays.reduce((acc, arr) => acc * arr.length, 1);
+        if (totalCombinations > 500) {
+            return res.status(400).json({ error: `Too many combinations (${totalCombinations}). Maximum 500 allowed. Reduce option values.` });
+        }
         const combinations = cartesian(optionArrays);
 
         const existingVariants = await prisma.productVariant.findMany({ where: { productId } });
@@ -783,6 +871,7 @@ router.post('/:id/variants/generate', protect, adminOnly, async (req, res) => {
         });
 
         cache.delByPrefix('products:');
+        debouncedSyncProducts();
         res.json({ created, total: allVariants.length, variants: allVariants });
     } catch (error) {
         console.error('Generate variants error:', error);
@@ -818,13 +907,14 @@ router.put('/:id/quantity-tiers', protect, adminOnly, async (req, res) => {
         await prisma.$transaction(async (tx) => {
             await tx.quantityTier.deleteMany({ where: { productId } });
             if (tiers.length > 0) {
-                await tx.quantityTier.createMany({
-                    data: tiers.map(t => ({
-                        productId,
-                        minQty: parseInt(t.minQty),
-                        price: parseFloat(t.price),
-                    })),
+                const validatedTiers = tiers.map(t => {
+                    const minQty = parseInt(t.minQty);
+                    const price = parseFloat(t.price);
+                    if (!Number.isFinite(minQty) || minQty <= 0) throw new Error('Each tier must have a valid minQty > 0');
+                    if (!Number.isFinite(price) || price < 0) throw new Error('Each tier must have a valid price >= 0');
+                    return { productId, minQty, price };
                 });
+                await tx.quantityTier.createMany({ data: validatedTiers });
             }
         });
 

@@ -8,16 +8,20 @@ const router = express.Router();
 
 const bundleInclude = {
     items: {
+        orderBy: { position: 'asc' },
         include: {
             product: {
                 select: {
                     id: true, title: true, price: true, images: true, stock: true, category: true, rating: true,
                     hasVariants: true,
-                    variants: { where: { isActive: true }, orderBy: { price: 'asc' }, take: 1, select: { id: true, name: true, price: true, stock: true, combination: true } }
+                    variants: { where: { isActive: true }, orderBy: { price: 'asc' }, select: { id: true, name: true, price: true, stock: true, combination: true } }
                 }
             },
             serviceType: {
                 select: { id: true, title: true, description: true, icon: true, price: true }
+            },
+            course: {
+                select: { id: true, title: true, description: true, thumbnail: true, durations: { select: { id: true, label: true, totalFee: true }, take: 1, orderBy: { totalFee: 'asc' } } }
             }
         }
     }
@@ -34,10 +38,18 @@ function isActiveBundle(bundle) {
 function enrichBundle(bundle) {
     const itemTotal = bundle.items.reduce((sum, bi) => {
         if (bi.itemType === 'product' && bi.product) {
-            return sum + bi.product.price * bi.quantity;
+            const variant = bi.variantId && bi.product.variants?.length > 0
+                ? bi.product.variants.find(v => v.id === bi.variantId)
+                : null;
+            const unitPrice = variant ? variant.price : bi.product.price;
+            return sum + unitPrice * bi.quantity;
         }
         if (bi.itemType === 'service' && bi.serviceType?.price) {
-            return sum + bi.serviceType.price * bi.quantity;
+            return sum + (parseFloat(bi.serviceType.price) || 0) * bi.quantity;
+        }
+        if (bi.itemType === 'course' && bi.course) {
+            const courseFee = bi.course.durations?.[0]?.totalFee ?? 0;
+            return sum + courseFee * bi.quantity;
         }
         return sum;
     }, 0);
@@ -65,7 +77,7 @@ router.get('/', async (req, res) => {
 
         let active = bundles.filter(isActiveBundle);
         if (displayOn) {
-            active = active.filter(b => b.displayOn.includes(displayOn));
+            active = active.filter(b => Array.isArray(b.displayOn) && b.displayOn.includes(displayOn));
         }
 
         const result = active.map(enrichBundle);
@@ -91,14 +103,121 @@ router.get('/admin', protect, adminOnly, async (req, res) => {
     }
 });
 
-// GET /api/bundles/:id — single bundle
-router.get('/:id', async (req, res) => {
+// GET /api/bundles/suggestions — suggest bundles based on cart product IDs
+router.get('/suggestions', async (req, res) => {
+    try {
+        const productIdsParam = req.query.productIds;
+        if (!productIdsParam) return res.json([]);
+
+        const productIds = productIdsParam.split(',').map(Number).filter(Number.isFinite);
+        if (productIds.length === 0) return res.json([]);
+
+        const bundles = await prisma.bundle.findMany({
+            where: {
+                isActive: true,
+                items: { some: { productId: { in: productIds }, itemType: 'product' } },
+            },
+            include: bundleInclude,
+        });
+
+        const suggestions = bundles.filter(isActiveBundle).map(bundle => {
+            const bundleProductIds = bundle.items.filter(bi => bi.itemType === 'product' && bi.productId).map(bi => bi.productId);
+            const owned = bundleProductIds.filter(pid => productIds.includes(pid));
+            const missing = bundleProductIds.filter(pid => !productIds.includes(pid));
+            if (missing.length === 0 || owned.length === 0) return null;
+            return { ...enrichBundle(bundle), ownedCount: owned.length, totalCount: bundleProductIds.length, missingProductIds: missing };
+        }).filter(Boolean).sort((a, b) => (b.ownedCount / b.totalCount) - (a.ownedCount / a.totalCount));
+
+        res.json(suggestions.slice(0, 3));
+    } catch (error) {
+        console.error('Get bundle suggestions error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/bundles/analytics — bundle performance stats (admin)
+router.get('/analytics', protect, adminOnly, async (req, res) => {
+    try {
+        const bundleOrderItems = await prisma.orderItem.groupBy({
+            by: ['bundleId'],
+            where: { bundleId: { not: null } },
+            _count: { id: true },
+            _sum: { price: true, quantity: true },
+        });
+
+        const templateOrderItems = await prisma.orderItem.groupBy({
+            by: ['bundleTemplateId'],
+            where: { bundleTemplateId: { not: null } },
+            _count: { id: true },
+            _sum: { price: true, quantity: true },
+        });
+
+        const bundleIds = bundleOrderItems.map(b => b.bundleId).filter(Number.isFinite);
+        const templateIds = templateOrderItems.map(t => t.bundleTemplateId).filter(Number.isFinite);
+
+        const [bundles, templates] = await Promise.all([
+            bundleIds.length > 0 ? prisma.bundle.findMany({ where: { id: { in: bundleIds } }, select: { id: true, name: true, bundlePrice: true, image: true } }) : [],
+            templateIds.length > 0 ? prisma.bundleTemplate.findMany({ where: { id: { in: templateIds } }, select: { id: true, name: true, discount: true, image: true } }) : [],
+        ]);
+
+        const bundleMap = Object.fromEntries(bundles.map(b => [b.id, b]));
+        const templateMap = Object.fromEntries(templates.map(t => [t.id, t]));
+
+        const fixedBundleStats = bundleOrderItems.map(row => ({
+            type: 'fixed',
+            bundleId: row.bundleId,
+            name: bundleMap[row.bundleId]?.name || `Bundle #${row.bundleId}`,
+            image: bundleMap[row.bundleId]?.image || null,
+            unitsSold: row._sum.quantity || 0,
+            lineItems: row._count.id,
+            revenue: row._sum.price || 0,
+        }));
+
+        const templateStats = templateOrderItems.map(row => ({
+            type: 'byob',
+            templateId: row.bundleTemplateId,
+            name: templateMap[row.bundleTemplateId]?.name || `Template #${row.bundleTemplateId}`,
+            image: templateMap[row.bundleTemplateId]?.image || null,
+            unitsSold: row._sum.quantity || 0,
+            lineItems: row._count.id,
+            revenue: row._sum.price || 0,
+        }));
+
+        res.json({ fixedBundles: fixedBundleStats, byobTemplates: templateStats });
+    } catch (error) {
+        console.error('Get bundle analytics error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/bundles/by-slug/:slug — single bundle by slug
+router.get('/by-slug/:slug', async (req, res) => {
     try {
         const bundle = await prisma.bundle.findUnique({
-            where: { id: parseInt(req.params.id) },
+            where: { slug: req.params.slug },
             include: bundleInclude,
         });
         if (!bundle) return res.status(404).json({ error: 'Bundle not found' });
+        if (!isActiveBundle(bundle)) return res.status(404).json({ error: 'Bundle not found' });
+        res.json(enrichBundle(bundle));
+    } catch (error) {
+        console.error('Get bundle by slug error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/bundles/:id — single bundle (only active/unexpired for public access)
+router.get('/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid bundle ID' });
+
+        const bundle = await prisma.bundle.findUnique({
+            where: { id },
+            include: bundleInclude,
+        });
+        if (!bundle) return res.status(404).json({ error: 'Bundle not found' });
+        if (!isActiveBundle(bundle)) return res.status(404).json({ error: 'Bundle not found' });
         res.json(enrichBundle(bundle));
     } catch (error) {
         console.error('Get bundle error:', error);
@@ -131,32 +250,48 @@ router.get('/for-product/:productId', async (req, res) => {
     }
 });
 
+function generateSlug(name) {
+    return name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
 // POST /api/bundles — create bundle (admin)
 router.post('/', protect, adminOnly, async (req, res) => {
     try {
-        const { name, description, image, bundlePrice, displayOn, startDate, endDate, items } = req.body;
+        const { name, description, image, bundlePrice, displayOn, startDate, endDate, items, isGiftable, slug: customSlug } = req.body;
 
         if (!name || bundlePrice === undefined) {
             return res.status(400).json({ error: 'Name and bundlePrice are required' });
         }
 
+        let slug = customSlug || generateSlug(name);
+        const existingSlug = await prisma.bundle.findUnique({ where: { slug } });
+        if (existingSlug) slug = `${slug}-${Date.now()}`;
+
         const bundle = await prisma.bundle.create({
             data: {
                 name,
+                slug,
                 description: description || null,
                 image: image || null,
                 bundlePrice: parseFloat(bundlePrice),
+                isGiftable: isGiftable || false,
                 displayOn: Array.isArray(displayOn) ? displayOn : ['home'],
                 startDate: startDate ? new Date(startDate) : null,
                 endDate: endDate ? new Date(endDate) : null,
                 items: {
-                    create: (items || []).map(item => ({
+                    create: (items || []).map((item, idx) => ({
                         productId: item.productId ? parseInt(item.productId) : null,
                         variantId: item.variantId ? parseInt(item.variantId) : null,
                         quantity: parseInt(item.quantity) || 1,
                         serviceTypeId: item.serviceTypeId ? parseInt(item.serviceTypeId) : null,
                         courseId: item.courseId ? parseInt(item.courseId) : null,
                         itemType: item.itemType || 'product',
+                        position: idx,
                     })),
                 },
             },
@@ -181,7 +316,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
     try {
         const bundleId = parseInt(req.params.id);
-        const { name, description, image, bundlePrice, isActive, displayOn, startDate, endDate, items } = req.body;
+        if (!Number.isFinite(bundleId)) return res.status(400).json({ error: 'Invalid bundle ID' });
+
+        const { name, description, image, bundlePrice, isActive, isGiftable, displayOn, startDate, endDate, items } = req.body;
 
         const updateData = {};
         if (name !== undefined) updateData.name = name;
@@ -189,29 +326,33 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         if (image !== undefined) updateData.image = image;
         if (bundlePrice !== undefined) updateData.bundlePrice = parseFloat(bundlePrice);
         if (isActive !== undefined) updateData.isActive = isActive;
+        if (isGiftable !== undefined) updateData.isGiftable = isGiftable;
         if (displayOn !== undefined) updateData.displayOn = displayOn;
         if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
         if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
 
-        const bundle = await prisma.bundle.update({
-            where: { id: bundleId },
-            data: updateData,
-        });
-
-        if (Array.isArray(items)) {
-            await prisma.bundleItem.deleteMany({ where: { bundleId } });
-            await prisma.bundleItem.createMany({
-                data: items.map(item => ({
-                    bundleId,
-                    productId: item.productId ? parseInt(item.productId) : null,
-                    variantId: item.variantId ? parseInt(item.variantId) : null,
-                    quantity: parseInt(item.quantity) || 1,
-                    serviceTypeId: item.serviceTypeId ? parseInt(item.serviceTypeId) : null,
-                    courseId: item.courseId ? parseInt(item.courseId) : null,
-                    itemType: item.itemType || 'product',
-                })),
+        await prisma.$transaction(async (tx) => {
+            await tx.bundle.update({
+                where: { id: bundleId },
+                data: updateData,
             });
-        }
+
+            if (Array.isArray(items)) {
+                await tx.bundleItem.deleteMany({ where: { bundleId } });
+                await tx.bundleItem.createMany({
+                    data: items.map((item, idx) => ({
+                        bundleId,
+                        productId: item.productId ? parseInt(item.productId) : null,
+                        variantId: item.variantId ? parseInt(item.variantId) : null,
+                        quantity: parseInt(item.quantity) || 1,
+                        serviceTypeId: item.serviceTypeId ? parseInt(item.serviceTypeId) : null,
+                        courseId: item.courseId ? parseInt(item.courseId) : null,
+                        itemType: item.itemType || 'product',
+                        position: idx,
+                    })),
+                });
+            }
+        });
 
         const updated = await prisma.bundle.findUnique({
             where: { id: bundleId },
@@ -227,6 +368,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 
         res.json(enrichBundle(updated));
     } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Bundle not found' });
+        }
         console.error('Update bundle error:', error);
         res.status(500).json({ error: 'Server error' });
     }

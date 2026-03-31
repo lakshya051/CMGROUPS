@@ -5,6 +5,9 @@ import { PlayCircle, CheckCircle, ArrowLeft, Lock, FileText, Download } from 'lu
 import { coursesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
 
+const isHttpMaterialUrl = (u) =>
+    typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
+
 const CoursePlayer = () => {
     const { id } = useParams();
     const [loading, setLoading] = useState(true);
@@ -12,22 +15,26 @@ const CoursePlayer = () => {
     const [activeMaterialId, setActiveMaterialId] = useState(null);
 
     useEffect(() => {
+        let cancelled = false;
         const fetchCourseData = async () => {
             try {
                 const data = await coursesAPI.getCoursePlayer(id);
+                if (cancelled) return;
                 setCourseData(data);
                 if (data.course.materials?.length > 0) {
                     setActiveMaterialId(data.course.materials[0].id);
                 }
             } catch (error) {
+                if (cancelled) return;
                 console.error('Failed to fetch player data:', error);
                 toast.error(error.message || 'Failed to load course player');
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
         fetchCourseData();
+        return () => { cancelled = true; };
     }, [id]);
 
     if (loading) return (
@@ -63,19 +70,26 @@ const CoursePlayer = () => {
                         <>
                             {activeMaterial.fileType === 'Video' ? (
                                 <div className="aspect-video bg-black rounded-lg justify-center flex items-center relative overflow-hidden group shadow-sm">
-                                    {/* Usually an iframe or video tag goes here */}
-                                    <video src={activeMaterial.fileUrl} controls className="w-full h-full object-cover">
-                                        Your browser does not support the video tag.
-                                    </video>
+                                    {isHttpMaterialUrl(activeMaterial.fileUrl) ? (
+                                        <video src={activeMaterial.fileUrl} controls className="w-full h-full object-cover">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    ) : (
+                                        <p className="text-white text-sm px-4 text-center">This video link is not available or is invalid.</p>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="aspect-video bg-surface rounded-lg border border-border-default flex flex-col items-center justify-center p-lg text-center shadow-sm">
                                     <FileText size={48} className="text-trust mb-sm" />
                                     <h3 className="text-xl font-bold mb-xs text-text-primary">{activeMaterial.title}</h3>
                                     <p className="text-sm text-text-secondary mb-md">{activeMaterial.description || 'View document contents attached to this material.'}</p>
-                                    <a href={activeMaterial.fileUrl} target="_blank" rel="noopener noreferrer">
-                                        <Button variant="outline"><Download size={18} className="mr-xs" /> Download / View Document</Button>
-                                    </a>
+                                    {isHttpMaterialUrl(activeMaterial.fileUrl) ? (
+                                        <a href={activeMaterial.fileUrl} target="_blank" rel="noopener noreferrer">
+                                            <Button variant="outline"><Download size={18} className="mr-xs" /> Download / View Document</Button>
+                                        </a>
+                                    ) : (
+                                        <p className="text-sm text-text-muted">Document link is not available.</p>
+                                    )}
                                 </div>
                             )}
 

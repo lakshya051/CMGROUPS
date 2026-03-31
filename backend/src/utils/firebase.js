@@ -18,8 +18,12 @@ function getCredential() {
     }
     const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
         ?? path.join(__dirname, '..', 'serviceAccountKey.json');
-    const serviceAccount = JSON.parse(readFileSync(keyPath, 'utf8'));
-    return admin.credential.cert(serviceAccount);
+    try {
+        const serviceAccount = JSON.parse(readFileSync(keyPath, 'utf8'));
+        return admin.credential.cert(serviceAccount);
+    } catch (err) {
+        throw new Error(`Failed to load Firebase service account from ${keyPath}: ${err.message}`);
+    }
 }
 
 if (!admin.apps.length) {

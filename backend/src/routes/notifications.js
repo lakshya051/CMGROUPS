@@ -91,10 +91,11 @@ router.get('/', protect, async (req, res) => {
 router.patch('/:id/read', protect, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
-        await prisma.notification.updateMany({
+        const result = await prisma.notification.updateMany({
             where: { id, userId: req.user.id }, // Ensure ownership
             data: { isRead: true }
         });
+        if (result.count === 0) return res.status(404).json({ error: 'Notification not found' });
         res.json({ success: true });
     } catch (error) {
         console.error('Mark notification read error:', error);

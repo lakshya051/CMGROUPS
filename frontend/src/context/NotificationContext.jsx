@@ -85,7 +85,7 @@ export const NotificationProvider = ({ children }) => {
             setNotifications(prev => {
                 const target = prev.find(n => n.id === id);
                 if (target && !target.isRead) {
-                    setUnreadCount(c => Math.max(0, c - 1));
+                    queueMicrotask(() => setUnreadCount(c => Math.max(0, c - 1)));
                 }
                 return prev.filter(n => n.id !== id);
             });

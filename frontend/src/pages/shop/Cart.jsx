@@ -3,15 +3,16 @@ import { useShop } from '../../context/ShopContext'
 import { Link, useNavigate } from 'react-router-dom'
 import { QuantitySelector, ProgressBar, EmptyState, SkeletonCard } from '../../components/ui/index'
 import PriceDisplay from '../../components/common/PriceDisplay'
-import { ShoppingCart, Tag, Bookmark, ArrowRight, Zap } from 'lucide-react'
-import { couponsAPI, productsAPI } from '../../lib/api'
+import { ShoppingCart, Tag, Bookmark, ArrowRight, Zap, Layers, ChevronDown, ChevronUp, Trash2, Wrench, Package } from 'lucide-react'
+import { couponsAPI, productsAPI, bundlesAPI } from '../../lib/api'
 import { FREE_DELIVERY_THRESHOLD, EMI_MINIMUM_ORDER, SAVED_LATER_STORAGE_KEY } from '../../constants'
 import { handleImageError } from '../../utils/image'
+import { computeBundleAwareSubtotal, computeBundleSavings } from '../../utils/bundleUtils'
 import { useSEO } from '../../hooks/useSEO'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 
 const Cart = () => {
-    const { cart, cartLoading, addToCart, removeFromCart, updateCartQuantity, coupon, applyCoupon, removeCoupon } = useShop()
+    const { cart, cartLoading, addToCart, removeFromCart, removeBundleFromCart, updateCartQuantity, coupon, applyCoupon, removeCoupon } = useShop()
     const navigate = useNavigate()
     useSEO({ title: 'Your Cart — Shoptify', description: 'Review your shopping cart before checkout.', noIndex: true })
 
@@ -30,6 +31,7 @@ const Cart = () => {
 
     // Cross-sell products
     const [crossSell, setCrossSell] = useState([])
+    const [bundleSuggestions, setBundleSuggestions] = useState([])
     const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null })
 
     useEffect(() => {
@@ -38,18 +40,26 @@ const Cart = () => {
 
     // Fetch cross-sell when cart changes
     useEffect(() => {
-        if (cart.length === 0) { setCrossSell([]); return }
+        if (cart.length === 0) { setCrossSell([]); setBundleSuggestions([]); return }
+        const productIds = [...new Set(cart.map(i => i.productId || i.id).filter(Boolean))]
+
         productsAPI.getAll({ limit: 8 })
             .then(res => {
                 const ids = new Set(cart.map(i => i.id))
                 const items = (res.data || res || []).filter(p => !ids.has(p.id)).slice(0, 6)
                 setCrossSell(items)
             })
-            .catch(() => { })
+            .catch((err) => { console.error('Failed to load cross-sell products:', err); })
+
+        if (productIds.length > 0) {
+            bundlesAPI.getSuggestions(productIds)
+                .then(setBundleSuggestions)
+                .catch(() => setBundleSuggestions([]))
+        }
     }, [cart.length])
 
     const subtotal = useMemo(
-        () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
+        () => computeBundleAwareSubtotal(cart),
         [cart]
     )
 
@@ -66,6 +76,8 @@ const Cart = () => {
             return s
         }, 0)
     }, [cart])
+
+    const bundleSavings = useMemo(() => computeBundleSavings(cart), [cart])
 
     const outOfStockItems = useMemo(
         () => cart.filter(item => item.stock != null && item.stock <= 0),
@@ -86,19 +98,40 @@ const Cart = () => {
         setCouponLoading(true)
         setCouponError('')
         try {
-            const data = await couponsAPI.validate(couponCode)
+            const cartItemsSummary = cart.map(item => ({
+                productId: item.productId || null,
+                serviceTypeId: item.serviceTypeId || null,
+                courseId: item.courseId || null,
+                bundleId: item.bundleId || item.bundleInfo?.bundleId || null,
+            }))
+            const data = await couponsAPI.validate(couponCode, cartItemsSummary)
             if (data.valid) {
+                let applicableSubtotal = subtotal
+                if (data.applicableTo && data.applicableTo !== 'all') {
+                    applicableSubtotal = cart.reduce((sum, item) => {
+                        const isBundle = !!(item.bundleId || item.bundleInfo?.bundleId)
+                        const isService = !!item.serviceTypeId
+                        const isCourse = !!item.courseId
+                        const isProduct = !!item.productId && !isBundle
+                        let matches = false
+                        if (data.applicableTo === 'bundles') matches = isBundle
+                        else if (data.applicableTo === 'products') matches = isProduct
+                        else if (data.applicableTo === 'services') matches = isService
+                        else if (data.applicableTo === 'courses') matches = isCourse
+                        return matches ? sum + (item.price * item.quantity) : sum
+                    }, 0)
+                }
                 const disc = data.discountType === 'percent'
-                    ? subtotal * (data.value / 100)
-                    : data.value
-                applyCoupon({ code: data.code, discount: disc, discountType: data.discountType, value: data.value })
+                    ? applicableSubtotal * (data.value / 100)
+                    : Math.min(data.value, applicableSubtotal)
+                applyCoupon({ code: data.code, discount: disc, discountType: data.discountType, value: data.value, applicableTo: data.applicableTo })
                 setCouponCode('')
             } else {
                 setCouponError(data.message || 'Invalid or expired coupon code')
                 removeCoupon()
             }
-        } catch {
-            setCouponError('Invalid or expired coupon code')
+        } catch (err) {
+            setCouponError(err?.message || 'Invalid or expired coupon code')
             removeCoupon()
         } finally {
             setCouponLoading(false)
@@ -220,18 +253,52 @@ const Cart = () => {
                 {/* Left: Cart Items + Save for Later */}
                 <div className="w-full min-w-0 lg:w-[68%] space-y-md">
                     {cart.length > 0 ? (
-                        cart.map(item => (
-                            <CartItemRow
-                                key={item.uniqueId}
-                                item={item}
-                                onQuantityChange={handleQuantityChange}
-                                onRemove={() => requestRemoveFromCart(item.uniqueId)}
-                                onSaveForLater={() => handleSaveForLater(item)}
-                            />
-                        ))
+                        <CartItemsList
+                            cart={cart}
+                            onQuantityChange={handleQuantityChange}
+                            onRemove={requestRemoveFromCart}
+                            onSaveForLater={handleSaveForLater}
+                            onRemoveBundle={removeBundleFromCart}
+                        />
                     ) : (
                         <div className="bg-surface border border-border-default rounded-lg p-lg text-center">
                             <p className="text-sm text-text-secondary">Your cart is empty. Check your saved items below!</p>
+                        </div>
+                    )}
+
+                    {/* Bundle Suggestions */}
+                    {bundleSuggestions.length > 0 && (
+                        <div className="mt-md">
+                            <h3 className="text-sm font-bold text-text-primary mb-sm flex items-center gap-1.5">
+                                <Package size={14} className="text-trust" />
+                                Complete a Bundle &amp; Save More
+                            </h3>
+                            <div className="space-y-sm">
+                                {bundleSuggestions.map(bundle => (
+                                    <Link
+                                        key={bundle.id}
+                                        to={`/bundles/${bundle.slug || bundle.id}`}
+                                        className="block bg-trust/5 border border-trust/20 rounded-lg p-3 hover:border-trust/40 transition-colors"
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-text-primary truncate">{bundle.name}</p>
+                                                <p className="text-xs text-text-muted mt-0.5">
+                                                    You have {bundle.ownedCount} of {bundle.totalCount} items
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0 text-right">
+                                                {bundle.savingsPercent > 0 && (
+                                                    <span className="text-xs font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">
+                                                        Save {bundle.savingsPercent}%
+                                                    </span>
+                                                )}
+                                                <p className="text-sm font-bold text-primary mt-0.5">₹{bundle.bundlePrice?.toLocaleString('en-IN')}</p>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -332,6 +399,12 @@ const Cart = () => {
                                     <div className="flex justify-between">
                                         <span className="text-deal">Savings</span>
                                         <span className="text-deal font-medium">−₹{savings.toLocaleString('en-IN')}</span>
+                                    </div>
+                                )}
+                                {bundleSavings > 0 && (
+                                    <div className="flex justify-between text-success">
+                                        <span className="flex items-center gap-1"><Layers size={12} /> Bundle Discount</span>
+                                        <span className="font-medium">−₹{bundleSavings.toLocaleString('en-IN')}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between gap-sm">
@@ -471,6 +544,155 @@ const Cart = () => {
     )
 }
 
+// ─── CartItemsList — groups bundle items together ─────────────────
+function CartItemsList({ cart, onQuantityChange, onRemove, onSaveForLater, onRemoveBundle }) {
+    const { bundleGroups, standaloneItems } = useMemo(() => {
+        const groups = {}
+        const standalone = []
+        for (const item of cart) {
+            const instId = item.bundleInfo?.bundleInstanceId
+            if (instId) {
+                if (!groups[instId]) groups[instId] = { items: [], bundleInfo: item.bundleInfo }
+                groups[instId].items.push(item)
+            } else {
+                standalone.push(item)
+            }
+        }
+        return { bundleGroups: Object.entries(groups), standaloneItems: standalone }
+    }, [cart])
+
+    return (
+        <div className="space-y-md">
+            {bundleGroups.map(([instanceId, group]) => (
+                <BundleGroupCard
+                    key={instanceId}
+                    instanceId={instanceId}
+                    bundleInfo={group.bundleInfo}
+                    items={group.items}
+                    onRemoveBundle={onRemoveBundle}
+                />
+            ))}
+            {standaloneItems.map(item => (
+                <CartItemRow
+                    key={item.uniqueId}
+                    item={item}
+                    onQuantityChange={onQuantityChange}
+                    onRemove={() => onRemove(item.uniqueId)}
+                    onSaveForLater={() => onSaveForLater(item)}
+                />
+            ))}
+        </div>
+    )
+}
+
+// ─── BundleGroupCard — grouped bundle display in cart ─────────────
+function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
+    const [expanded, setExpanded] = useState(false)
+    const navigate = useNavigate()
+    const catalogTotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
+    const bundlePrice = bundleInfo.bundlePrice ?? catalogTotal
+    const savings = Math.max(0, catalogTotal - bundlePrice)
+    const isByob = String(bundleInfo.bundleId).startsWith('byob-')
+    const hasService = bundleInfo.hasService
+
+    return (
+        <div className="rounded-lg border border-trust/30 bg-trust/[0.02] overflow-hidden">
+            <div className="p-3 sm:p-md">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-trust/10 flex items-center justify-center shrink-0">
+                            <Layers size={16} className="text-trust" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-bold text-text-primary truncate">
+                                {bundleInfo.bundleName || 'Bundle'}
+                            </p>
+                            <p className="text-xs text-text-muted">{items.length} item{items.length !== 1 ? 's' : ''}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                            {savings > 0 && (
+                                <p className="text-xs text-text-muted line-through">₹{catalogTotal.toLocaleString('en-IN')}</p>
+                            )}
+                            <p className="text-base font-bold text-text-primary">₹{bundlePrice.toLocaleString('en-IN')}</p>
+                            {savings > 0 && (
+                                <p className="text-[10px] font-semibold text-success">You save ₹{savings.toLocaleString('en-IN')}</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {hasService && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-trust font-medium bg-trust/5 rounded px-2 py-1 w-fit">
+                        <Wrench size={11} />
+                        Includes service — schedule after purchase
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => setExpanded(!expanded)}
+                    className="mt-2 flex items-center gap-1 text-xs text-trust font-medium hover:underline"
+                >
+                    {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {expanded ? 'Hide items' : 'View items'}
+                </button>
+            </div>
+
+            {expanded && (
+                <div className="border-t border-trust/10 divide-y divide-border-default">
+                    {items.map(item => (
+                        <div key={item.uniqueId} className="flex gap-3 p-3 sm:px-md">
+                            <div className="w-12 h-12 bg-page-bg border border-border-default rounded flex items-center justify-center p-0.5 shrink-0">
+                                <img
+                                    src={item.images?.[0] || item.image}
+                                    alt={item.title}
+                                    loading="lazy"
+                                    onError={handleImageError}
+                                    className="w-full h-full object-contain"
+                                />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <Link to={`/products/${item.id}`} className="text-xs font-medium text-text-primary hover:text-trust line-clamp-1">
+                                    {item.title}
+                                </Link>
+                                {item.variantName && item.variantName !== 'Standard' && (
+                                    <p className="text-[10px] text-text-muted">{item.variantName}</p>
+                                )}
+                                <p className="text-xs text-text-muted">Qty: {item.quantity}</p>
+                            </div>
+                            <p className="text-xs font-medium text-text-primary shrink-0">
+                                ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div className="border-t border-trust/10 px-3 sm:px-md py-2 flex items-center gap-2 justify-end">
+                {isByob && (
+                    <button
+                        type="button"
+                        onClick={() => navigate('/')}
+                        className="text-xs font-medium text-trust hover:underline px-2 py-1"
+                    >
+                        Edit Bundle
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={() => onRemoveBundle(instanceId)}
+                    className="flex items-center gap-1 text-xs font-medium text-deal hover:text-deal/80 px-2 py-1"
+                >
+                    <Trash2 size={12} />
+                    Remove Bundle
+                </button>
+            </div>
+        </div>
+    )
+}
+
 // ─── CartItemRow ──────────────────────────────────────────────────
 function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
     const inStock = item.stock == null || item.stock > 0
@@ -510,6 +732,12 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
                                     Variant: <span className="text-text-secondary">{item.variantName}</span>
                                 </p>
                             ) : null}
+
+                            {item.bundleInfo?.bundleName && (
+                                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold text-trust bg-trust/10 px-1.5 py-0.5 rounded">
+                                    <Layers size={10} /> {item.bundleInfo.bundleName}
+                                </span>
+                            )}
 
                             {!inStock ? (
                                 <div className="mt-1.5">
