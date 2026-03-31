@@ -3,7 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     X, UserCircle, Store, Heart, ShoppingBag, Wrench,
     GraduationCap, FileText, Shield, LayoutDashboard,
-    Settings, Gift, LogOut, LogIn, ChevronRight, Download
+    Settings, Gift, LogOut, LogIn, ChevronRight, Download,
+    Building2, HelpCircle, Phone, Bell, Layers,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
@@ -49,6 +50,7 @@ const MobileDrawer = ({ isOpen, onClose }) => {
             label: 'SHOPPING',
             links: [
                 { name: 'Products', path: '/products', icon: Store },
+                { name: 'Bundle Deals', path: '/bundles', icon: Layers },
                 { name: 'Wishlist', path: '/wishlist', icon: Heart },
                 { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
             ]
@@ -70,15 +72,24 @@ const MobileDrawer = ({ isOpen, onClose }) => {
             links: [
                 { name: 'Tally Prime', path: '/tally-erp', icon: FileText },
                 { name: 'CCTV Security', path: '/cctv', icon: Shield },
+                { name: 'Our Companies', path: '/our-companies', icon: Building2 },
             ]
         },
         {
             label: 'ACCOUNT',
             links: user ? [
                 { name: 'Dashboard', path: user.role === 'admin' ? '/admin' : '/dashboard', icon: LayoutDashboard },
+                { name: 'Notifications', path: '/notifications', icon: Bell },
                 { name: 'Settings', path: '/dashboard/settings', icon: Settings },
                 { name: 'Referrals', path: '/dashboard/referrals', icon: Gift },
             ] : []
+        },
+        {
+            label: 'HELP',
+            links: [
+                { name: 'Contact Us', path: '/contact', icon: Phone },
+                { name: 'FAQ & Help', path: '/faq', icon: HelpCircle },
+            ]
         },
     ];
 
@@ -95,6 +106,9 @@ const MobileDrawer = ({ isOpen, onClose }) => {
 
             {/* Drawer Panel */}
             <aside
+                role="dialog"
+                aria-modal="true"
+                aria-label="Navigation menu"
                 className={`fixed inset-y-0 left-0 w-4/5 max-w-sm z-[70] bg-surface overflow-y-auto transform transition-transform duration-300 ${
                     isOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
@@ -118,7 +132,7 @@ const MobileDrawer = ({ isOpen, onClose }) => {
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-white/80 hover:text-white transition-colors p-1"
+                        className="text-white/80 hover:text-white transition-colors p-2 touch-manipulation"
                         aria-label="Close menu"
                     >
                         <X size={22} />

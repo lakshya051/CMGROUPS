@@ -31,14 +31,15 @@ const Wishlist = () => {
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="flex items-center gap-3 mb-8">
-                <Heart size={32} className="text-primary fill-primary" />
-                <h1 className="text-3xl font-heading font-bold">My Wishlist</h1>
-                <span className="text-text-muted text-lg">({wishlistItems.length})</span>
+            <div className="flex items-center gap-3 mb-4 sm:mb-8">
+                <Heart size={24} className="text-primary fill-primary sm:hidden" />
+                <Heart size={32} className="text-primary fill-primary hidden sm:block" />
+                <h1 className="text-xl sm:text-3xl font-heading font-bold">My Wishlist</h1>
+                <span className="text-text-muted text-sm sm:text-lg">({wishlistItems.length})</span>
             </div>
 
             {wishlistItems.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                     {wishlistItems.map(product => (
                         <ProductCard key={product.id} product={product} />
                     ))}

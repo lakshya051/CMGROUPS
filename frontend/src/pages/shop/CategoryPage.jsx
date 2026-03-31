@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSEO } from '../../hooks/useSEO';
-import { categoriesAPI, productsAPI } from '../../lib/api';
+import { categoriesAPI, productsAPI, bundlesAPI } from '../../lib/api';
 import ProductCard from '../../components/shop/ProductCard';
-import { ArrowLeft } from 'lucide-react';
+import BundleCard from '../../components/shop/BundleCard';
+import { ArrowLeft, Layers } from 'lucide-react';
 
 export default function CategoryPage() {
     const { slug } = useParams();
@@ -11,6 +12,7 @@ export default function CategoryPage() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [allBundles, setAllBundles] = useState([]);
 
     useSEO({
         title: category ? `${category.name} — Shoptify` : 'Category — Shoptify',
@@ -18,18 +20,35 @@ export default function CategoryPage() {
     });
 
     useEffect(() => {
+        let cancelled = false;
         setLoading(true);
         setError(null);
 
         categoriesAPI.getBySlug(slug)
             .then(cat => {
+                if (cancelled) return;
                 setCategory(cat);
                 return productsAPI.getAll({ category: cat.name, limit: 40 });
             })
-            .then(res => setProducts(res.data || []))
-            .catch(() => setError('Category not found'))
-            .finally(() => setLoading(false));
+            .then(res => { if (!cancelled && res) setProducts(res.data || []); })
+            .catch(() => { if (!cancelled) setError('Category not found'); })
+            .finally(() => { if (!cancelled) setLoading(false); });
+
+        bundlesAPI.getAll()
+            .then(b => { if (!cancelled) setAllBundles(b || []); })
+            .catch(() => { if (!cancelled) setAllBundles([]); });
+
+        return () => { cancelled = true; };
     }, [slug]);
+
+    const categoryBundles = useMemo(() => {
+        if (!category || !allBundles.length) return [];
+        return allBundles.filter(b =>
+            b.items?.some(bi =>
+                bi.itemType === 'product' && bi.product?.category === category.name
+            )
+        ).slice(0, 4);
+    }, [category, allBundles]);
 
     if (loading) {
         return (
@@ -69,13 +88,35 @@ export default function CategoryPage() {
                     />
                 )}
                 <div className="relative z-10">
-                    <h1 className="text-3xl font-heading font-bold text-text-primary mb-2">{category.name}</h1>
+                    <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-primary mb-2">{category.name}</h1>
                     {category.description && (
                         <p className="text-text-secondary max-w-2xl">{category.description}</p>
                     )}
                     <p className="text-sm text-text-muted mt-2">{products.length} product{products.length !== 1 ? 's' : ''}</p>
                 </div>
             </div>
+
+            {/* Category Bundles */}
+            {categoryBundles.length > 0 && (
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+                            <Layers size={16} className="text-trust" />
+                            Bundles in {category.name}
+                        </h2>
+                        <Link to="/bundles" className="text-xs text-trust font-semibold hover:underline">
+                            View All Bundles
+                        </Link>
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-hide -mx-1 px-1">
+                        {categoryBundles.map(bundle => (
+                            <div key={bundle.id} className="snap-start flex-shrink-0">
+                                <BundleCard bundle={bundle} compact />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Products Grid */}
             {products.length === 0 ? (

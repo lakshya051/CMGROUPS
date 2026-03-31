@@ -3,9 +3,10 @@ import { MAX_CART_QUANTITY } from '../../constants'
 
 // ─── 1. StarRating ──────────────────────────────────────────────────────────────
 export function StarRating({ rating, count }) {
+  const safeRating = Number(rating) || 0
   const stars = Array.from({ length: 5 }, (_, i) => {
-    if (i < Math.floor(rating)) return 'full'
-    if (i < rating) return 'partial'
+    if (i < Math.floor(safeRating)) return 'full'
+    if (i < safeRating) return 'partial'
     return 'empty'
   })
 
@@ -21,10 +22,10 @@ export function StarRating({ rating, count }) {
           </span>
         ))}
       </div>
-      <span className="text-xs text-trust">{rating}</span>
-      {count != null && (
+      <span className="text-xs text-trust">{safeRating}</span>
+      {count != null && Number.isFinite(Number(count)) && (
         <span className="text-xs text-text-muted">
-          ({count.toLocaleString('en-IN')})
+          ({Number(count).toLocaleString('en-IN')})
         </span>
       )}
     </div>
@@ -109,7 +110,8 @@ const COLOR_MAP = {
 }
 
 export function ProgressBar({ value, max, color = 'buy-primary' }) {
-  const pct = Math.min(100, Math.round((value / max) * 100))
+  const rawPct = max > 0 ? (value / max) * 100 : 0
+  const pct = Math.min(100, Math.round(Number.isFinite(rawPct) ? rawPct : 0))
   const bgClass = COLOR_MAP[color] || 'bg-buy-primary'
 
   return (
@@ -134,7 +136,7 @@ export function EmptyState({ icon: Icon, title, subtitle, ctaLabel, onCta }) {
       {ctaLabel && onCta && (
         <button
           onClick={onCta}
-          className="mt-sm bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold px-lg py-sm rounded transition-colors duration-base"
+          className="mt-sm bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold px-lg py-3 rounded-lg transition-colors duration-base touch-manipulation"
         >
           {ctaLabel}
         </button>

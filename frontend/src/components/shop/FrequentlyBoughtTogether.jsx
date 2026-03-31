@@ -51,7 +51,7 @@ const FrequentlyBoughtTogether = ({ product }) => {
     if (fbtProducts.length === 0) return null;
 
     const selectedProducts = fbtProducts.filter(p => checked[p.id]);
-    const combinedPrice = product.price + selectedProducts.reduce((s, p) => s + p.price, 0);
+    const combinedPrice = (Number(product.price) || 0) + selectedProducts.reduce((s, p) => s + (Number(p.price) || 0), 0);
 
     const toggleCheck = (id) => {
         setChecked(prev => ({ ...prev, [id]: !prev[id] }));

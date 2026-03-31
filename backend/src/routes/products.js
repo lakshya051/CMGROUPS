@@ -13,7 +13,7 @@ const router = express.Router();
 //   ?isSecondHand=true
 router.get('/', async (req, res) => {
     try {
-        const { category, search, sort, minPrice, maxPrice, isSecondHand, onSale, page, limit } = req.query;
+        const { category, search, sort, minPrice, maxPrice, isSecondHand, onSale, isDeal, page, limit } = req.query;
 
         // Build where clause
         let where = { isActive: true };
@@ -23,6 +23,7 @@ router.get('/', async (req, res) => {
             if (categories.length > 0) where.category = { in: categories };
         }
         if (isSecondHand !== undefined) where.isSecondHand = isSecondHand === 'true';
+        if (isDeal === 'true') where.isDeal = true;
         if (search) where.title = { contains: search, mode: 'insensitive' };
         if (minPrice || maxPrice) {
             where.price = {};
@@ -63,7 +64,7 @@ router.get('/', async (req, res) => {
         const parsedPage = Number.parseInt(page, 10);
         const parsedLimit = Number.parseInt(limit, 10);
         const cachePage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-        const cacheLimit = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
+        const cacheLimit = Math.max(1, Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 500) : 20);
         const cacheKeyData = { ...req.query, page: cachePage, limit: cacheLimit };
         const cacheKey = `products:${JSON.stringify(cacheKeyData)}`;
 
@@ -494,6 +495,35 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
         res.json(product);
     } catch (error) {
         console.error('Update product error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PATCH /api/products/:id/deal (Admin only) — toggle isDeal flag
+router.patch('/:id/deal', protect, adminOnly, async (req, res) => {
+    try {
+        const productId = parseInt(req.params.id);
+        if (Number.isNaN(productId)) return res.status(400).json({ error: 'Invalid product ID' });
+
+        const product = await prisma.product.findUnique({ where: { id: productId } });
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        const updated = await prisma.product.update({
+            where: { id: productId },
+            data: { isDeal: !product.isDeal }
+        });
+
+        cache.delByPrefix('products:');
+
+        logAudit({
+            userId: req.user.id, action: 'UPDATE', entity: 'Product', entityId: productId,
+            details: { field: 'isDeal', before: product.isDeal, after: updated.isDeal },
+            req,
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Toggle deal error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -932,6 +962,9 @@ router.put('/:id/quantity-tiers', protect, adminOnly, async (req, res) => {
 
         res.json(updated);
     } catch (error) {
+        if (error.message && (error.message.includes('valid minQty') || error.message.includes('valid price'))) {
+            return res.status(400).json({ error: error.message });
+        }
         console.error('Update quantity tiers error:', error);
         res.status(500).json({ error: 'Server error' });
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Package, Search, Plus, Trash2, Edit, X, Save, Image, Upload, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Package, Search, Plus, Trash2, Edit, X, Save, Image, Upload, Zap, ToggleLeft, ToggleRight, Flame } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { productsAPI, categoriesAPI, uploadAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
@@ -490,6 +490,17 @@ const AdminProducts = () => {
         });
     };
 
+    const handleToggleDeal = async (product) => {
+        try {
+            const updated = await productsAPI.toggleDeal(product.id);
+            setProducts(prev => prev.map(p => p.id === product.id ? { ...p, isDeal: updated.isDeal } : p));
+            toast.success(updated.isDeal ? `"${product.title}" added to Deal of the Day` : `"${product.title}" removed from Deal of the Day`);
+        } catch (err) {
+            console.error('Failed to toggle deal:', err);
+            toast.error('Failed to update deal status');
+        }
+    };
+
     // Server-side filtering implemented above.
     const displayProducts = products;
 
@@ -620,6 +631,14 @@ const AdminProducts = () => {
                                     </td>
                                     <td className="p-4 text-right">
                                         <div className="flex items-center justify-end gap-xs">
+                                            <button
+                                                onClick={() => handleToggleDeal(product)}
+                                                className={`p-xs rounded transition-colors ${product.isDeal ? 'text-deal bg-deal/10 hover:bg-deal/20' : 'text-text-secondary hover:text-deal hover:bg-deal/10'}`}
+                                                aria-label={product.isDeal ? 'Remove from Deal of the Day' : 'Add to Deal of the Day'}
+                                                title={product.isDeal ? 'Remove from Deal of the Day' : 'Add to Deal of the Day'}
+                                            >
+                                                <Flame size={16} className={product.isDeal ? 'fill-deal' : ''} />
+                                            </button>
                                             <button
                                                 onClick={() => openEditModal(product)}
                                                 className="p-xs hover:text-text-primary transition-colors hover:bg-surface-hover rounded text-text-secondary"

@@ -206,7 +206,7 @@ const OurCompanies = () => {
                                                     <Link
                                                         key={link.path}
                                                         to={link.path}
-                                                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${colors.btn}`}
+                                                        className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors touch-manipulation ${colors.btn}`}
                                                     >
                                                         <LinkIcon size={16} />
                                                         {link.label}

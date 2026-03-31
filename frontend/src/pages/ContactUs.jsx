@@ -35,12 +35,12 @@ export default function ContactUs() {
         }
     };
 
-    const inputClass = 'w-full rounded-xl border border-border-default bg-surface px-4 py-3 text-sm text-text-primary focus:border-trust focus:ring-2 focus:ring-trust/20 outline-none transition-colors';
+    const inputClass = 'w-full rounded-xl border border-border-default bg-surface px-4 py-3 text-base sm:text-sm text-text-primary focus:border-trust focus:ring-2 focus:ring-trust/20 outline-none transition-colors';
 
     return (
-        <div className="container mx-auto px-4 py-12 max-w-5xl animate-in fade-in duration-500">
-            <h1 className="text-3xl font-heading font-bold text-text-primary mb-2">Contact Us</h1>
-            <p className="text-text-muted mb-10">Have a question or need assistance? Reach out to the right team.</p>
+        <div className="container mx-auto px-4 py-6 sm:py-12 max-w-5xl animate-in fade-in duration-500">
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-primary mb-2">Contact Us</h1>
+            <p className="text-text-muted text-sm sm:text-base mb-6 sm:mb-10">Have a question or need assistance? Reach out to the right team.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Contact Info */}

@@ -9,6 +9,7 @@ import {
     GoogleAuthProvider,
     signOut,
     sendEmailVerification,
+    sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { AuthContext } from './AuthContext';
@@ -244,18 +245,11 @@ export const AuthProvider = ({ children }) => {
                 resendVerificationEmail,
                 loginWithGoogle,
                 resetPassword: async (email) => {
-                    const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email }),
+                    if (!auth) throw new Error('Firebase is not configured.');
+                    await sendPasswordResetEmail(auth, email, {
+                        url: `${window.location.origin}/sign-in`,
+                        handleCodeInApp: false,
                     });
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok) {
-                        const err = new Error(data.error || 'Failed to send reset email');
-                        err.code = 'api/reset-failed';
-                        throw err;
-                    }
-                    return data;
                 },
             }}
         >

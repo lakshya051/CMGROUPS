@@ -180,7 +180,7 @@ const ReviewSection = ({ productId }) => {
                                     <button
                                         type="button"
                                         onClick={() => removeImage(idx)}
-                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error"
+                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-error"
                                         aria-label="Remove"
                                     >
                                         <X size={14} />

@@ -66,6 +66,15 @@ export const profileUpdateSchema = Yup.object({
     newPassword: Yup.string()
         .min(6, 'New password must be at least 6 characters')
         .optional(),
+    confirmNewPassword: Yup.string()
+        .when('newPassword', {
+            is: (val) => val && val.length > 0,
+            then: (schema) =>
+                schema
+                    .oneOf([Yup.ref('newPassword')], 'Passwords do not match')
+                    .required('Please confirm your new password'),
+            otherwise: (schema) => schema.optional(),
+        }),
 });
 
 // ─── Checkout ─────────────────────────────────────────────────────────────────

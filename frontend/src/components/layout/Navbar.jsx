@@ -31,7 +31,8 @@ const Navbar = () => {
     const accountTimeout = useRef(null);
 
     useEffect(() => {
-        categoriesAPI.getAll().then(setCategories).catch(console.error);
+        categoriesAPI.getAll().then(setCategories).catch(err => console.error('Failed to load categories:', err));
+        return () => clearTimeout(accountTimeout.current);
     }, []);
 
     useEffect(() => {
@@ -253,6 +254,7 @@ const Navbar = () => {
                             </div>
 
                             <div className="flex flex-1 min-w-0 items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1.5">
+                                <NavLink to="/bundles" label="Bundles" active={isActive('/bundles')} />
                                 <NavLink to="/services" label="Services" active={isActive('/services')} />
                                 <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
                                 <NavLink to="/tally-erp" label="Tally Prime" active={isActive('/tally-erp')} />

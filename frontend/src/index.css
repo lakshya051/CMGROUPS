@@ -64,8 +64,7 @@
     }
 
     .input-field {
-        @apply w-full bg-surface border border-border-default rounded-lg px-4 py-2 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-trust focus:ring-1 focus:ring-trust transition-colors text-sm;
-        /* text-base prevents iOS auto-zoom on input focus */
+        @apply w-full bg-surface border border-border-default rounded-lg px-4 py-2 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-trust focus:ring-1 focus:ring-trust transition-colors text-base sm:text-sm;
     }
 
     /* Auto scroll wrapper for data tables */

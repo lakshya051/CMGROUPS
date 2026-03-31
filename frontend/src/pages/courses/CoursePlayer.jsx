@@ -58,12 +58,12 @@ const CoursePlayer = () => {
     const activeMaterial = materials.find(m => m.id === activeMaterialId);
 
     return (
-        <div className="container mx-auto px-4 py-8 h-[calc(100dvh-64px)] flex flex-col animate-in fade-in">
-            <Link to="/dashboard/courses" className="inline-flex items-center gap-2 text-text-muted hover:text-primary mb-6 transition-colors">
+        <div className="container mx-auto px-4 py-4 sm:py-8 min-h-[calc(100dvh-10rem)] sm:min-h-[calc(100dvh-8rem)] flex flex-col animate-in fade-in pb-20 md:pb-8">
+            <Link to="/dashboard/courses" className="inline-flex items-center gap-2 text-text-muted hover:text-primary mb-4 sm:mb-6 transition-colors text-sm">
                 <ArrowLeft size={18} /> Back to My Learning
             </Link>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-grow">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8 flex-grow">
                 {/* Main Content Area */}
                 <div className="lg:col-span-2 flex flex-col gap-4">
                     {activeMaterial ? (
@@ -109,8 +109,8 @@ const CoursePlayer = () => {
                 </div>
 
                 {/* Playlist Sidebar */}
-                <div className="glass-panel overflow-y-auto max-h-[600px] flex flex-col bg-surface border border-border-default rounded-lg shadow-sm">
-                    <div className="p-sm border-b border-border-default sticky top-0 bg-surface/90 backdrop-blur z-10">
+                <div className="glass-panel overflow-y-auto max-h-[50vh] lg:max-h-[600px] flex flex-col bg-surface border border-border-default rounded-lg shadow-sm">
+                    <div className="p-3 sm:p-sm border-b border-border-default sticky top-0 bg-surface/90 backdrop-blur z-10">
                         <h2 className="font-bold text-base mb-1 text-text-primary">{course.title}</h2>
                         <div className="flex justify-between items-center text-xs text-text-secondary">
                             <span>{materials.length} Materials</span>
@@ -129,7 +129,7 @@ const CoursePlayer = () => {
                                 <li
                                     key={material.id}
                                     onClick={() => setActiveMaterialId(material.id)}
-                                    className={`p-sm flex items-center gap-sm cursor-pointer hover:bg-surface-hover transition-colors ${activeMaterialId === material.id ? 'bg-surface-hover border-l-2 border-trust' : ''}`}
+                                    className={`p-3 sm:p-sm flex items-center gap-sm cursor-pointer hover:bg-surface-hover transition-colors min-h-[44px] ${activeMaterialId === material.id ? 'bg-surface-hover border-l-2 border-trust' : ''}`}
                                 >
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activeMaterialId === material.id ? 'bg-trust/10 text-trust' : 'bg-page-bg text-text-secondary'}`}>
                                         {material.fileType === 'Video' ? <PlayCircle size={16} /> : <FileText size={16} />}

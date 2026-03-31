@@ -190,6 +190,7 @@ model WalletTransaction {
   type        String // "CREDIT" | "DEBIT"
   description String
   orderId     Int?
+  order       Order?   @relation(fields: [orderId], references: [id])
   createdAt   DateTime @default(now())
 
   @@index([userId])
@@ -218,6 +219,7 @@ model Product {
   referrerPoints   Float?
   refereePoints    Float?
   isActive         Boolean  @default(true)
+  isDeal           Boolean  @default(false)
 
   hasVariants Boolean  @default(false)
 
@@ -301,9 +303,10 @@ model Order {
   longitude     Float?
   googleMapLink String?
 
-  items           OrderItem[]
-  referrals       Referral[]
-  serviceBookings ServiceBooking[]
+  items              OrderItem[]
+  referrals          Referral[]
+  serviceBookings    ServiceBooking[]
+  walletTransactions WalletTransaction[]
 
   @@index([userId])
   @@index([status])
@@ -561,8 +564,9 @@ model ProductVariant {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  orderItems OrderItem[]
-  cartItems  CartItem[]
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+  bundleItems BundleItem[]
 
   @@index([productId])
   @@index([productId, price])
@@ -636,8 +640,6 @@ model ReferralSettings {
   tierSystemEnabled         Boolean  @default(false)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
-
-  @@unique([id]) // Single settings record
 }
 
 model TierConfig {
@@ -765,19 +767,20 @@ model Bundle {
 }
 
 model BundleItem {
-  id            Int          @id @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   bundleId      Int
-  bundle        Bundle       @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  bundle        Bundle          @relation(fields: [bundleId], references: [id], onDelete: Cascade)
   productId     Int?
-  product       Product?     @relation(fields: [productId], references: [id])
+  product       Product?        @relation(fields: [productId], references: [id])
   variantId     Int?
-  quantity      Int          @default(1)
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity      Int             @default(1)
   serviceTypeId Int?
-  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
+  serviceType   ServiceType?    @relation(fields: [serviceTypeId], references: [id])
   courseId      Int?
-  course        Course?      @relation(fields: [courseId], references: [id])
-  itemType      String       @default("product")
-  position      Int          @default(0)
+  course        Course?         @relation(fields: [courseId], references: [id])
+  itemType      String          @default("product")
+  position      Int             @default(0)
 
   @@index([bundleId])
 }

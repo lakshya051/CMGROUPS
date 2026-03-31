@@ -100,10 +100,11 @@ const DashboardLayout = ({ role = 'customer' }) => {
                 </h2>
                 {/* Close button — mobile only */}
                 <button
-                    className="md:hidden p-1 rounded-lg hover:bg-surface-hover transition-colors text-text-muted"
+                    className="md:hidden p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted touch-manipulation"
                     onClick={() => setSidebarOpen(false)}
+                    aria-label="Close sidebar"
                 >
-                    <X size={20} />
+                    <X size={22} />
                 </button>
             </div>
 
@@ -229,7 +230,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
                 <div className="md:hidden sticky safe-top-offset top-0 z-20 bg-surface border-b border-border-default flex items-center gap-3 px-4 h-14 shrink-0">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted"
+                        className="p-2.5 rounded-lg hover:bg-surface-hover transition-colors text-text-muted touch-manipulation"
                         aria-label="Open sidebar menu"
                     >
                         <Menu size={22} />

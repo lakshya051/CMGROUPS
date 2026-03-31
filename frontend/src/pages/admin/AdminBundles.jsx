@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { bundlesAPI, productsAPI, serviceTypesAPI, uploadAPI } from '../../lib/api';
-import { Plus, Edit2, Trash2, Search, X, Layers, Package, Wrench, BarChart3, Copy, TrendingUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Layers, Package, Wrench, BarChart3, Copy, TrendingUp, ToggleLeft, ToggleRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { handleImageError } from '../../utils/image';
 
@@ -79,10 +79,18 @@ const AdminBundles = () => {
     const handleDelete = async (id) => {
         if (!confirm('Delete this bundle?')) return;
         try {
-            await bundlesAPI.delete(id);
-            toast.success('Bundle deleted');
+            const result = await bundlesAPI.delete(id);
+            toast.success(result.message || 'Bundle deleted');
             fetchBundles();
         } catch { toast.error('Failed to delete'); }
+    };
+
+    const handleToggleActive = async (bundle) => {
+        try {
+            await bundlesAPI.update(bundle.id, { isActive: !bundle.isActive });
+            toast.success(bundle.isActive ? 'Bundle deactivated' : 'Bundle activated');
+            fetchBundles();
+        } catch { toast.error('Failed to update bundle'); }
     };
 
     const handleImageUpload = async (e) => {
@@ -269,7 +277,12 @@ const AdminBundles = () => {
                                 )}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-text-primary">{bundle.name}</h3>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="font-semibold text-text-primary">{bundle.name}</h3>
+                                    {!bundle.isActive && (
+                                        <span className="text-[10px] font-semibold text-error bg-error/10 px-1.5 py-0.5 rounded">Inactive</span>
+                                    )}
+                                </div>
                                 <p className="text-sm text-text-muted">{bundle.items?.length || 0} items · ₹{bundle.bundlePrice?.toLocaleString('en-IN')}</p>
                                 {bundle.savings > 0 && <p className="text-xs text-success font-medium">Saves ₹{bundle.savings?.toLocaleString('en-IN')} ({bundle.savingsPercent}%)</p>}
                                 <div className="flex gap-1 mt-1">
@@ -279,13 +292,16 @@ const AdminBundles = () => {
                                 </div>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
+                                <button onClick={() => handleToggleActive(bundle)} title={bundle.isActive ? 'Deactivate' : 'Activate'} className={`p-2 rounded-lg transition-colors ${bundle.isActive ? 'hover:bg-success/10 text-success' : 'hover:bg-trust/10 text-text-muted hover:text-trust'}`}>
+                                    {bundle.isActive ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                                </button>
                                 <button onClick={() => handleDuplicate(bundle)} title="Duplicate" className="p-2 hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-primary">
                                     <Copy size={16} />
                                 </button>
-                                <button onClick={() => openEdit(bundle)} className="p-2 hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-trust">
+                                <button onClick={() => openEdit(bundle)} title="Edit" className="p-2 hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-trust">
                                     <Edit2 size={16} />
                                 </button>
-                                <button onClick={() => handleDelete(bundle.id)} className="p-2 hover:bg-error/10 rounded-lg transition-colors text-text-muted hover:text-error">
+                                <button onClick={() => handleDelete(bundle.id)} title="Delete" className="p-2 hover:bg-error/10 rounded-lg transition-colors text-text-muted hover:text-error">
                                     <Trash2 size={16} />
                                 </button>
                             </div>

@@ -198,12 +198,12 @@ export default function SignUp() {
                     </div>
                 </div>
 
-                <label className="flex items-start gap-3 cursor-pointer select-none">
+                <label className="flex items-start gap-3 cursor-pointer select-none py-1">
                     <input
                         type="checkbox"
                         checked={termsAccepted}
                         onChange={(e) => setTermsAccepted(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-border-default text-primary focus:ring-primary/30"
+                        className="mt-0.5 h-5 w-5 rounded border-border-default text-primary focus:ring-primary/30"
                     />
                     <span className="text-sm text-text-secondary leading-snug">
                         I agree to the{' '}

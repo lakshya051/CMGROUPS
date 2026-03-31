@@ -38,6 +38,11 @@ const Cart = () => {
         localStorage.setItem(SAVED_LATER_STORAGE_KEY, JSON.stringify(savedItems))
     }, [savedItems])
 
+    const cartSignature = useMemo(
+        () => cart.map(i => `${i.uniqueId || i.id}:${i.quantity}`).join(','),
+        [cart]
+    )
+
     // Fetch cross-sell when cart changes
     useEffect(() => {
         if (cart.length === 0) { setCrossSell([]); setBundleSuggestions([]); return }
@@ -56,7 +61,7 @@ const Cart = () => {
                 .then(setBundleSuggestions)
                 .catch(() => setBundleSuggestions([]))
         }
-    }, [cart.length])
+    }, [cartSignature]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const subtotal = useMemo(
         () => computeBundleAwareSubtotal(cart),
@@ -211,7 +216,7 @@ const Cart = () => {
     }
 
     return (
-        <div className={`container mx-auto min-w-0 px-4 sm:px-lg py-4 sm:py-lg ${cart.length > 0 ? 'pb-28 lg:pb-lg' : ''}`}>
+        <div className={`container mx-auto min-w-0 px-4 sm:px-lg py-4 sm:py-lg ${cart.length > 0 ? 'pb-28 lg:pb-lg' : 'pb-8'}`}>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-heading font-bold text-text-primary mb-md sm:mb-lg">
                 Shopping Cart
             </h1>
@@ -589,25 +594,32 @@ function CartItemsList({ cart, onQuantityChange, onRemove, onSaveForLater, onRem
 function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
     const [expanded, setExpanded] = useState(false)
     const navigate = useNavigate()
+    const isServiceOnly = bundleInfo.isServiceOnly || items.every(i => i.isServiceBundle)
     const catalogTotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
     const bundlePrice = bundleInfo.bundlePrice ?? catalogTotal
-    const savings = Math.max(0, catalogTotal - bundlePrice)
+    const savings = isServiceOnly ? 0 : Math.max(0, catalogTotal - bundlePrice)
     const isByob = String(bundleInfo.bundleId).startsWith('byob-')
     const hasService = bundleInfo.hasService
+    const serviceNames = bundleInfo.serviceNames || []
 
     return (
         <div className="rounded-lg border border-trust/30 bg-trust/[0.02] overflow-hidden">
             <div className="p-3 sm:p-md">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-trust/10 flex items-center justify-center shrink-0">
-                            <Layers size={16} className="text-trust" />
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isServiceOnly ? 'bg-primary/10' : 'bg-trust/10'}`}>
+                            {isServiceOnly ? <Wrench size={16} className="text-primary" /> : <Layers size={16} className="text-trust" />}
                         </div>
                         <div className="min-w-0">
                             <p className="text-sm font-bold text-text-primary truncate">
                                 {bundleInfo.bundleName || 'Bundle'}
                             </p>
-                            <p className="text-xs text-text-muted">{items.length} item{items.length !== 1 ? 's' : ''}</p>
+                            <p className="text-xs text-text-muted">
+                                {isServiceOnly
+                                    ? `${serviceNames.length} service${serviceNames.length !== 1 ? 's' : ''}`
+                                    : `${items.length} item${items.length !== 1 ? 's' : ''}`
+                                }
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
@@ -623,24 +635,40 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
                     </div>
                 </div>
 
-                {hasService && (
+                {isServiceOnly ? (
                     <div className="mt-2 flex items-center gap-1.5 text-[11px] text-trust font-medium bg-trust/5 rounded px-2 py-1 w-fit">
                         <Wrench size={11} />
-                        Includes service — schedule after purchase
+                        Service bundle — you'll schedule at checkout
+                    </div>
+                ) : hasService && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-trust font-medium bg-trust/5 rounded px-2 py-1 w-fit">
+                        <Wrench size={11} />
+                        Includes service — you'll schedule at checkout
                     </div>
                 )}
 
-                <button
-                    type="button"
-                    onClick={() => setExpanded(!expanded)}
-                    className="mt-2 flex items-center gap-1 text-xs text-trust font-medium hover:underline"
-                >
-                    {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    {expanded ? 'Hide items' : 'View items'}
-                </button>
+                {isServiceOnly && serviceNames.length > 0 ? (
+                    <div className="mt-2 space-y-1">
+                        {serviceNames.map((name, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs text-text-secondary">
+                                <Wrench size={11} className="text-trust shrink-0" />
+                                {name}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setExpanded(!expanded)}
+                        className="mt-2 flex items-center gap-1 text-xs text-trust font-medium hover:underline"
+                    >
+                        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {expanded ? 'Hide items' : 'View items'}
+                    </button>
+                )}
             </div>
 
-            {expanded && (
+            {expanded && !isServiceOnly && (
                 <div className="border-t border-trust/10 divide-y divide-border-default">
                     {items.map(item => (
                         <div key={item.uniqueId} className="flex gap-3 p-3 sm:px-md">
@@ -679,6 +707,14 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
                     >
                         Edit Bundle
                     </button>
+                )}
+                {isServiceOnly && (
+                    <Link
+                        to={`/bundles/${bundleInfo.bundleId}`}
+                        className="text-xs font-medium text-trust hover:underline px-2 py-1"
+                    >
+                        View Details
+                    </Link>
                 )}
                 <button
                     type="button"

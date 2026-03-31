@@ -70,9 +70,9 @@ export default function FAQ() {
     useSEO({ title: 'Help Center / FAQ — Shoptify', description: 'Find answers to common questions about orders, returns, services, courses, and your account.' });
 
     return (
-        <div className="container mx-auto px-4 py-12 max-w-3xl animate-in fade-in duration-500">
-            <h1 className="text-3xl font-heading font-bold text-text-primary mb-2">Help Center</h1>
-            <p className="text-text-muted mb-8">Find quick answers to common questions.</p>
+        <div className="container mx-auto px-4 py-6 sm:py-12 max-w-3xl animate-in fade-in duration-500">
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-text-primary mb-2">Help Center</h1>
+            <p className="text-text-muted text-sm sm:text-base mb-6 sm:mb-8">Find quick answers to common questions.</p>
 
             <div className="space-y-8">
                 {FAQ_DATA.map(section => (

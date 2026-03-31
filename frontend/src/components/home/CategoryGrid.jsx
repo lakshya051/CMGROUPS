@@ -5,8 +5,10 @@ import {
     Cpu, HardDrive, MemoryStick, Monitor, CircuitBoard,
     Keyboard, Headphones, Gamepad2, Package, Server,
     Laptop, Camera, Calculator, GraduationCap, Wrench,
-    Smartphone, Printer, Wifi, PcCase, Zap
+    Smartphone, Printer, Wifi, PcCase, Zap, ArrowRight
 } from 'lucide-react';
+
+const MAX_VISIBLE = 8;
 
 const ICON_MAP = {
     gpu: Cpu,
@@ -133,6 +135,10 @@ const CategoryGrid = () => {
 
     if (allItems.length === 0) return null;
 
+    const hasMore = allItems.length > MAX_VISIBLE;
+    const visibleItems = hasMore ? allItems.slice(0, MAX_VISIBLE - 1) : allItems;
+    const remainingCount = allItems.length - visibleItems.length;
+
     return (
         <section className="py-xl sm:py-2xl bg-page-bg">
             <div className="container mx-auto px-4">
@@ -140,16 +146,18 @@ const CategoryGrid = () => {
                     <h2 className="text-xl sm:text-2xl font-heading font-bold text-text-primary">
                         Shop by Category
                     </h2>
-                    <Link
-                        to="/products"
-                        className="text-sm font-semibold text-trust hover:underline flex-shrink-0"
-                    >
-                        View All →
-                    </Link>
+                    {hasMore && (
+                        <Link
+                            to="/products"
+                            className="text-sm font-semibold text-trust hover:underline flex-shrink-0"
+                        >
+                            View All →
+                        </Link>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                    {allItems.map((item, idx) => {
+                    {visibleItems.map((item, idx) => {
                         const Icon = getIcon(item.iconKey || item.name);
                         const bgColor = BG_COLORS[idx % BG_COLORS.length];
                         return (
@@ -167,6 +175,20 @@ const CategoryGrid = () => {
                             </Link>
                         );
                     })}
+
+                    {hasMore && (
+                        <Link
+                            to="/products"
+                            className="group flex flex-col items-center justify-center gap-3 p-5 sm:p-6 rounded-xl bg-trust/5 border border-trust/20 hover:border-trust hover:shadow-card-hover hover:scale-105 transition-all duration-smooth"
+                        >
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-trust/10 text-trust flex items-center justify-center group-hover:scale-110 transition-transform duration-smooth">
+                                <ArrowRight size={26} />
+                            </div>
+                            <h3 className="font-bold text-sm sm:text-base text-trust text-center">
+                                +{remainingCount} More
+                            </h3>
+                        </Link>
+                    )}
                 </div>
             </div>
         </section>

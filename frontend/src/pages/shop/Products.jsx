@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import ProductCard from '../../components/shop/ProductCard'
+import BundleCard from '../../components/shop/BundleCard'
 import FilterSidebar from '../../components/shop/FilterSidebar'
 import { SkeletonCard, EmptyState } from '../../components/ui/index'
 import { useShop } from '../../context/ShopContext'
 import {
-    Filter, SearchX, Search, X, ArrowLeftRight, ChevronLeft, ChevronRight,
+    Filter, SearchX, Search, X, ArrowLeftRight, ChevronLeft, ChevronRight, Layers,
 } from 'lucide-react'
-import { categoriesAPI, productsAPI } from '../../lib/api'
+import { categoriesAPI, productsAPI, bundlesAPI } from '../../lib/api'
 
 const LIMIT = 12
 
@@ -55,9 +56,14 @@ const Products = () => {
     const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false)
     const [dbCategories, setDbCategories] = useState([])
 
-    // ─── Fetch Categories ───────────────────────────────────────
+    const [featuredBundles, setFeaturedBundles] = useState([])
+
+    // ─── Fetch Categories + Bundles ──────────────────────────────
     useEffect(() => {
         categoriesAPI.getAll().then(setDbCategories).catch(console.error)
+        bundlesAPI.getAll({ displayOn: 'home' })
+            .then(b => setFeaturedBundles((b || []).slice(0, 4)))
+            .catch(() => setFeaturedBundles([]))
     }, [])
 
     // ─── Sync URL changes to local state ────────────────────────
@@ -157,7 +163,7 @@ const Products = () => {
         }
 
         fetchProducts()
-    }, [page, debouncedSearchTerm, selectedCategories, selectedPriceRanges, conditionFilter, sortBy])
+    }, [page, debouncedSearchTerm, selectedCategories, selectedPriceRanges, conditionFilter, sortBy, minRating, includeOutOfStock])
 
     // ─── Derived ────────────────────────────────────────────────
     const categories = useMemo(() => dbCategories.map(c => c.name).sort(), [dbCategories])
@@ -237,7 +243,7 @@ const Products = () => {
 
     // ─── Render ─────────────────────────────────────────────────
     return (
-        <div className="container mx-auto px-lg py-lg">
+        <div className="container mx-auto px-4 sm:px-lg py-4 sm:py-lg pb-8 md:pb-4">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-md mb-lg">
                 <div>
@@ -249,26 +255,26 @@ const Products = () => {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-md">
+                <div className="flex items-center gap-2 sm:gap-md">
                     {/* Local Search Input */}
-                    <div className="hidden md:flex relative">
+                    <div className="flex relative flex-1 md:flex-none">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                         <input
                             type="text"
-                            placeholder="Search currently..."
+                            placeholder="Search products..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-sm bg-surface border border-border-default rounded-lg text-sm focus:outline-none focus:border-trust transition-colors duration-fast w-64"
+                            className="w-full pl-9 pr-4 py-sm bg-surface border border-border-default rounded-lg text-base sm:text-sm focus:outline-none focus:border-trust transition-colors duration-fast md:w-64"
                         />
                     </div>
 
                     {/* Mobile filter toggle */}
                     <button
-                        className="lg:hidden flex items-center gap-sm bg-surface border border-border-default px-md py-sm rounded-lg text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors duration-fast"
+                        className="lg:hidden flex items-center gap-1.5 sm:gap-sm bg-surface border border-border-default px-3 sm:px-md py-sm rounded-lg text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors duration-fast shrink-0"
                         onClick={openMobileFilters}
                     >
                         <Filter size={16} />
-                        Filters
+                        <span className="hidden xs:inline">Filters</span>
                         {activeFilterCount > 0 && (
                             <span className="bg-trust text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                                 {activeFilterCount}
@@ -280,16 +286,38 @@ const Products = () => {
                     <select
                         value={sortBy}
                         onChange={e => setSortBy(e.target.value)}
-                        className="bg-surface border border-border-default text-text-primary px-md py-sm rounded-lg text-sm focus:outline-none focus:border-trust cursor-pointer transition-colors duration-fast"
+                        className="bg-surface border border-border-default text-text-primary px-2 sm:px-md py-sm rounded-lg text-sm focus:outline-none focus:border-trust cursor-pointer transition-colors duration-fast min-w-0"
                     >
-                        <option value="newest">Newest Arrivals</option>
-                        <option value="price-low">Price: Low to High</option>
-                        <option value="price-high">Price: High to Low</option>
+                        <option value="newest">Newest</option>
+                        <option value="price-low">Price: Low</option>
+                        <option value="price-high">Price: High</option>
                         <option value="rating">Top Rated</option>
-                        <option value="name">Name: A-Z</option>
+                        <option value="name">A-Z</option>
                     </select>
                 </div>
             </div>
+
+            {/* Bundle Deals Banner */}
+            {featuredBundles.length > 0 && (
+                <div className="mb-lg">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+                            <Layers size={16} className="text-trust" />
+                            Bundle Deals
+                        </h2>
+                        <Link to="/bundles" className="text-xs text-trust font-semibold hover:underline">
+                            View All Bundles
+                        </Link>
+                    </div>
+                    <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-hide -mx-1 px-1">
+                        {featuredBundles.map(bundle => (
+                            <div key={bundle.id} className="snap-start">
+                                <BundleCard bundle={bundle} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Body: Sidebar + Main */}
             <div className="flex gap-xl">
@@ -367,7 +395,7 @@ const Products = () => {
 
                     {/* Loading: skeleton grid */}
                     {loading && !error && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-lg">
+                        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-lg">
                             {Array.from({ length: 6 }).map((_, i) => (
                                 <SkeletonCard key={i} />
                             ))}
@@ -388,25 +416,25 @@ const Products = () => {
                     {/* Product grid */}
                     {!loading && !error && products.length > 0 && (
                         <>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-lg">
+                            <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-lg">
                                 {productCardGrid}
                             </div>
 
                             {/* Pagination */}
                             {totalPages > 1 && (
-                                <div className="flex justify-center items-center gap-sm mt-2xl">
+                                <div className="flex justify-center items-center gap-2 sm:gap-sm mt-8 sm:mt-2xl mb-4">
                                     <button
-                                        className="flex items-center gap-xs px-md py-sm rounded-lg text-sm font-medium border border-border-default bg-surface hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast"
+                                        className="flex items-center gap-1 sm:gap-xs px-3 sm:px-md py-2.5 sm:py-sm rounded-lg text-sm font-medium border border-border-default bg-surface hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast touch-manipulation min-h-[44px]"
                                         disabled={page === 1}
                                         onClick={() => setPage(p => Math.max(1, p - 1))}
                                     >
-                                        <ChevronLeft size={16} /> Previous
+                                        <ChevronLeft size={16} /> <span className="hidden xs:inline">Previous</span><span className="xs:hidden">Prev</span>
                                     </button>
-                                    <span className="text-sm font-bold text-text-primary px-md">
-                                        Page {page} of {totalPages}
+                                    <span className="text-sm font-bold text-text-primary px-2 sm:px-md whitespace-nowrap">
+                                        {page} / {totalPages}
                                     </span>
                                     <button
-                                        className="flex items-center gap-xs px-md py-sm rounded-lg text-sm font-medium bg-trust text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast"
+                                        className="flex items-center gap-1 sm:gap-xs px-3 sm:px-md py-2.5 sm:py-sm rounded-lg text-sm font-medium bg-trust text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast touch-manipulation min-h-[44px]"
                                         disabled={page === totalPages}
                                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                     >
@@ -421,8 +449,8 @@ const Products = () => {
 
             {/* ─── Sticky Compare Bar ────────────────────────────────── */}
             {compareList.length > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 z-40 bg-surface border-t border-border-default shadow-glass safe-bottom">
-                    <div className="container mx-auto px-lg py-md flex items-center justify-between">
+                <div className="fixed left-0 right-0 z-[45] bg-surface border-t border-border-default shadow-[0_-4px_24px_rgba(0,0,0,0.08)] bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:bottom-0 md:safe-bottom">
+                    <div className="container mx-auto px-4 sm:px-lg py-3 sm:py-md flex items-center justify-between">
                         <div className="flex items-center gap-md">
                             <ArrowLeftRight size={18} className="text-trust" />
                             <span className="text-sm font-medium text-text-primary">

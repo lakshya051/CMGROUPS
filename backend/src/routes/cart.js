@@ -110,6 +110,8 @@ const formatCartItem = (item, bundleMap = {}) => {
             bundleName: bundleData.name || null,
             bundlePrice: bundleData.bundlePrice ?? null,
             hasService: bundleData.hasService || false,
+            isGiftable: bundleData.isGiftable || false,
+            serviceNames: bundleData.serviceNames || [],
         };
     }
 
@@ -136,8 +138,11 @@ const fetchFullCart = async (userId) => {
             ? prisma.bundle.findMany({
                 where: { id: { in: numericBundleIds } },
                 select: {
-                    id: true, name: true, bundlePrice: true,
-                    items: { where: { itemType: 'service' }, select: { id: true }, take: 1 },
+                    id: true, name: true, bundlePrice: true, isGiftable: true,
+                    items: {
+                        where: { itemType: 'service' },
+                        select: { id: true, serviceType: { select: { title: true } } },
+                    },
                 },
             })
             : [],
@@ -150,7 +155,14 @@ const fetchFullCart = async (userId) => {
     ]);
 
     for (const b of bundles) {
-        bundleMap[String(b.id)] = { name: b.name, bundlePrice: b.bundlePrice, hasService: b.items.length > 0 };
+        const serviceNames = b.items.map(si => si.serviceType?.title).filter(Boolean);
+        bundleMap[String(b.id)] = {
+            name: b.name,
+            bundlePrice: b.bundlePrice,
+            hasService: b.items.length > 0,
+            isGiftable: b.isGiftable || false,
+            serviceNames,
+        };
     }
 
     for (const t of templates) {

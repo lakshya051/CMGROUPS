@@ -10,7 +10,6 @@ import MobileDrawer from './MobileDrawer';
 const SharedLayout = () => {
     const location = useLocation();
     const { isSignedIn, user, loading } = useAuth();
-    const hasMobileSearchHeader = !location.pathname.startsWith('/tally-erp') && !location.pathname.startsWith('/cctv');
     const [drawerOpen, setDrawerOpen] = useState(false);
 
     const openDrawer = useCallback(() => setDrawerOpen(true), []);
@@ -21,7 +20,7 @@ const SharedLayout = () => {
     }
 
     return (
-        <div className="safe-screen min-h-screen flex flex-col bg-background text-text-main pb-14 md:pb-0">
+        <div className="min-h-screen flex flex-col bg-background text-text-main pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
             <a
                 href="#main-content"
                 className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999] focus:bg-trust focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:outline-none"
@@ -29,7 +28,7 @@ const SharedLayout = () => {
                 Skip to main content
             </a>
             <Navbar />
-            <main id="main-content" className={`flex-grow md:pt-[104px] ${hasMobileSearchHeader ? 'pt-36' : 'pt-24'}`}>
+            <main id="main-content" className="flex-grow pt-[calc(10rem+env(safe-area-inset-top,0px))] md:pt-[calc(6.5rem+env(safe-area-inset-top,0px))]">
                 <Outlet />
             </main>
             <Footer />

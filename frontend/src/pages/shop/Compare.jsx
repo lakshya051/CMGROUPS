@@ -35,7 +35,7 @@ const Compare = () => {
                 <div className="w-20 h-20 bg-surface border border-border-default rounded-full flex items-center justify-center mx-auto mb-6">
                     <Trash2 size={32} className="text-text-muted" />
                 </div>
-                <h1 className="text-3xl font-heading font-bold mb-4 text-text-primary">Compare List is Empty</h1>
+                <h1 className="text-2xl sm:text-3xl font-heading font-bold mb-4 text-text-primary">Compare List is Empty</h1>
                 <p className="text-text-secondary mb-8">Add up to {MAX_COMPARE_ITEMS} products to compare their specifications side by side.</p>
                 <Link to="/products">
                     <Button size="lg">Browse Products</Button>
@@ -51,8 +51,8 @@ const Compare = () => {
         <div className="container mx-auto px-4 py-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-heading font-bold mb-2 text-text-primary">Product Comparison</h1>
-                    <p className="text-text-secondary">Compare features and specifications.</p>
+                    <h1 className="text-xl sm:text-3xl font-heading font-bold mb-1 sm:mb-2 text-text-primary">Product Comparison</h1>
+                    <p className="text-text-secondary text-sm sm:text-base">Compare features and specs.</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <Button variant="outline" onClick={clearCompare} className="text-error border-error/50 hover:bg-error/10">

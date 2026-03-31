@@ -72,9 +72,12 @@ const NotificationDropdown = () => {
     };
 
     return (
+        <>
+        {/* Mobile backdrop */}
+        <div className="fixed inset-0 bg-black/40 z-[59] md:hidden" onClick={() => setIsOpen(false)} />
         <div
             ref={dropdownRef}
-            className="absolute top-full right-0 w-80 md:w-96 bg-surface border border-border-default shadow-card rounded-lg mt-2 z-50 flex flex-col max-h-[28rem] overflow-hidden animate-in fade-in slide-in-from-top-2"
+            className="fixed inset-x-0 bottom-0 top-auto md:absolute md:inset-auto md:top-full md:right-0 w-full md:w-96 bg-surface border-t md:border border-border-default shadow-card rounded-t-2xl md:rounded-lg md:mt-2 z-[60] md:z-50 flex flex-col max-h-[80dvh] md:max-h-[28rem] overflow-hidden animate-in slide-in-from-bottom-4 md:fade-in md:slide-in-from-top-2 pb-[env(safe-area-inset-bottom,0px)]"
         >
             {/* Header */}
             <div className="p-3 border-b border-border-default flex justify-between items-center bg-surface-hover rounded-t-lg flex-shrink-0">
@@ -161,6 +164,7 @@ const NotificationDropdown = () => {
                 </div>
             )}
         </div>
+        </>
     );
 };
 

@@ -4,6 +4,43 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// GET /api/reviews/pending-bundles (Protected - get user's bundles pending review)
+// Registered before /:productId to avoid route shadowing
+router.get('/pending-bundles', protect, async (req, res) => {
+    try {
+        const deliveredBundleItems = await prisma.orderItem.findMany({
+            where: {
+                order: { userId: req.user.id, status: 'Delivered' },
+                bundleId: { not: null },
+            },
+            select: { bundleId: true },
+            distinct: ['bundleId'],
+        });
+
+        const bundleIds = deliveredBundleItems.map(i => i.bundleId).filter(Boolean);
+        if (bundleIds.length === 0) return res.json([]);
+
+        const alreadyReviewed = await prisma.bundleReview.findMany({
+            where: { userId: req.user.id, bundleId: { in: bundleIds } },
+            select: { bundleId: true },
+        });
+        const reviewedSet = new Set(alreadyReviewed.map(r => r.bundleId));
+
+        const pendingIds = bundleIds.filter(id => !reviewedSet.has(id));
+        if (pendingIds.length === 0) return res.json([]);
+
+        const bundles = await prisma.bundle.findMany({
+            where: { id: { in: pendingIds } },
+            select: { id: true, name: true, image: true, slug: true },
+        });
+
+        res.json(bundles);
+    } catch (error) {
+        console.error('Pending bundle reviews error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // POST /api/reviews/:productId (Protected)
 router.post('/:productId', protect, async (req, res) => {
     try {
@@ -199,42 +236,6 @@ router.post('/bundle/:reviewId/helpful', protect, async (req, res) => {
         res.json(updated);
     } catch (error) {
         console.error('Bundle review help vote error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// GET /api/reviews/pending-bundles (Protected - get user's bundles pending review)
-router.get('/pending-bundles', protect, async (req, res) => {
-    try {
-        const deliveredBundleItems = await prisma.orderItem.findMany({
-            where: {
-                order: { userId: req.user.id, status: 'Delivered' },
-                bundleId: { not: null },
-            },
-            select: { bundleId: true },
-            distinct: ['bundleId'],
-        });
-
-        const bundleIds = deliveredBundleItems.map(i => i.bundleId).filter(Boolean);
-        if (bundleIds.length === 0) return res.json([]);
-
-        const alreadyReviewed = await prisma.bundleReview.findMany({
-            where: { userId: req.user.id, bundleId: { in: bundleIds } },
-            select: { bundleId: true },
-        });
-        const reviewedSet = new Set(alreadyReviewed.map(r => r.bundleId));
-
-        const pendingIds = bundleIds.filter(id => !reviewedSet.has(id));
-        if (pendingIds.length === 0) return res.json([]);
-
-        const bundles = await prisma.bundle.findMany({
-            where: { id: { in: pendingIds } },
-            select: { id: true, name: true, image: true, slug: true },
-        });
-
-        res.json(bundles);
-    } catch (error) {
-        console.error('Pending bundle reviews error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

@@ -102,7 +102,7 @@ router.post('/validate', validateLimiter, async (req, res) => {
     try {
         const { code, cartItems } = req.body;
 
-        if (!code) return res.status(400).json({ error: 'Coupon code is required' });
+        if (!code || typeof code !== 'string') return res.status(400).json({ error: 'Coupon code is required' });
 
         const coupon = await prisma.coupon.findUnique({ where: { code: code.toUpperCase() } });
 
@@ -218,6 +218,9 @@ router.patch('/:id', protect, adminOnly, async (req, res) => {
 
         res.json(coupon);
     } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Coupon not found' });
+        }
         console.error('Update coupon error:', error);
         res.status(500).json({ error: 'Server error' });
     }

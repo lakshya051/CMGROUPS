@@ -121,9 +121,15 @@ router.post('/read-all', protect, async (req, res) => {
 router.delete('/:id', protect, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
-        await prisma.notification.deleteMany({
+        if (!Number.isFinite(id)) {
+            return res.status(400).json({ error: 'Invalid notification ID' });
+        }
+        const result = await prisma.notification.deleteMany({
             where: { id, userId: req.user.id },
         });
+        if (result.count === 0) {
+            return res.status(404).json({ error: 'Notification not found' });
+        }
         res.json({ success: true });
     } catch (error) {
         console.error('Delete notification error:', error);

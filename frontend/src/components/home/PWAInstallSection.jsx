@@ -22,19 +22,19 @@ const PWAInstallSection = () => {
                             Install for faster access, offline browsing & notifications
                         </p>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                         <button
                             onClick={install}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-lg transition-colors duration-base"
+                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-lg transition-colors duration-base flex-1 sm:flex-none touch-manipulation"
                         >
                             <Download size={16} />
                             Install App
                         </button>
                         <button
                             onClick={dismiss}
-                            className="px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+                            className="px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors flex-shrink-0"
                         >
-                            Maybe Later
+                            Later
                         </button>
                     </div>
                 </div>

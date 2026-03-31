@@ -111,21 +111,26 @@ export const ShopProvider = ({ children }) => {
     }, [user, fetchCart]);
 
     // Fetch wishlist from backend if logged in
+    const wishlistFetchedRef = React.useRef(false);
     useEffect(() => {
         if (user) {
+            wishlistFetchedRef.current = false;
             wishlistAPI.get()
                 .then(items => {
                     const ids = items.map(i => i.id);
                     setWishlist(ids);
                     localStorage.setItem('wishlist', JSON.stringify(ids));
+                    wishlistFetchedRef.current = true;
                 })
                 .catch(err => console.error('Failed to fetch wishlist from server:', err));
         }
     }, [user]);
 
     useEffect(() => {
-        localStorage.setItem('wishlist', JSON.stringify(wishlist));
-    }, [wishlist]);
+        if (!user || wishlistFetchedRef.current) {
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        }
+    }, [wishlist]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (coupon) {
@@ -297,18 +302,23 @@ export const ShopProvider = ({ children }) => {
 
     const removeBundleFromCart = useCallback((bundleInstanceId) => {
         if (!bundleInstanceId) return;
+        const isServiceOnly = cart.some(
+            item => item.bundleInfo?.bundleInstanceId === bundleInstanceId && item.isServiceBundle
+        );
         setCart(prev => prev.filter(item => item.bundleInfo?.bundleInstanceId !== bundleInstanceId));
 
-        enqueueCartAction(async () => {
-            try {
-                await cartAPI.removeBundle(bundleInstanceId);
-            } catch (err) {
-                console.error('Failed to remove bundle from cart:', err);
-                toast.error(getErrorMessage(err, 'Failed to remove bundle'));
-                try { setCart(await cartAPI.get()); } catch { /* ignore */ }
-            }
-        });
-    }, [enqueueCartAction]);
+        if (!isServiceOnly) {
+            enqueueCartAction(async () => {
+                try {
+                    await cartAPI.removeBundle(bundleInstanceId);
+                } catch (err) {
+                    console.error('Failed to remove bundle from cart:', err);
+                    toast.error(getErrorMessage(err, 'Failed to remove bundle'));
+                    try { setCart(await cartAPI.get()); } catch { /* ignore */ }
+                }
+            });
+        }
+    }, [cart, enqueueCartAction]);
 
     const clearCart = useCallback(() => {
         setCart([]);
@@ -369,7 +379,12 @@ export const ShopProvider = ({ children }) => {
             return false;
         }
         const built = [];
-        for (const { product, quantity, variant, bundleInfo } of itemEntries) {
+        for (const entry of itemEntries) {
+            if (entry.isServiceBundle) {
+                built.push(entry);
+                continue;
+            }
+            const { product, quantity, variant, bundleInfo } = entry;
             const productId = product.id;
             const variantId = variant?.id || null;
             const price = variant?.price ?? product.price;
@@ -400,13 +415,15 @@ export const ShopProvider = ({ children }) => {
 
     const placeOrder = async (orderData) => {
         try {
-            // Kill all pending cart queue actions immediately so they never fire.
-            // The order API validates stock independently inside a DB transaction.
             cartGen.current += 1;
 
             const isBuyNow = orderData.isBuyNow && buyNowItems.length > 0;
             const sourceItems = isBuyNow ? buyNowItems : cart;
-            const items = sourceItems.map(item => ({
+
+            const productEntries = sourceItems.filter(item => !item.isServiceBundle);
+            const serviceOnlyEntries = sourceItems.filter(item => item.isServiceBundle);
+
+            const items = productEntries.map(item => ({
                 productId: item.productId || item.id,
                 variantId: item.variantId || null,
                 quantity: item.quantity,
@@ -414,6 +431,15 @@ export const ShopProvider = ({ children }) => {
                 bundleId: item.bundleInfo?.bundleId || null,
                 bundleInstanceId: item.bundleInfo?.bundleInstanceId || null,
             }));
+
+            const serviceOnlyBundles = serviceOnlyEntries.map(item => ({
+                bundleId: item.bundleInfo.bundleId,
+                bundleInstanceId: item.bundleInfo.bundleInstanceId,
+                bundleName: item.bundleInfo.bundleName,
+                bundlePrice: item.bundleInfo.bundlePrice,
+                serviceNames: item.bundleInfo.serviceNames || [],
+            }));
+
             const order = await ordersAPI.place(
                 items,
                 orderData.total,
@@ -428,7 +454,9 @@ export const ShopProvider = ({ children }) => {
                 orderData.longitude || null,
                 orderData.googleMapLink || null,
                 orderData.giftWrap || false,
-                orderData.giftMessage || null
+                orderData.giftMessage || null,
+                orderData.bundleServiceSchedules || null,
+                serviceOnlyBundles.length > 0 ? serviceOnlyBundles : null
             );
 
             if (isBuyNow) {
@@ -494,12 +522,43 @@ export const ShopProvider = ({ children }) => {
         }
         const bundleInstanceId = `bundle-${bundle.id}-${Date.now()}`;
         const productItems = (bundle.items || []).filter(bi => bi.itemType === 'product' && bi.product && bi.product.stock > 0);
-        if (productItems.length === 0) {
-            toast.error('No in-stock items in this bundle');
+        const serviceItems = (bundle.items || []).filter(bi => bi.itemType === 'service' && bi.serviceType);
+
+        if (productItems.length === 0 && serviceItems.length === 0) {
+            toast.error('No items in this bundle');
             return;
         }
 
-        const bundleInfo = { bundleId: bundle.id, bundleInstanceId, bundleName: bundle.name, bundlePrice: bundle.bundlePrice };
+        const bundleInfo = {
+            bundleId: bundle.id,
+            bundleInstanceId,
+            bundleName: bundle.name,
+            bundlePrice: bundle.bundlePrice,
+            hasService: serviceItems.length > 0,
+            isGiftable: bundle.isGiftable || false,
+            serviceNames: serviceItems.map(bi => bi.serviceType.title),
+            isServiceOnly: productItems.length === 0 && serviceItems.length > 0,
+        };
+
+        if (productItems.length === 0 && serviceItems.length > 0) {
+            const entry = {
+                id: `svc-bundle-${bundle.id}`,
+                uniqueId: `svc-${bundleInstanceId}`,
+                title: bundle.name,
+                images: bundle.image ? [bundle.image] : [],
+                price: bundle.bundlePrice,
+                quantity: 1,
+                stock: 999,
+                isServiceBundle: true,
+                productId: null,
+                variantId: null,
+                bundleInfo,
+            };
+            setCart(prev => [...prev, entry]);
+            toast.success(`Added "${bundle.name}" service bundle to cart`);
+            return;
+        }
+
         const newEntries = productItems.map(bi => {
             const prod = bi.product;
             const variant = prod.hasVariants && prod.variants?.length > 0

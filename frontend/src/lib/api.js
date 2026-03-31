@@ -177,15 +177,18 @@ export const productsAPI = {
         }),
 
     deleteOption: (productId, optionId) =>
-        apiFetch(`/products/${productId}/options/${optionId}`, { method: 'DELETE' })
+        apiFetch(`/products/${productId}/options/${optionId}`, { method: 'DELETE' }),
+
+    toggleDeal: (id) =>
+        apiFetch(`/products/${id}/deal`, { method: 'PATCH' })
 };
 
 // ============ ORDERS ============
 export const ordersAPI = {
-    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0, latitude = null, longitude = null, googleMapLink = null, giftWrap = false, giftMessage = null) =>
+    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0, latitude = null, longitude = null, googleMapLink = null, giftWrap = false, giftMessage = null, bundleServiceSchedules = null, serviceOnlyBundles = null) =>
         apiFetch('/orders', {
             method: 'POST',
-            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink, giftWrap, giftMessage })
+            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink, giftWrap, giftMessage, bundleServiceSchedules, serviceOnlyBundles })
         }),
 
     getById: (id) => apiFetch(`/orders/detail/${id}`),

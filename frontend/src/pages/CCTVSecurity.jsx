@@ -68,7 +68,7 @@ const FAQItem = ({ q, a }) => {
     const [open, setOpen] = useState(false);
     return (
         <div className={`border border-border-default rounded-lg overflow-hidden transition-all duration-base ${open ? 'bg-surface-hover' : 'bg-surface'}`}>
-            <button type="button" className="w-full text-left px-md py-sm flex items-center justify-between gap-sm font-semibold text-base text-text-primary" onClick={() => setOpen(prev => !prev)}>
+            <button type="button" className="w-full text-left px-4 py-3 flex items-center justify-between gap-sm font-semibold text-sm sm:text-base text-text-primary" onClick={() => setOpen(prev => !prev)}>
                 <span className={open ? 'text-trust' : ''}>{q}</span>
                 {open ? <ChevronUp size={18} className="text-trust flex-shrink-0" /> : <ChevronDown size={18} className="text-text-secondary flex-shrink-0" />}
             </button>
@@ -287,7 +287,7 @@ const CCTVSecurity = () => {
                         </div>
                     </div>
                 </section>
-                <a href={WA_LINK} target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp" className="fixed bottom-4 right-4 z-50 safe-bottom inline-flex items-center gap-xs rounded-full bg-success text-white px-md py-sm shadow-sm border border-success animate-in slide-in-from-bottom-5"><MessageCircle size={18} /><span className="text-sm font-bold">WhatsApp</span></a>
+                <a href={WA_LINK} target="_blank" rel="noopener noreferrer" aria-label="Chat on WhatsApp" className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-4 right-4 z-40 inline-flex items-center gap-xs rounded-full bg-success text-white px-md py-sm shadow-lg border border-success animate-in slide-in-from-bottom-5"><MessageCircle size={18} /><span className="text-sm font-bold">WhatsApp</span></a>
             </div>
         </>
     );

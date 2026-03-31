@@ -75,9 +75,11 @@ router.post('/', optionalProtect, async (req, res) => {
     const checkoutStart = Date.now();
     const checkoutRequestId = `ord-${checkoutStart}-${Math.floor(Math.random() * 10000)}`;
     try {
-        const { items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink, couponCode, discountAmount, giftWrap, giftMessage } = req.body;
+        const { items: rawItems, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, latitude, longitude, googleMapLink, couponCode, discountAmount, giftWrap, giftMessage, bundleServiceSchedules, serviceOnlyBundles } = req.body;
+        const items = Array.isArray(rawItems) ? rawItems : [];
 
-        if (!items || items.length === 0) {
+        const hasServiceOnlyBundles = Array.isArray(serviceOnlyBundles) && serviceOnlyBundles.length > 0;
+        if (items.length === 0 && !hasServiceOnlyBundles) {
             return res.status(400).json({ error: 'No items in order' });
         }
 
@@ -278,6 +280,21 @@ router.post('/', optionalProtect, async (req, res) => {
             computedSubtotal = computedSubtotal - groupCatalogTotal + bundlePrice;
         }
 
+        // Add service-only bundle prices (bundles with no products, only services)
+        if (hasServiceOnlyBundles) {
+            for (const sob of serviceOnlyBundles) {
+                const bundleId = parseInt(sob.bundleId, 10);
+                if (!Number.isFinite(bundleId)) continue;
+                const bundle = await prisma.bundle.findUnique({
+                    where: { id: bundleId },
+                    select: { bundlePrice: true, isActive: true },
+                });
+                if (bundle && bundle.isActive) {
+                    computedSubtotal += bundle.bundlePrice;
+                }
+            }
+        }
+
         // Server-side coupon validation
         let serverDiscount = 0;
         let validatedCoupon = null;
@@ -417,61 +434,70 @@ router.post('/', optionalProtect, async (req, res) => {
 
             const createdOrder = await tx.order.create({ data: orderData });
 
-            const orderItemsData = items.map(item => {
-                const pId = parseInt(item.productId, 10);
-                const vId = item.variantId ? parseInt(item.variantId, 10) : null;
-                const qty = parseInt(item.quantity, 10);
+            if (items.length > 0) {
+                const orderItemsData = items.map(item => {
+                    const pId = parseInt(item.productId, 10);
+                    const vId = item.variantId ? parseInt(item.variantId, 10) : null;
+                    const qty = parseInt(item.quantity, 10);
 
-                let actualPrice;
-                if (vId !== null) {
-                    actualPrice = variantMap.get(vId)?.price;
-                } else {
-                    const product = productMap.get(pId);
-                    actualPrice = product?.price;
-                    const tiers = tiersByProduct[pId];
-                    if (tiers && tiers.length > 0) {
-                        const totalQtyForProduct = totalRequestedProducts[pId] || qty;
-                        const applicableTier = tiers.find(t => totalQtyForProduct >= t.minQty);
-                        if (applicableTier) actualPrice = applicableTier.price;
+                    let actualPrice;
+                    if (vId !== null) {
+                        actualPrice = variantMap.get(vId)?.price;
+                    } else {
+                        const product = productMap.get(pId);
+                        actualPrice = product?.price;
+                        const tiers = tiersByProduct[pId];
+                        if (tiers && tiers.length > 0) {
+                            const totalQtyForProduct = totalRequestedProducts[pId] || qty;
+                            const applicableTier = tiers.find(t => totalQtyForProduct >= t.minQty);
+                            if (applicableTier) actualPrice = applicableTier.price;
+                        }
                     }
-                }
 
-                if (isNaN(pId) || isNaN(qty) || actualPrice === undefined || actualPrice === null) {
-                    throw new Error('Invalid item data in cart');
-                }
+                    if (isNaN(pId) || isNaN(qty) || actualPrice === undefined || actualPrice === null) {
+                        throw new Error('Invalid item data in cart');
+                    }
 
-                const bundleIdStr = item.bundleId ? String(item.bundleId) : '';
-                let numericBundleId = null;
-                let bundleTemplateId = null;
+                    const bundleIdStr = item.bundleId ? String(item.bundleId) : '';
+                    let numericBundleId = null;
+                    let bundleTemplateId = null;
 
-                if (bundleIdStr.startsWith('byob-')) {
-                    const tplId = parseInt(bundleIdStr.split('-')[1], 10);
-                    if (Number.isFinite(tplId)) bundleTemplateId = tplId;
-                } else if (bundleIdStr) {
-                    const parsed = parseInt(bundleIdStr, 10);
-                    if (Number.isFinite(parsed)) numericBundleId = parsed;
-                }
+                    if (bundleIdStr.startsWith('byob-')) {
+                        const tplId = parseInt(bundleIdStr.split('-')[1], 10);
+                        if (Number.isFinite(tplId)) bundleTemplateId = tplId;
+                    } else if (bundleIdStr) {
+                        const parsed = parseInt(bundleIdStr, 10);
+                        if (Number.isFinite(parsed)) numericBundleId = parsed;
+                    }
 
-                return {
-                    orderId: createdOrder.id,
-                    productId: pId,
-                    variantId: vId,
-                    quantity: qty,
-                    price: actualPrice,
-                    bundleId: numericBundleId,
-                    bundleTemplateId,
-                    bundleInstanceId: item.bundleInstanceId || null,
-                };
-            });
+                    return {
+                        orderId: createdOrder.id,
+                        productId: pId,
+                        variantId: vId,
+                        quantity: qty,
+                        price: actualPrice,
+                        bundleId: numericBundleId,
+                        bundleTemplateId,
+                        bundleInstanceId: item.bundleInstanceId || null,
+                    };
+                });
 
-            await tx.orderItem.createMany({ data: orderItemsData });
+                await tx.orderItem.createMany({ data: orderItemsData });
+            }
 
-            // 3.5 Increment coupon usedCount
+            // 3.5 Increment coupon usedCount (race-safe: conditional update)
             if (validatedCoupon) {
-                await tx.coupon.update({
-                    where: { id: validatedCoupon.id },
+                const couponWhere = { id: validatedCoupon.id };
+                if (validatedCoupon.maxUses != null) {
+                    couponWhere.usedCount = { lt: validatedCoupon.maxUses };
+                }
+                const couponUpdate = await tx.coupon.updateMany({
+                    where: couponWhere,
                     data: { usedCount: { increment: 1 } },
                 });
+                if (couponUpdate.count === 0) {
+                    throw new Error('Coupon usage limit reached during checkout');
+                }
             }
 
             // 4. Record wallet debit transaction (after order creation so orderId is available)
@@ -560,31 +586,55 @@ router.post('/', optionalProtect, async (req, res) => {
 
             // Low-stock alerts for admins (uses fresh DB data post-transaction)
             const LOW_STOCK_THRESHOLD = 5;
-            for (const item of order.items) {
-                const prod = item.product;
-                if (!prod) continue;
-                const stockToCheck = prod.stock;
-                if (stockToCheck <= LOW_STOCK_THRESHOLD && stockToCheck > 0) {
-                    createAdminNotification({
-                        title: 'Low Stock Alert',
-                        message: `"${prod.title}"${item.variantId ? ' (variant)' : ''} has only ${stockToCheck} units left.`,
-                        type: 'admin',
-                        link: '/admin/products',
-                    }).catch(() => {});
+            (async () => {
+                try {
+                    for (const item of order.items) {
+                        const prod = item.product;
+                        if (!prod) continue;
+
+                        let stockToCheck = prod.stock;
+                        let stockLabel = prod.title;
+
+                        if (item.variantId) {
+                            const variant = await prisma.productVariant.findUnique({
+                                where: { id: item.variantId },
+                                select: { stock: true, name: true },
+                            });
+                            if (variant) {
+                                stockToCheck = variant.stock;
+                                stockLabel = `${prod.title} — ${variant.name || 'variant'}`;
+                            }
+                        }
+
+                        if (stockToCheck <= LOW_STOCK_THRESHOLD && stockToCheck > 0) {
+                            createAdminNotification({
+                                title: 'Low Stock Alert',
+                                message: `"${stockLabel}" has only ${stockToCheck} units left.`,
+                                type: 'admin',
+                                link: '/admin/products',
+                            }).catch(() => {});
+                        }
+                    }
+                } catch (err) {
+                    console.error('Low-stock alert check error (non-blocking):', err);
                 }
-            }
+            })();
 
             // Auto-create service bookings for bundle orders that include services.
-            // Only fixed bundles (numeric IDs) can contain services; BYOB template
-            // bundles (prefixed "byob-") don't have service slots, so parseInt
-            // naturally filters them out.
             if (userId) {
                 (async () => {
-                    const bundleIds = [...new Set(items.filter(i => i.bundleId).map(i => parseInt(i.bundleId)))].filter(Number.isFinite);
-                    if (bundleIds.length === 0) return;
+                    const schedules = bundleServiceSchedules || {};
+
+                    // Collect all bundle IDs from product items + service-only bundles
+                    const productBundleIds = [...new Set(items.filter(i => i.bundleId).map(i => parseInt(i.bundleId)))].filter(Number.isFinite);
+                    const serviceOnlyBundleIds = hasServiceOnlyBundles
+                        ? serviceOnlyBundles.map(s => parseInt(s.bundleId, 10)).filter(Number.isFinite)
+                        : [];
+                    const allBundleIds = [...new Set([...productBundleIds, ...serviceOnlyBundleIds])];
+                    if (allBundleIds.length === 0) return;
 
                     const bundlesWithItems = await prisma.bundle.findMany({
-                        where: { id: { in: bundleIds }, isActive: true },
+                        where: { id: { in: allBundleIds }, isActive: true },
                         include: {
                             items: {
                                 include: { serviceType: true }
@@ -593,25 +643,50 @@ router.post('/', optionalProtect, async (req, res) => {
                     });
 
                     const orderedProductIds = new Set(items.map(i => parseInt(i.productId, 10)).filter(Number.isFinite));
+                    const serviceOnlyBundleIdSet = new Set(serviceOnlyBundleIds);
+
+                    const bundleIdToInstanceId = {};
+                    for (const item of items) {
+                        if (item.bundleId && item.bundleInstanceId) {
+                            bundleIdToInstanceId[String(item.bundleId)] = item.bundleInstanceId;
+                        }
+                    }
+                    if (hasServiceOnlyBundles) {
+                        for (const sob of serviceOnlyBundles) {
+                            if (sob.bundleId && sob.bundleInstanceId) {
+                                bundleIdToInstanceId[String(sob.bundleId)] = sob.bundleInstanceId;
+                            }
+                        }
+                    }
 
                     for (const bundle of bundlesWithItems) {
-                        const bundleProductIds = bundle.items
-                            .filter(bi => bi.itemType === 'product' && bi.productId)
-                            .map(bi => bi.productId);
-                        const hasMatchingProducts = bundleProductIds.some(pid => orderedProductIds.has(pid));
-                        if (!hasMatchingProducts) continue;
+                        const isServiceOnlyBundle = serviceOnlyBundleIdSet.has(bundle.id);
+                        if (!isServiceOnlyBundle) {
+                            const bundleProductIds = bundle.items
+                                .filter(bi => bi.itemType === 'product' && bi.productId)
+                                .map(bi => bi.productId);
+                            const hasMatchingProducts = bundleProductIds.some(pid => orderedProductIds.has(pid));
+                            if (!hasMatchingProducts) continue;
+                        }
+
+                        const instanceId = bundleIdToInstanceId[String(bundle.id)];
+                        const schedule = instanceId ? schedules[instanceId] : null;
 
                         for (const bi of bundle.items) {
                             if (bi.itemType === 'service' && bi.serviceType) {
                                 const addr = order.shippingAddress || {};
+                                const serviceDate = schedule?.date ? new Date(schedule.date) : new Date();
+                                const timeSlot = schedule?.timeSlot || null;
+
                                 await prisma.serviceBooking.create({
                                     data: {
                                         userId,
                                         orderId: order.id,
                                         serviceType: bi.serviceType.title,
-                                        description: `Auto-booked from bundle: ${bundle.name} (Order #${order.id})`,
+                                        description: `Bundle service: ${bundle.name} (Order #${order.id})`,
                                         status: 'Pending',
-                                        date: new Date(),
+                                        date: serviceDate,
+                                        timeSlot,
                                         customerName: addr.fullName || null,
                                         customerPhone: addr.phone || null,
                                         address: addr.address || null,
@@ -640,7 +715,7 @@ router.post('/', optionalProtect, async (req, res) => {
             user: req.user?.id
         });
         // If it's a known error from the transaction (like stock issue), return 400
-        if (error.message && (error.message.includes('Insufficient stock') || error.message.includes('Invalid item data') || error.message.includes('Insufficient wallet balance'))) {
+        if (error.message && (error.message.includes('Insufficient stock') || error.message.includes('Invalid item data') || error.message.includes('Insufficient wallet balance') || error.message.includes('Coupon usage limit'))) {
             return res.status(400).json({ error: error.message });
         }
         res.status(500).json({ error: 'Internal server error. Our team has been notified.' });

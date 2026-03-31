@@ -118,13 +118,13 @@ const UserReferrals = () => {
                     </div>
 
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-sm mb-lg">
-                        <div className="flex items-center gap-sm">
-                            <div className="bg-page-bg border border-trust/30 rounded-lg px-xl py-xs font-mono text-3xl font-bold text-trust tracking-[0.2em] select-all">
+                        <div className="flex items-center gap-sm min-w-0">
+                            <div className="bg-page-bg border border-trust/30 rounded-lg px-4 sm:px-xl py-2 sm:py-xs font-mono text-xl sm:text-3xl font-bold text-trust tracking-[0.15em] sm:tracking-[0.2em] select-all truncate min-w-0">
                                 {referralCode}
                             </div>
                             <button
                                 onClick={() => copyToClipboard(referralCode, 'code')}
-                                className="p-sm bg-page-bg hover:bg-surface-hover border border-border-default rounded-lg transition-colors text-text-muted hover:text-text-primary"
+                                className="p-2.5 bg-page-bg hover:bg-surface-hover border border-border-default rounded-lg transition-colors text-text-muted hover:text-text-primary flex-shrink-0 touch-manipulation"
                                 title="Copy Code"
                             >
                                 <Copy size={20} />

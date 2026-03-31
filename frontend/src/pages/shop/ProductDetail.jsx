@@ -269,7 +269,7 @@ const ProductDetail = () => {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8 animate-in fade-in duration-500">
+        <div className="container mx-auto px-4 py-4 sm:py-8 pb-28 lg:pb-8 animate-in fade-in duration-500">
             <Link to="/products" className="inline-flex items-center gap-2 text-text-muted hover:text-primary mb-8 transition-colors">
                 <ArrowLeft size={18} /> Back to Products
             </Link>
@@ -549,7 +549,8 @@ const ProductDetail = () => {
                         </div>
                     )}
 
-                    <div className="flex gap-4 pt-4 border-t border-border-default">
+                    {/* Desktop action buttons */}
+                    <div className="hidden lg:flex gap-4 pt-4 border-t border-border-default">
                         {isVariableProduct && !allOptionsSelected ? (
                             <Button size="lg" className="flex-1 gap-2" variant="outline" onClick={handleAddToCartClick}>
                                 <ShoppingCart size={20} /> Select {firstUnselectedOption}
@@ -612,6 +613,24 @@ const ProductDetail = () => {
                         >
                             <ArrowLeftRight size={20} />
                         </Button>
+                    </div>
+
+                    {/* Mobile action row (wishlist + compare only) */}
+                    <div className="flex lg:hidden gap-3 pt-4 border-t border-border-default">
+                        <button
+                            onClick={() => toggleWishlist(product.id)}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-medium transition-colors ${isWishlisted ? 'border-trust text-trust bg-trust/5' : 'border-border-default text-text-secondary'}`}
+                        >
+                            <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
+                            {isWishlisted ? 'Wishlisted' : 'Wishlist'}
+                        </button>
+                        <button
+                            onClick={() => addToCompare(product.id)}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-border-default text-sm font-medium text-text-secondary transition-colors"
+                        >
+                            <ArrowLeftRight size={18} />
+                            Compare
+                        </button>
                     </div>
 
                     {/* Specs */}
@@ -735,6 +754,37 @@ const ProductDetail = () => {
                     </div>
                 </div>
             )}
+
+            {/* Mobile sticky buy bar */}
+            <div className="lg:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]">
+                <div className="flex items-center gap-3 max-w-7xl mx-auto">
+                    <div className="flex-1 min-w-0">
+                        <PriceDisplay sellingPrice={displayPrice} originalPrice={displayOriginalPrice} size="md" showBadge={false} />
+                    </div>
+                    {isVariableProduct && !allOptionsSelected ? (
+                        <button onClick={handleAddToCartClick} className="flex-1 min-w-0 font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 bg-trust text-white transition-colors touch-manipulation active:scale-[0.98]">
+                            Select Option
+                        </button>
+                    ) : isVariableProduct && allOptionsSelected && !selectedVariant ? (
+                        <button disabled className="flex-1 min-w-0 font-bold py-3.5 px-4 rounded-xl text-sm bg-border-default text-text-muted cursor-not-allowed">
+                            Unavailable
+                        </button>
+                    ) : isCurrentlyOutOfStock ? (
+                        <button onClick={() => handleToggleAlert('STOCK')} className={`flex-1 min-w-0 font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors touch-manipulation ${isStockAlertSet ? 'bg-success text-white' : 'bg-text-primary text-surface'}`}>
+                            <Bell size={16} /> {isStockAlertSet ? 'Alert Set' : 'Notify Me'}
+                        </button>
+                    ) : (
+                        <>
+                            <button onClick={handleAddToCartClick} className="flex-1 min-w-0 font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary transition-colors touch-manipulation active:scale-[0.98]">
+                                <ShoppingCart size={16} /> Add to Cart
+                            </button>
+                            <button onClick={handleBuyNow} className="flex-1 min-w-0 font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 border-2 border-primary text-primary transition-colors touch-manipulation active:scale-[0.98]">
+                                <Zap size={16} /> Buy Now
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

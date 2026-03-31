@@ -4,7 +4,7 @@ import { Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-rea
 
 const Footer = () => {
     return (
-        <footer className="bg-surface border-t border-border-default mt-auto">
+        <footer className="hidden md:block bg-surface border-t border-border-default mt-auto">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                     {/* Brand */}
@@ -55,6 +55,7 @@ const Footer = () => {
                             {[
                                 { name: 'Help Center / FAQ', path: '/faq' },
                                 { name: 'Contact Us', path: '/contact' },
+                                { name: 'Bundle Deals', path: '/bundles' },
                                 { name: 'Repair Services', path: '/services' },
                                 { name: 'CCTV Security', path: '/cctv' },
                                 { name: 'Academy', path: '/courses' },
@@ -98,7 +99,7 @@ const Footer = () => {
 
                 <div className="border-t border-border-default mt-8 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-text-muted">
                     <p>&copy; 2026 Shoptify by CMGroups. All rights reserved.</p>
-                    <div className="flex gap-6">
+                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
                         <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
                         <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
                         <Link to="/refund-policy" className="hover:text-primary transition-colors">Refund Policy</Link>

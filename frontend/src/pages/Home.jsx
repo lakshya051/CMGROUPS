@@ -51,7 +51,7 @@ const Home = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-page-bg">
+        <div className="min-h-screen bg-page-bg pb-4 md:pb-0">
             {/* 1. Category Pills — mobile only */}
             {pillCategoriesError ? (
                 <div className="md:hidden flex items-center justify-center gap-2 px-4 py-3 bg-surface border-b border-border-default">
@@ -66,7 +66,7 @@ const Home = () => {
                     >
                         All
                     </Link>
-                    {pillCategories.map(cat => (
+                    {pillCategories.slice(0, 10).map(cat => (
                         <Link
                             key={cat.id}
                             to={cat.slug ? `/products/category/${cat.slug}` : `/products?category=${encodeURIComponent(cat.name)}`}
@@ -75,6 +75,14 @@ const Home = () => {
                             {cat.name}
                         </Link>
                     ))}
+                    {pillCategories.length > 10 && (
+                        <Link
+                            to="/products"
+                            className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium bg-trust/10 text-trust border border-trust/20 whitespace-nowrap"
+                        >
+                            +{pillCategories.length - 10} More
+                        </Link>
+                    )}
                 </div>
             )}
 

@@ -81,9 +81,9 @@ export default function Notifications() {
         <div className="min-h-screen bg-page-bg">
             <div className="container mx-auto px-4 py-8 max-w-2xl">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                     <div>
-                        <h1 className="text-2xl font-heading font-bold text-text-primary">Notifications</h1>
+                        <h1 className="text-xl sm:text-2xl font-heading font-bold text-text-primary">Notifications</h1>
                         <p className="text-sm text-text-muted mt-1">
                             {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
                         </p>
@@ -92,13 +92,13 @@ export default function Notifications() {
                         {unreadCount > 0 && (
                             <Button variant="outline" size="sm" onClick={markAllAsRead}>
                                 <CheckCheck size={14} className="mr-1" />
-                                Mark all read
+                                <span className="hidden xs:inline">Mark all</span> read
                             </Button>
                         )}
                         {notifications.some(n => n.isRead) && (
                             <Button variant="ghost" size="sm" onClick={handleClearRead} className="text-text-muted">
                                 <Trash2 size={14} className="mr-1" />
-                                Clear read
+                                Clear
                             </Button>
                         )}
                     </div>

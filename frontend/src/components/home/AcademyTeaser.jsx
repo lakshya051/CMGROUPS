@@ -87,9 +87,8 @@ const AcademyTeaser = () => {
 };
 
 const CourseCard = ({ course }) => {
-    const minFee = course.durations?.length > 0
-        ? Math.min(...course.durations.map(d => d.totalFee))
-        : null;
+    const fees = (course.durations || []).map(d => Number(d.totalFee)).filter(Number.isFinite);
+    const minFee = fees.length > 0 ? Math.min(...fees) : null;
 
     return (
         <Link

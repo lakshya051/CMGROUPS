@@ -92,16 +92,16 @@ const Services = () => {
                 <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
                     backgroundImage: 'radial-gradient(circle at 20% 50%, var(--tw-chart-blue, #3B82F6) 0%, transparent 50%), radial-gradient(circle at 80% 20%, var(--tw-chart-purple, #8B5CF6) 0%, transparent 50%)'
                 }} />
-                <div className="container mx-auto px-4 py-16 text-center relative">
-                    <div className="inline-flex items-center gap-2 bg-trust/10 border border-trust/20 text-trust text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
+                <div className="container mx-auto px-4 py-8 sm:py-16 text-center relative">
+                    <div className="inline-flex items-center gap-2 bg-trust/10 border border-trust/20 text-trust text-xs sm:text-sm font-semibold px-3 sm:px-4 py-1.5 rounded-full mb-3 sm:mb-4">
                         <Zap size={14} />
                         Doorstep Repair Service
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-heading font-bold mb-4 text-text-primary">
+                    <h1 className="text-2xl sm:text-4xl md:text-5xl font-heading font-bold mb-3 sm:mb-4 text-text-primary">
                         Expert Tech Repairs,<br />
                         <span className="text-trust">At Your Doorstep</span>
                     </h1>
-                    <p className="text-text-muted max-w-xl mx-auto mb-6 text-lg">
+                    <p className="text-text-muted max-w-xl mx-auto mb-4 sm:mb-6 text-sm sm:text-lg">
                         Certified technicians for laptops, desktops, printers, and more. Book in 2 minutes.
                     </p>
                     {/* Trust Strip */}

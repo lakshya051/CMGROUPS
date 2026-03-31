@@ -41,7 +41,7 @@ export default function SignIn() {
             const resetErrors = {
                 'auth/invalid-email': 'Please enter a valid email address.',
                 'auth/missing-email': 'Please enter your email address.',
-                'auth/user-not-found': 'No account found with this email.',
+                'auth/user-not-found': 'If an account exists, a reset link has been sent.',
                 'auth/too-many-requests': 'Too many attempts. Please try again later.',
                 'auth/operation-not-allowed': FIREBASE_OPERATION_NOT_ALLOWED,
             };

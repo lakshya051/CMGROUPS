@@ -19,10 +19,10 @@ const ShippingStep = ({
     setManualLink,
     onDetectLocation,
 }) => (
-    <div className={`bg-surface border rounded-lg shadow-sm p-lg transition-all duration-300 ${step === 1 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-70'}`}>
-        <div className="flex items-center gap-4 mb-4">
-            <Truck className={step === 1 ? 'text-trust' : 'text-text-muted'} />
-            <h2 className={`text-xl font-bold ${step === 1 ? 'text-text-primary' : 'text-text-secondary'}`}>Shipping Information</h2>
+    <div className={`bg-surface border rounded-lg shadow-sm p-4 sm:p-lg transition-all duration-300 ${step === 1 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-70'}`}>
+        <div className="flex items-center gap-3 sm:gap-4 mb-4">
+            <Truck className={step === 1 ? 'text-trust' : 'text-text-muted'} size={20} />
+            <h2 className={`text-lg sm:text-xl font-bold ${step === 1 ? 'text-text-primary' : 'text-text-secondary'}`}>Shipping Information</h2>
             {step > 1 && <span className="text-success font-bold text-sm ml-auto flex items-center gap-1"><CheckCircle size={14} /> Done</span>}
         </div>
 
@@ -199,7 +199,7 @@ const ShippingStep = ({
                 </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
                     <input
                         type="text"

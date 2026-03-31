@@ -113,7 +113,7 @@ const FAQItem = ({ q, a }) => {
     return (
         <div className={`border border-border-default rounded-lg overflow-hidden transition-all duration-base ${open ? 'bg-surface-hover' : 'bg-surface'}`}>
             <button
-                className="w-full text-left px-md py-sm flex items-center justify-between gap-sm font-semibold text-base text-text-primary"
+                className="w-full text-left px-4 py-3 flex items-center justify-between gap-sm font-semibold text-sm sm:text-base text-text-primary"
                 onClick={() => setOpen(o => !o)}
             >
                 <span className={open ? 'text-trust' : ''}>{q}</span>
@@ -210,7 +210,7 @@ const TallyERP = () => {
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <button
                                 onClick={() => scrollToForm()}
-                                className="px-md py-sm bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold rounded"
+                                className="px-6 py-3 bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold rounded-lg"
                             >
                                 Request Free Demo
                             </button>
@@ -218,7 +218,7 @@ const TallyERP = () => {
                                 href={WA_LINK}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-md py-sm border border-border-default text-text-primary bg-surface hover:bg-surface-hover rounded flex items-center justify-center gap-xs font-bold"
+                                className="px-6 py-3 border border-border-default text-text-primary bg-surface hover:bg-surface-hover rounded-lg flex items-center justify-center gap-xs font-bold"
                             >
                                 <WhatsAppIcon size={20} /> Chat on WhatsApp
                             </a>
@@ -361,7 +361,7 @@ const TallyERP = () => {
                                             required
                                             value={form.name}
                                             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                                            className="w-full border border-border-default rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
+                                            className="w-full border border-border-default rounded px-3 py-2.5 text-base sm:text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
                                             placeholder="Ramesh Kumar"
                                         />
                                     </div>
@@ -372,7 +372,7 @@ const TallyERP = () => {
                                             required
                                             value={form.businessName}
                                             onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
-                                            className="w-full border border-border-default rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
+                                            className="w-full border border-border-default rounded px-3 py-2.5 text-base sm:text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
                                             placeholder="Kumar Traders"
                                         />
                                     </div>
@@ -388,7 +388,7 @@ const TallyERP = () => {
                                             maxLength={10}
                                             value={form.phone}
                                             onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '') }))}
-                                            className="w-full border border-border-default rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
+                                            className="w-full border border-border-default rounded px-3 py-2.5 text-base sm:text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
                                             placeholder="9876543210"
                                         />
                                         <p className="text-xs text-text-secondary mt-xs">10-digit mobile number</p>
@@ -400,7 +400,7 @@ const TallyERP = () => {
                                             required
                                             value={form.city}
                                             onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
-                                            className="w-full border border-border-default rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
+                                            className="w-full border border-border-default rounded px-3 py-2.5 text-base sm:text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
                                             placeholder={CITY}
                                         />
                                     </div>
@@ -412,7 +412,7 @@ const TallyERP = () => {
                                         required
                                         value={form.licenseType}
                                         onChange={e => setForm(f => ({ ...f, licenseType: e.target.value }))}
-                                        className="w-full border border-border-default rounded px-sm py-xs text-sm text-text-primary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
+                                        className="w-full border border-border-default rounded px-3 py-2.5 text-base sm:text-sm text-text-primary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base"
                                     >
                                         <option value="">Select license type...</option>
                                         {LICENSE_OPTIONS.map(opt => (
@@ -427,7 +427,7 @@ const TallyERP = () => {
                                         rows={3}
                                         value={form.message}
                                         onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                                        className="w-full border border-border-default rounded px-sm py-xs text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base resize-none"
+                                        className="w-full border border-border-default rounded px-3 py-2.5 text-base sm:text-sm text-text-primary placeholder:text-text-secondary focus-visible:outline-none focus-visible:border-trust transition-colors duration-base resize-none"
                                         placeholder="Any specific requirements or questions..."
                                     />
                                 </div>
@@ -441,7 +441,7 @@ const TallyERP = () => {
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="w-full py-sm px-md bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full py-3 px-md bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {submitting ? 'Sending...' : 'Send Enquiry'}
                                 </button>

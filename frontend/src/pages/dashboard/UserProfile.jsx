@@ -12,10 +12,10 @@ export default function UserProfile() {
     const [loadingAddresses, setLoadingAddresses] = useState(true);
 
     useEffect(() => {
-        ordersAPI.getMyStats().then(setStats).catch(() => {});
+        ordersAPI.getMyStats().then(setStats).catch(err => console.error('Failed to load stats:', err));
         addressesAPI.getAll()
             .then(setAddresses)
-            .catch(() => {})
+            .catch(err => console.error('Failed to load addresses:', err))
             .finally(() => setLoadingAddresses(false));
     }, []);
 
@@ -59,19 +59,19 @@ export default function UserProfile() {
             </div>
 
             {/* Order Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <div className="bg-surface rounded-xl border border-border-default p-5 text-center">
-                    <ShoppingBag size={24} className="mx-auto text-primary mb-2" />
-                    <p className="text-2xl font-bold text-text-primary">{stats?.totalOrders ?? '—'}</p>
-                    <p className="text-xs text-text-muted">Total Orders</p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="bg-surface rounded-xl border border-border-default p-3 sm:p-5 text-center">
+                    <ShoppingBag size={20} className="mx-auto text-primary mb-1 sm:mb-2 hidden sm:block" />
+                    <p className="text-lg sm:text-2xl font-bold text-text-primary">{stats?.totalOrders ?? '—'}</p>
+                    <p className="text-[10px] sm:text-xs text-text-muted">Orders</p>
                 </div>
-                <div className="bg-surface rounded-xl border border-border-default p-5 text-center">
-                    <p className="text-2xl font-bold text-text-primary">₹{(stats?.totalSpent ?? 0).toLocaleString('en-IN')}</p>
-                    <p className="text-xs text-text-muted mt-1">Total Spent</p>
+                <div className="bg-surface rounded-xl border border-border-default p-3 sm:p-5 text-center">
+                    <p className="text-lg sm:text-2xl font-bold text-text-primary truncate">₹{(stats?.totalSpent ?? 0).toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] sm:text-xs text-text-muted mt-0.5 sm:mt-1">Spent</p>
                 </div>
-                <div className="bg-surface rounded-xl border border-border-default p-5 text-center">
-                    <p className="text-2xl font-bold text-primary">₹{(user?.walletBalance ?? 0).toLocaleString('en-IN')}</p>
-                    <p className="text-xs text-text-muted mt-1">Wallet Balance</p>
+                <div className="bg-surface rounded-xl border border-border-default p-3 sm:p-5 text-center">
+                    <p className="text-lg sm:text-2xl font-bold text-primary truncate">₹{(user?.walletBalance ?? 0).toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] sm:text-xs text-text-muted mt-0.5 sm:mt-1">Wallet</p>
                 </div>
             </div>
 

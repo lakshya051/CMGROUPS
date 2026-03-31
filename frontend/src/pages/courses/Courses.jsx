@@ -44,12 +44,12 @@ const Courses = () => {
     return (
         <div className="min-h-screen bg-page-bg">
             {/* Hero */}
-            <div className="bg-surface py-2xl px-lg text-center border-b border-border-default">
+            <div className="bg-surface py-8 sm:py-2xl px-4 sm:px-lg text-center border-b border-border-default">
                 <div className="max-w-3xl mx-auto">
-                    <div className="inline-flex items-center gap-xs bg-trust/10 text-trust px-sm py-xs rounded text-xs font-bold mb-md uppercase tracking-wider">
+                    <div className="inline-flex items-center gap-xs bg-trust/10 text-trust px-sm py-xs rounded text-xs font-bold mb-3 sm:mb-md uppercase tracking-wider">
                         <GraduationCap size={16} /> Offline Computer Institute
                     </div>
-                    <h1 className="text-3xl md:text-4xl font-bold mb-sm leading-tight text-text-primary">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-sm leading-tight text-text-primary">
                         Build Your Career <br />in <span className="text-trust">Computer Skills</span>
                     </h1>
                     <p className="text-text-secondary text-sm max-w-xl mx-auto leading-relaxed">
@@ -59,14 +59,14 @@ const Courses = () => {
                 </div>
             </div>
 
-            <div className="container mx-auto px-lg py-xl">
+            <div className="container mx-auto px-4 sm:px-lg py-4 sm:py-xl pb-8 sm:pb-xl">
                 {/* Category Filter */}
-                <div className="flex flex-wrap gap-sm mb-lg">
+                <div className="flex gap-2 sm:gap-sm mb-4 sm:mb-lg overflow-x-auto pb-1 scrollbar-hide">
                     {categories.map(cat => (
                         <button
                             key={cat}
                             onClick={() => setCategory(cat)}
-                            className={`px-sm py-xs rounded text-sm font-semibold transition-colors duration-base ${category === cat
+                            className={`px-sm py-xs rounded text-sm font-semibold transition-colors duration-base whitespace-nowrap shrink-0 ${category === cat
                                 ? 'bg-buy-primary text-text-primary shadow-sm'
                                 : 'bg-surface border border-border-default text-text-secondary hover:bg-surface-hover hover:text-text-primary'
                                 }`}

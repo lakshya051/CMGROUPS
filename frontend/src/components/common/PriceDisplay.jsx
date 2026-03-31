@@ -33,10 +33,13 @@ const PriceDisplay = ({
     };
     const classes = sizeClasses[size] || sizeClasses.md;
 
+    const numericPrice = Number(sellingPrice);
+    if (!Number.isFinite(numericPrice)) return null;
+
     return (
         <div className="flex flex-wrap items-baseline gap-2">
             <span className={classes.main}>
-                ₹{Number(sellingPrice).toLocaleString('en-IN')}
+                ₹{numericPrice.toLocaleString('en-IN')}
             </span>
             {hasDiscount && (
                 <span className={classes.struck}>

@@ -53,19 +53,19 @@ const UserCourses = () => {
 
             {/* Referral Code Banner */}
             {user?.referralCode && (
-                <div className="bg-surface border border-trust/50 rounded-lg p-md flex items-center justify-between gap-4">
-                    <div>
+                <div className="bg-surface border border-trust/50 rounded-lg p-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
                         <p className="text-sm font-bold text-trust mb-1">Your Referral Code</p>
-                        <p className="text-sm text-text-secondary">Share this code — both you and the new student earn reward points when their first fee payment is recorded.</p>
+                        <p className="text-xs sm:text-sm text-text-secondary">Share this code — both earn reward points on first fee payment.</p>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="sm:text-right flex-shrink-0">
                         <button
-                            className="font-mono font-bold text-lg text-trust bg-trust/10 px-md py-xs rounded border border-trust/20 hover:bg-trust/20 transition-colors"
+                            className="font-mono font-bold text-lg text-trust bg-trust/10 px-md py-2 rounded-lg border border-trust/20 hover:bg-trust/20 transition-colors touch-manipulation"
                             onClick={() => { navigator.clipboard.writeText(user.referralCode); toast.success('Referral code copied!'); }}
                         >
                             {user.referralCode}
                         </button>
-                        <p className="text-xs text-text-muted mt-1">Click to copy</p>
+                        <p className="text-xs text-text-muted mt-1">Tap to copy</p>
                     </div>
                 </div>
             )}

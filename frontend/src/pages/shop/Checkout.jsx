@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { useSEO } from '../../hooks/useSEO';
 import ShippingStep from './checkout/ShippingStep';
 import PaymentStep, { OrderSummaryPanel } from './checkout/PaymentStep';
+import BundleServiceScheduler from './checkout/BundleServiceScheduler';
 import { FREE_DELIVERY_THRESHOLD } from '../../constants';
 
 const DEFAULT_CITY = 'Hathras';
@@ -45,6 +46,8 @@ const Checkout = () => {
     const [giftWrap, setGiftWrap] = useState(false);
     const [giftMessage, setGiftMessage] = useState('');
 
+    const [serviceSchedules, setServiceSchedules] = useState({});
+
     const [gps, setGps] = useState({ lat: null, lng: null });
     const [manualLink, setManualLink] = useState('');
     const [locationMode, setLocationMode] = useState('gps');
@@ -64,11 +67,25 @@ const Checkout = () => {
         if (!user) return;
         addressesAPI.getAll()
             .then(setSavedAddresses)
-            .catch(() => { });
+            .catch(err => console.error('Failed to load addresses:', err));
     }, [user]);
 
     const checkoutItems = isBuyNowMode && buyNowItems.length > 0 ? buyNowItems : cart;
     const hasGiftableBundle = checkoutItems.some(item => item.bundleInfo?.isGiftable);
+    const hasBundleServices = checkoutItems.some(item => item.bundleInfo?.hasService);
+
+    const bundleServiceInstanceIds = [...new Set(
+        checkoutItems
+            .filter(item => item.bundleInfo?.hasService)
+            .map(item => item.bundleInfo.bundleInstanceId)
+    )];
+    const allServicesScheduled = bundleServiceInstanceIds.length === 0 || bundleServiceInstanceIds.every(
+        id => serviceSchedules[id]?.date && serviceSchedules[id]?.timeSlot
+    );
+
+    const handleServiceScheduleChange = (bundleInstanceId, schedule) => {
+        setServiceSchedules(prev => ({ ...prev, [bundleInstanceId]: schedule }));
+    };
     const subtotal = computeBundleAwareSubtotal(checkoutItems);
     const bundleSavings = computeBundleSavings(checkoutItems);
     const couponDiscount = coupon?.discount || 0;
@@ -232,6 +249,7 @@ const Checkout = () => {
                 isBuyNow: isBuyNowMode && buyNowItems.length > 0,
                 giftWrap,
                 giftMessage: giftWrap ? giftMessage.trim() : null,
+                bundleServiceSchedules: Object.keys(serviceSchedules).length > 0 ? serviceSchedules : null,
             });
 
             orderSuccessRef.current = true;
@@ -278,16 +296,17 @@ const Checkout = () => {
 
     if (step === 3) {
         return (
-            <div className="container mx-auto px-4 py-20 text-center animate-in zoom-in duration-500">
-                <div className="w-20 h-20 bg-success/20 text-success rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle size={40} />
+            <div className="container mx-auto px-4 py-10 sm:py-20 text-center animate-in zoom-in duration-500">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-success/20 text-success rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                    <CheckCircle size={32} className="sm:hidden" />
+                    <CheckCircle size={40} className="hidden sm:block" />
                 </div>
-                <h1 className="text-4xl font-heading font-bold mb-4">Order Placed!</h1>
-                <p className="text-text-muted max-w-md mx-auto mb-8">
+                <h1 className="text-2xl sm:text-4xl font-heading font-bold mb-3 sm:mb-4">Order Placed!</h1>
+                <p className="text-text-muted max-w-md mx-auto mb-6 sm:mb-8 text-sm sm:text-base">
                     Thank you, {user?.name}! Your order <span className="text-primary font-bold">#{orderId}</span> has been placed successfully.
                 </p>
 
-                <div className="max-w-md mx-auto bg-surface border border-border-default rounded-lg shadow-sm p-lg mb-8 space-y-4">
+                <div className="max-w-md mx-auto bg-surface border border-border-default rounded-lg shadow-sm p-4 sm:p-lg mb-6 sm:mb-8 space-y-4">
                     <div className="flex items-center gap-2 justify-center text-warning">
                         <Shield size={20} />
                         <h3 className="font-bold text-lg text-text-primary">Payment Verification OTP</h3>
@@ -302,7 +321,7 @@ const Checkout = () => {
                     {paymentOtp ? (
                         <>
                             <div className="flex items-center justify-center gap-3">
-                                <div className="bg-page-bg border border-trust/50 rounded-xl px-xl py-lg font-mono text-4xl font-bold text-trust tracking-[0.3em] select-all">
+                                <div className="bg-page-bg border border-trust/50 rounded-xl px-4 sm:px-xl py-3 sm:py-lg font-mono text-2xl sm:text-4xl font-bold text-trust tracking-[0.2em] sm:tracking-[0.3em] select-all">
                                     {paymentOtp}
                                 </div>
                                 <button
@@ -324,22 +343,42 @@ const Checkout = () => {
                 </div>
 
                 {checkoutItems.some?.(item => item.bundleInfo?.hasService) && (
-                    <div className="max-w-md mx-auto bg-trust/5 border border-trust/20 rounded-lg p-4 mb-6 text-sm text-text-secondary">
-                        Your order includes a service combo. Installation/service will be scheduled after delivery. Check status in <span className="font-semibold text-trust">Dashboard &gt; Services</span>.
+                    <div className="max-w-md mx-auto bg-trust/5 border border-trust/20 rounded-lg p-4 mb-6 text-sm text-text-secondary space-y-2">
+                        <p className="font-semibold text-trust flex items-center gap-1.5">
+                            <CheckCircle size={14} /> Service Booking Confirmed
+                        </p>
+                        <p>
+                            Your bundle services have been booked for your selected date and time slot.
+                            You can track status and details in{' '}
+                            <span className="font-semibold text-trust cursor-pointer" onClick={() => navigate('/dashboard/services')}>Dashboard &gt; Services</span>.
+                        </p>
+                        {Object.entries(serviceSchedules).map(([instanceId, sched]) => {
+                            const item = checkoutItems.find(i => i.bundleInfo?.bundleInstanceId === instanceId);
+                            if (!item || !sched?.date) return null;
+                            return (
+                                <div key={instanceId} className="bg-surface rounded-md px-3 py-2 border border-border-default text-xs">
+                                    <p className="font-medium text-text-primary">{item.bundleInfo.bundleName}</p>
+                                    <p className="text-text-muted mt-0.5">
+                                        {new Date(sched.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                                        {sched.timeSlot ? ` at ${sched.timeSlot}` : ''}
+                                    </p>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
-                <div className="flex gap-4 justify-center">
-                    <Button onClick={() => navigate('/dashboard/orders')}>View My Orders</Button>
-                    <Button variant="outline" onClick={() => navigate('/')}>Return Home</Button>
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 sm:px-0">
+                    <Button onClick={() => navigate('/dashboard/orders')} className="w-full sm:w-auto">View My Orders</Button>
+                    <Button variant="outline" onClick={() => navigate('/')} className="w-full sm:w-auto">Return Home</Button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="container mx-auto px-4 py-12 max-w-4xl">
-            <h1 className="text-3xl font-heading font-bold mb-8">Checkout</h1>
+        <div className="container mx-auto px-4 py-6 sm:py-12 max-w-4xl">
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold mb-4 sm:mb-8">Checkout</h1>
 
             {orderError && (
                 <div className="bg-error/10 border border-error/20 text-error p-4 rounded-lg mb-6 flex items-center gap-2">
@@ -348,7 +387,7 @@ const Checkout = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-12">
                 <div className="space-y-8">
                     <ShippingStep
                         step={step}
@@ -366,6 +405,14 @@ const Checkout = () => {
                         setManualLink={setManualLink}
                         onDetectLocation={detectLocation}
                     />
+
+                    {hasBundleServices && step >= 2 && (
+                        <BundleServiceScheduler
+                            checkoutItems={checkoutItems}
+                            serviceSchedules={serviceSchedules}
+                            onScheduleChange={handleServiceScheduleChange}
+                        />
+                    )}
 
                     <PaymentStep
                         step={step}
@@ -389,6 +436,8 @@ const Checkout = () => {
                         onGiftWrapChange={setGiftWrap}
                         giftMessage={giftMessage}
                         onGiftMessageChange={setGiftMessage}
+                        servicesScheduled={allServicesScheduled}
+                        hasBundleServices={hasBundleServices}
                     />
                 </div>
 

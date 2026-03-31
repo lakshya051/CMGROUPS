@@ -240,7 +240,7 @@ router.post('/book', protect, async (req, res) => {
                     customFields: customFields && typeof customFields === 'object' ? customFields : null
                 }
             });
-        })).catch(err => {
+        }, { isolationLevel: 'Serializable' })).catch(err => {
             if (err.message === 'SLOT_FULL') return null;
             throw err;
         });

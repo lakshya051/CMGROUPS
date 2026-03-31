@@ -35,6 +35,12 @@ function isActiveBundle(bundle) {
     return true;
 }
 
+function parseServicePrice(priceStr) {
+    if (!priceStr) return 0;
+    const digits = String(priceStr).replace(/[^0-9.]/g, '');
+    return parseFloat(digits) || 0;
+}
+
 function enrichBundle(bundle) {
     const itemTotal = bundle.items.reduce((sum, bi) => {
         if (bi.itemType === 'product' && bi.product) {
@@ -45,7 +51,7 @@ function enrichBundle(bundle) {
             return sum + unitPrice * bi.quantity;
         }
         if (bi.itemType === 'service' && bi.serviceType?.price) {
-            return sum + (parseFloat(bi.serviceType.price) || 0) * bi.quantity;
+            return sum + parseServicePrice(bi.serviceType.price) * bi.quantity;
         }
         if (bi.itemType === 'course' && bi.course) {
             const courseFee = bi.course.durations?.[0]?.totalFee ?? 0;
@@ -268,35 +274,48 @@ router.post('/', protect, adminOnly, async (req, res) => {
             return res.status(400).json({ error: 'Name and bundlePrice are required' });
         }
 
-        let slug = customSlug || generateSlug(name);
-        const existingSlug = await prisma.bundle.findUnique({ where: { slug } });
-        if (existingSlug) slug = `${slug}-${Date.now()}`;
+        const baseSlug = customSlug || generateSlug(name);
+        const itemsData = (items || []).map((item, idx) => ({
+            productId: item.productId ? parseInt(item.productId) : null,
+            variantId: item.variantId ? parseInt(item.variantId) : null,
+            quantity: parseInt(item.quantity) || 1,
+            serviceTypeId: item.serviceTypeId ? parseInt(item.serviceTypeId) : null,
+            courseId: item.courseId ? parseInt(item.courseId) : null,
+            itemType: item.itemType || 'product',
+            position: idx,
+        }));
 
-        const bundle = await prisma.bundle.create({
-            data: {
-                name,
-                slug,
-                description: description || null,
-                image: image || null,
-                bundlePrice: parseFloat(bundlePrice),
-                isGiftable: isGiftable || false,
-                displayOn: Array.isArray(displayOn) ? displayOn : ['home'],
-                startDate: startDate ? new Date(startDate) : null,
-                endDate: endDate ? new Date(endDate) : null,
-                items: {
-                    create: (items || []).map((item, idx) => ({
-                        productId: item.productId ? parseInt(item.productId) : null,
-                        variantId: item.variantId ? parseInt(item.variantId) : null,
-                        quantity: parseInt(item.quantity) || 1,
-                        serviceTypeId: item.serviceTypeId ? parseInt(item.serviceTypeId) : null,
-                        courseId: item.courseId ? parseInt(item.courseId) : null,
-                        itemType: item.itemType || 'product',
-                        position: idx,
-                    })),
-                },
-            },
-            include: bundleInclude,
-        });
+        let bundle;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            let slug = baseSlug;
+            if (attempt > 0) {
+                slug = `${baseSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            } else {
+                const existing = await prisma.bundle.findUnique({ where: { slug } });
+                if (existing) slug = `${baseSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            }
+            try {
+                bundle = await prisma.bundle.create({
+                    data: {
+                        name,
+                        slug,
+                        description: description || null,
+                        image: image || null,
+                        bundlePrice: parseFloat(bundlePrice),
+                        isGiftable: isGiftable || false,
+                        displayOn: Array.isArray(displayOn) ? displayOn : ['home'],
+                        startDate: startDate ? new Date(startDate) : null,
+                        endDate: endDate ? new Date(endDate) : null,
+                        items: { create: itemsData },
+                    },
+                    include: bundleInclude,
+                });
+                break;
+            } catch (err) {
+                if (err.code === 'P2002' && attempt < 2) continue;
+                throw err;
+            }
+        }
 
         cache.delByPrefix('bundles:');
         logAudit({
@@ -308,6 +327,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
         res.status(201).json(enrichBundle(bundle));
     } catch (error) {
         console.error('Create bundle error:', error);
+        if (error.code === 'P2002') {
+            return res.status(409).json({ error: 'A bundle with this slug already exists. Please use a different name or custom slug.' });
+        }
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -380,15 +402,32 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
         const bundleId = parseInt(req.params.id);
-        await prisma.bundle.update({
-            where: { id: bundleId },
-            data: { isActive: false },
+        if (!Number.isFinite(bundleId)) return res.status(400).json({ error: 'Invalid bundle ID' });
+
+        const referencedByOrders = await prisma.orderItem.count({
+            where: { bundleId },
         });
+
+        if (referencedByOrders > 0) {
+            await prisma.bundle.update({
+                where: { id: bundleId },
+                data: { isActive: false },
+            });
+            cache.delByPrefix('bundles:');
+            logAudit({
+                userId: req.user.id, action: 'DELETE', entity: 'Bundle', entityId: bundleId,
+                details: { meta: 'Soft-deleted (isActive → false) — referenced by orders' },
+                req,
+            });
+            return res.json({ message: 'Bundle deactivated (referenced by existing orders)' });
+        }
+
+        await prisma.bundle.delete({ where: { id: bundleId } });
 
         cache.delByPrefix('bundles:');
         logAudit({
             userId: req.user.id, action: 'DELETE', entity: 'Bundle', entityId: bundleId,
-            details: { meta: 'Soft-deleted (isActive → false)' },
+            details: { meta: 'Hard-deleted' },
             req,
         });
 

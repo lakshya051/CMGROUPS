@@ -31,6 +31,7 @@ const CountdownTimer = () => {
 
     return (
         <div className="flex items-center gap-1 sm:gap-2">
+            <Clock size={16} className="text-deal sm:hidden" />
             <Clock size={18} className="text-deal hidden sm:block" />
             {[
                 { val: timeLeft.h, label: 'Hrs' },
@@ -152,21 +153,8 @@ const DealOfTheDay = () => {
     const scrollRef = React.useRef(null);
 
     useEffect(() => {
-        productsAPI.getAll({ sort: 'price_asc', limit: 12 })
-            .then(res => {
-                const all = res.data || [];
-                const withDiscount = all.filter(p => {
-                    const orig = p.displayMrp || p.originalPrice;
-                    const price = p.displayPrice || p.price;
-                    return orig != null && orig > price;
-                });
-                const sorted = withDiscount.sort((a, b) => {
-                    const discA = ((a.displayMrp || a.originalPrice) - (a.displayPrice || a.price)) / (a.displayMrp || a.originalPrice);
-                    const discB = ((b.displayMrp || b.originalPrice) - (b.displayPrice || b.price)) / (b.displayMrp || b.originalPrice);
-                    return discB - discA;
-                });
-                setProducts(sorted.length > 0 ? sorted.slice(0, 8) : all.slice(0, 6));
-            })
+        productsAPI.getAll({ isDeal: true, limit: 12 })
+            .then(res => setProducts(res.data || []))
             .catch(err => console.error('Failed to fetch deals:', err))
             .finally(() => setLoading(false));
     }, []);

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    CheckCircle, CreditCard, Truck, Store, Shield, Gift, Zap, Layers,
+    CheckCircle, CreditCard, Truck, Store, Shield, Gift, Zap, Layers, Wrench,
 } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import { handleImageError } from '../../../utils/image';
@@ -27,11 +27,13 @@ const PaymentStep = ({
     onGiftWrapChange,
     giftMessage,
     onGiftMessageChange,
+    servicesScheduled = true,
+    hasBundleServices = false,
 }) => (
-    <div className={`bg-surface border rounded-lg shadow-sm p-lg transition-all duration-300 ${step === 2 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-50'}`}>
-        <div className="flex items-center gap-4 mb-4">
-            <CreditCard className={step === 2 ? 'text-trust' : 'text-text-muted'} />
-            <h2 className={`text-xl font-bold ${step === 2 ? 'text-text-primary' : 'text-text-secondary'}`}>Payment Method</h2>
+    <div className={`bg-surface border rounded-lg shadow-sm p-4 sm:p-lg transition-all duration-300 ${step === 2 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-50'}`}>
+        <div className="flex items-center gap-3 sm:gap-4 mb-4">
+            <CreditCard className={step === 2 ? 'text-trust' : 'text-text-muted'} size={20} />
+            <h2 className={`text-lg sm:text-xl font-bold ${step === 2 ? 'text-text-primary' : 'text-text-secondary'}`}>Payment Method</h2>
         </div>
         {step === 2 && (
             <div className="space-y-4">
@@ -170,7 +172,7 @@ const PaymentStep = ({
                         {giftWrap && (
                             <textarea
                                 placeholder="Write a gift message (optional)"
-                                className="w-full border border-border-default rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-trust resize-none"
+                                className="w-full border border-border-default rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:border-trust resize-none"
                                 rows={3}
                                 maxLength={300}
                                 value={giftMessage}
@@ -180,11 +182,18 @@ const PaymentStep = ({
                     </div>
                 )}
 
+                {hasBundleServices && !servicesScheduled && (
+                    <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg text-xs text-warning font-medium">
+                        <Wrench size={14} className="shrink-0" />
+                        Please schedule all bundle services above before placing your order.
+                    </div>
+                )}
+
                 <Button
                     type="button"
                     className="w-full"
                     onClick={onPlaceOrder}
-                    disabled={isProcessing}
+                    disabled={isProcessing || (hasBundleServices && !servicesScheduled)}
                 >
                     {isProcessing ? 'Placing Order…' : `Place Order — ₹${finalTotal.toLocaleString()}`}
                 </Button>
@@ -210,49 +219,66 @@ export const OrderSummaryPanel = ({ cart, subtotal, bundleSavings = 0, tax, coup
     }
 
     return (
-        <div className="bg-surface border border-border-default rounded-lg shadow-sm p-lg h-fit sticky top-24">
-            <h3 className="font-bold mb-4 text-lg text-text-primary">Your Order</h3>
+        <div className="bg-surface border border-border-default rounded-lg shadow-sm p-4 sm:p-lg h-fit sticky top-24">
+            <h3 className="font-bold mb-4 text-base sm:text-lg text-text-primary">Your Order</h3>
             <div className="space-y-3 mb-4 max-h-72 overflow-y-auto pr-2">
-                {Object.entries(bundleGroups).map(([instanceId, group]) => (
-                    <div key={instanceId} className="bg-trust/5 border border-trust/20 rounded-lg p-2.5 space-y-2">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-trust">
-                            <Layers size={12} />
-                            <span className="line-clamp-1">{group.name}</span>
-                        </div>
-                        {group.items.map(item => (
-                            <div key={item.uniqueId || item.id} className="flex gap-2 text-xs text-text-secondary pl-1">
-                                <img
-                                    src={item.images?.[0] || item.image}
-                                    alt=""
-                                    loading="lazy"
-                                    width={32}
-                                    height={32}
-                                    onError={handleImageError}
-                                    className="w-8 h-8 rounded bg-surface object-contain flex-shrink-0"
-                                />
-                                <span className="line-clamp-1 flex-1">{item.title} x{item.quantity}</span>
+                {Object.entries(bundleGroups).map(([instanceId, group]) => {
+                    const isServiceOnlyGroup = group.items.every(i => i.isServiceBundle);
+                    return (
+                        <div key={instanceId} className="bg-trust/5 border border-trust/20 rounded-lg p-2.5 space-y-2">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-trust">
+                                {isServiceOnlyGroup ? <Wrench size={12} /> : <Layers size={12} />}
+                                <span className="line-clamp-1">{group.name}</span>
+                                {isServiceOnlyGroup && <span className="text-[10px] text-text-muted font-normal ml-1">(Service Bundle)</span>}
                             </div>
-                        ))}
-                        <div className="flex items-center justify-between pt-1 border-t border-trust/10">
-                            {(() => {
-                                const catalogTotal = group.items.reduce((s, i) => s + i.price * i.quantity, 0);
-                                const bundlePrice = group.price ?? catalogTotal;
-                                const hasSavings = catalogTotal > bundlePrice;
-                                return (
-                                    <div className="flex items-center gap-2 ml-auto">
-                                        {hasSavings && <span className="text-[10px] text-text-muted line-through">₹{catalogTotal.toLocaleString()}</span>}
-                                        <span className="font-bold text-sm text-text-primary">₹{bundlePrice.toLocaleString()}</span>
-                                        {hasSavings && (
-                                            <span className="text-[10px] font-semibold text-success bg-success/10 px-1 py-0.5 rounded">
-                                                Save ₹{(catalogTotal - bundlePrice).toLocaleString()}
-                                            </span>
-                                        )}
+                            {isServiceOnlyGroup ? (
+                                <div className="space-y-1 pl-1">
+                                    {(group.items[0]?.bundleInfo?.serviceNames || []).map((name, idx) => (
+                                        <div key={idx} className="flex items-center gap-1.5 text-xs text-text-secondary">
+                                            <Wrench size={10} className="text-trust shrink-0" />
+                                            {name}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                group.items.map(item => (
+                                    <div key={item.uniqueId || item.id} className="flex gap-2 text-xs text-text-secondary pl-1">
+                                        <img
+                                            src={item.images?.[0] || item.image}
+                                            alt=""
+                                            loading="lazy"
+                                            width={32}
+                                            height={32}
+                                            onError={handleImageError}
+                                            className="w-8 h-8 rounded bg-surface object-contain flex-shrink-0"
+                                        />
+                                        <span className="line-clamp-1 flex-1">{item.title} x{item.quantity}</span>
                                     </div>
-                                );
-                            })()}
+                                ))
+                            )}
+                            <div className="flex items-center justify-between pt-1 border-t border-trust/10">
+                                {(() => {
+                                    const catalogTotal = isServiceOnlyGroup
+                                        ? group.price
+                                        : group.items.reduce((s, i) => s + i.price * i.quantity, 0);
+                                    const bundlePrice = group.price ?? catalogTotal;
+                                    const hasSavings = !isServiceOnlyGroup && catalogTotal > bundlePrice;
+                                    return (
+                                        <div className="flex items-center gap-2 ml-auto">
+                                            {hasSavings && <span className="text-[10px] text-text-muted line-through">₹{catalogTotal.toLocaleString()}</span>}
+                                            <span className="font-bold text-sm text-text-primary">₹{bundlePrice.toLocaleString()}</span>
+                                            {hasSavings && (
+                                                <span className="text-[10px] font-semibold text-success bg-success/10 px-1 py-0.5 rounded">
+                                                    Save ₹{(catalogTotal - bundlePrice).toLocaleString()}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
                 {standaloneItems.map(item => (
                     <div key={item.uniqueId || item.id} className="flex gap-3 text-sm">
                         <img

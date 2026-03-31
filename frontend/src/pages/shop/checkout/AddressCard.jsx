@@ -13,10 +13,10 @@ const AddressCard = ({ address, isSelected, onSelect, onDelete }) => (
         <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onDelete(address.id); }}
-            className="absolute top-2 right-2 p-1 rounded-md text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all"
+            className="absolute top-2 right-2 p-1.5 rounded-md text-text-muted hover:text-error hover:bg-error/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
             aria-label="Delete address"
         >
-            <Trash2 size={12} />
+            <Trash2 size={14} />
         </button>
 
         <div className="flex items-center gap-1.5 mb-1">

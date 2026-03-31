@@ -452,7 +452,7 @@ const UserServices = () => {
                                             {booking.status === 'Pending' && (
                                                 <button
                                                     onClick={e => { e.stopPropagation(); setCancelModal(booking.id); setCancelReason(''); }}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/10 rounded-lg transition-colors border border-error/20"
+                                                    className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-error hover:bg-error/10 rounded-lg transition-colors border border-error/20 min-h-[40px] touch-manipulation"
                                                 >
                                                     <XCircle size={14} />Cancel Booking
                                                 </button>

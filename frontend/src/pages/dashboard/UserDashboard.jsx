@@ -7,14 +7,14 @@ import { useSEO } from '../../hooks/useSEO';
 import { handleImageError } from '../../utils/image';
 
 const StatCard = ({ title, value, icon, trend }) => (
-    <div className="bg-surface border border-border-default rounded-lg shadow-sm p-md hover:shadow-md transition-shadow">
+    <div className="bg-surface border border-border-default rounded-lg shadow-sm p-3 sm:p-md hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between mb-sm">
-            <span className="text-text-secondary text-xs font-semibold uppercase tracking-wider">{title}</span>
-            <div className="p-xs bg-page-bg border border-border-default rounded text-text-muted">{icon}</div>
+            <span className="text-text-secondary text-[10px] sm:text-xs font-semibold uppercase tracking-wider">{title}</span>
+            <div className="p-xs bg-page-bg border border-border-default rounded text-text-muted [&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-6 sm:[&>svg]:h-6">{icon}</div>
         </div>
-        <div className="flex items-end gap-2">
-            <span className="text-2xl font-bold text-text-primary">{value}</span>
-            {trend && <span className="text-sm text-success mb-1 flex items-center font-bold">{trend} <ArrowUpRight size={14} /></span>}
+        <div className="flex items-end gap-1 sm:gap-2">
+            <span className="text-lg sm:text-2xl font-bold text-text-primary truncate">{value}</span>
+            {trend && <span className="text-xs sm:text-sm text-success mb-1 flex items-center font-bold">{trend} <ArrowUpRight size={14} /></span>}
         </div>
     </div>
 );
@@ -58,7 +58,7 @@ const UserDashboard = () => {
             .finally(() => setLoading(false));
         reviewsAPI.getPendingBundles()
             .then(data => setPendingBundleReviews(Array.isArray(data) ? data : []))
-            .catch(() => {});
+            .catch(err => console.error('Failed to load pending reviews:', err));
     }, []);
 
     const getStatusColor = (status) => {
@@ -136,7 +136,7 @@ const UserDashboard = () => {
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
                         <StatCard
                             title="Total Spent"
                             value={`₹${(stats?.totalSpent || 0).toLocaleString()}`}
@@ -162,7 +162,33 @@ const UserDashboard = () => {
                         </div>
 
                         {stats?.recentOrders?.length > 0 ? (
-                            <div className="overflow-x-auto">
+                            <>
+                            {/* Mobile card layout */}
+                            <div className="sm:hidden divide-y divide-border-default">
+                                {stats.recentOrders.map(order => (
+                                    <div key={order.id} className="py-3 px-1">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="font-mono text-trust font-bold text-sm">#{order.id}</span>
+                                            <span className="font-bold text-text-primary text-sm">₹{order.total.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-text-muted">
+                                                {new Date(order.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] font-bold ${order.isPaid ? 'text-success' : 'text-text-muted'}`}>
+                                                    {order.isPaid ? '✓ Paid' : '⏳ Unpaid'}
+                                                </span>
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getStatusColor(order.status)}`}>
+                                                    {order.status === 'OutForDelivery' ? 'Out for Delivery' : order.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {/* Desktop table */}
+                            <div className="hidden sm:block overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-page-bg text-text-secondary text-xs uppercase font-bold tracking-wider border-b border-border-default">
@@ -196,6 +222,7 @@ const UserDashboard = () => {
                                     </tbody>
                                 </table>
                             </div>
+                            </>
                         ) : (
                             <div className="text-center py-xl text-text-secondary">
                                 <ShoppingBag size={40} className="mx-auto mb-3 opacity-20" />

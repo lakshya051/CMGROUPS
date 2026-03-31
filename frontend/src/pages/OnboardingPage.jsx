@@ -54,23 +54,23 @@ export default function OnboardingPage() {
                         <label htmlFor="name" className="text-sm font-medium text-text-primary block mb-xs">Full Name</label>
                         <input id="name" type="text" value={name} onChange={e => setName(e.target.value)}
                             placeholder="Rahul Sharma" required
-                            className="w-full border border-border-default rounded px-sm py-xs text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-trust" />
+                            className="w-full border border-border-default rounded-lg px-3 py-2.5 text-base sm:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-trust" />
                     </div>
                     <div>
                         <label htmlFor="phone" className="text-sm font-medium text-text-primary block mb-xs">
                             Mobile Number <span className="text-deal">*</span>
                         </label>
                         <div className="flex border border-border-default rounded overflow-hidden">
-                            <span className="bg-page-bg px-sm py-xs text-sm text-text-secondary border-r border-border-default flex items-center">+91</span>
+                            <span className="bg-page-bg px-3 py-2.5 text-base sm:text-sm text-text-secondary border-r border-border-default flex items-center">+91</span>
                             <input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                                 placeholder="9876543210" maxLength={10} required
-                                className="flex-1 px-sm py-xs text-sm outline-none bg-surface text-text-primary" />
+                                className="flex-1 px-3 py-2.5 text-base sm:text-sm outline-none bg-surface text-text-primary" />
                         </div>
                         <p className="text-text-secondary text-xs mt-xs">Used only for delivery updates. We don't spam.</p>
                     </div>
                     {error && <p className="text-deal text-sm">{error}</p>}
                     <button type="submit" disabled={loading}
-                        className="w-full bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold py-sm rounded transition-colors duration-base disabled:opacity-50">
+                        className="w-full bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold py-3 rounded-lg transition-colors duration-base disabled:opacity-50">
                         {loading ? 'Saving...' : 'Continue to Shoptify →'}
                     </button>
                 </form>

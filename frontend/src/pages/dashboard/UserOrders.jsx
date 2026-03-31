@@ -349,8 +349,8 @@ const UserOrders = () => {
                                 className="bg-surface-hover border-2 border-dashed border-border-default rounded-xl p-lg cursor-pointer hover:border-trust/50 transition-colors duration-fast group relative"
                             >
                                 <div className="text-3xl font-mono font-bold tracking-[0.2em] text-text-primary">{selectedOtp}</div>
-                                <div className="absolute inset-0 flex items-center justify-center bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity duration-smooth rounded-xl font-medium text-trust gap-sm">
-                                    <Copy size={16} /> {otpCopied ? 'Copied!' : 'Click to Copy'}
+                                <div className="absolute inset-0 flex items-center justify-center bg-white/90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-smooth rounded-xl font-medium text-trust gap-sm">
+                                    <Copy size={16} /> {otpCopied ? 'Copied!' : 'Tap to Copy'}
                                 </div>
                             </div>
                             <p className="text-xs text-text-muted">Valid for payment confirmation upon delivery</p>

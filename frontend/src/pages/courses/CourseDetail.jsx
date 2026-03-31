@@ -32,7 +32,7 @@ const CourseDetail = () => {
             <GraduationCap size={48} className="text-primary animate-bounce" />
         </div>
     );
-    if (!course) return <div className="p-12 text-center text-error font-bold">Course not found.</div>;
+    if (!course) return <div className="p-6 sm:p-12 text-center text-error font-bold">Course not found.</div>;
 
     const getSeatsLeft = (batch) => {
         const enrolled = batch._count?.applications || 0;
@@ -124,8 +124,8 @@ const CourseDetail = () => {
                                             const full = seatsLeft === 0;
                                             return (
                                                 <div key={batch.id} className={`p-md rounded-lg border flex items-center justify-between ${full ? 'border-border-default bg-page-bg opacity-60' : 'border-border-default bg-surface shadow-sm'}`}>
-                                                    <div>
-                                                        <div className="font-semibold text-sm text-text-primary">{batch.name} Batch</div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="font-semibold text-sm text-text-primary truncate">{batch.name} Batch</div>
                                                         <div className="text-xs text-text-secondary mt-1 flex items-center gap-1">
                                                             <Clock size={12} /> {batch.timing}
                                                         </div>
@@ -162,7 +162,7 @@ const CourseDetail = () => {
                                             ) : (
                                                 <div className="text-center p-md bg-page-bg rounded-lg border border-dashed border-border-default">
                                                     <p className="text-text-primary text-sm font-medium mb-sm">Login to apply for this course</p>
-                                                    <Button variant="outline" onClick={() => navigate('/sign-in')} className="text-sm px-md py-xs">Login / Register</Button>
+                                                    <Button variant="outline" onClick={() => navigate('/sign-in')} className="text-sm px-md py-2">Login / Register</Button>
                                                 </div>
                                             )}
                                         </div>
