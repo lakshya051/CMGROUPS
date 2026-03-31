@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Monitor, Wrench, GraduationCap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Monitor, Wrench, GraduationCap, Pause, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { bannersAPI } from '../../lib/api';
 import { handleImageError } from '../../utils/image';
@@ -98,12 +98,14 @@ const HeroBannerSlider = () => {
     return (
         <section
             className="relative w-full overflow-hidden"
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
             aria-label="Promotional banners"
+            aria-roledescription="carousel"
         >
+            <div aria-live="polite" className="sr-only">
+                Slide {current + 1} of {slideCount}: {slides[current]?.title || slides[current]?.headline}
+            </div>
             <div
                 className="flex transition-transform duration-smooth ease-in-out"
                 style={{ transform: `translateX(-${current * 100}%)` }}
@@ -178,7 +180,14 @@ const HeroBannerSlider = () => {
             )}
 
             {slideCount > 1 && (
-                <div className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+                <div className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                    <button
+                        onClick={() => setIsPaused(prev => !prev)}
+                        className="w-7 h-7 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full flex items-center justify-center transition-colors"
+                        aria-label={isPaused ? 'Play slideshow' : 'Pause slideshow'}
+                    >
+                        {isPaused ? <Play size={12} /> : <Pause size={12} />}
+                    </button>
                     {slides.map((_, i) => (
                         <button
                             key={i}

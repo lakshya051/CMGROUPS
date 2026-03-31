@@ -4,7 +4,7 @@ import {
     X, UserCircle, Store, Heart, ShoppingBag, Wrench,
     GraduationCap, FileText, Shield, LayoutDashboard,
     Settings, Gift, LogOut, LogIn, ChevronRight, Download,
-    Building2, HelpCircle, Phone, Bell, Layers,
+    Building2, HelpCircle, Phone, Bell, Layers, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
@@ -85,10 +85,13 @@ const MobileDrawer = ({ isOpen, onClose }) => {
             ] : []
         },
         {
-            label: 'HELP',
+            label: 'HELP & LEGAL',
             links: [
                 { name: 'Contact Us', path: '/contact', icon: Phone },
                 { name: 'FAQ & Help', path: '/faq', icon: HelpCircle },
+                { name: 'Privacy Policy', path: '/privacy-policy', icon: ScrollText },
+                { name: 'Terms of Service', path: '/terms-of-service', icon: ScrollText },
+                { name: 'Refund Policy', path: '/refund-policy', icon: ScrollText },
             ]
         },
     ];

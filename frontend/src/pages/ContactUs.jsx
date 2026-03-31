@@ -79,15 +79,33 @@ export default function ContactUs() {
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="md:col-span-2 space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input name="name" value={form.name} onChange={handleChange} placeholder="Full Name" required className={inputClass} />
-                        <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="Email Address" required className={inputClass} />
-                        <input name="phone" value={form.phone} onChange={handleChange} placeholder="Phone Number" className={inputClass} />
-                        <select name="department" value={form.department} onChange={handleChange} className={inputClass}>
-                            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-                        </select>
+                        <div>
+                            <label htmlFor="contact-name" className="block text-sm font-medium text-text-primary mb-1">Full Name</label>
+                            <input id="contact-name" name="name" value={form.name} onChange={handleChange} placeholder="John Doe" required className={inputClass} />
+                        </div>
+                        <div>
+                            <label htmlFor="contact-email" className="block text-sm font-medium text-text-primary mb-1">Email Address</label>
+                            <input id="contact-email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" required className={inputClass} />
+                        </div>
+                        <div>
+                            <label htmlFor="contact-phone" className="block text-sm font-medium text-text-primary mb-1">Phone Number</label>
+                            <input id="contact-phone" name="phone" value={form.phone} onChange={handleChange} placeholder="+91 98765 43210" className={inputClass} />
+                        </div>
+                        <div>
+                            <label htmlFor="contact-department" className="block text-sm font-medium text-text-primary mb-1">Department</label>
+                            <select id="contact-department" name="department" value={form.department} onChange={handleChange} className={inputClass}>
+                                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                        </div>
                     </div>
-                    <input name="subject" value={form.subject} onChange={handleChange} placeholder="Subject" required className={inputClass} />
-                    <textarea name="message" value={form.message} onChange={handleChange} placeholder="Your message..." required rows={5} className={`${inputClass} resize-none`} />
+                    <div>
+                        <label htmlFor="contact-subject" className="block text-sm font-medium text-text-primary mb-1">Subject</label>
+                        <input id="contact-subject" name="subject" value={form.subject} onChange={handleChange} placeholder="What is this about?" required className={inputClass} />
+                    </div>
+                    <div>
+                        <label htmlFor="contact-message" className="block text-sm font-medium text-text-primary mb-1">Message</label>
+                        <textarea id="contact-message" name="message" value={form.message} onChange={handleChange} placeholder="Your message..." required rows={5} className={`${inputClass} resize-none`} />
+                    </div>
                     <button
                         type="submit"
                         disabled={loading}

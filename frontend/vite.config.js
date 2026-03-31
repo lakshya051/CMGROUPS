@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => ({
                 'icon.svg',
                 'offline.html',
                 'placeholder-product.svg',
+                'screenshots/*.png',
             ],
             manifest: {
                 name: 'Shoptify',
@@ -36,6 +37,8 @@ export default defineConfig(({ mode }) => ({
                 dir: 'ltr',
                 id: '/',
                 categories: ['shopping', 'education', 'lifestyle'],
+                prefer_related_applications: false,
+                handle_links: 'preferred',
                 icons: [
                     { src: '/icons/icon-48x48.png', sizes: '48x48', type: 'image/png' },
                     { src: '/icons/icon-72x72.png', sizes: '72x72', type: 'image/png' },
@@ -54,25 +57,25 @@ export default defineConfig(({ mode }) => ({
                         name: 'My Orders',
                         short_name: 'Orders',
                         url: '/dashboard/orders',
-                        icons: [{ src: '/icons/shortcut-orders.png', sizes: '96x96' }],
+                        icons: [{ src: '/icons/shortcut-orders.png', sizes: '96x96', type: 'image/png' }],
                     },
                     {
                         name: 'Book Service',
                         short_name: 'Services',
                         url: '/services',
-                        icons: [{ src: '/icons/shortcut-services.png', sizes: '96x96' }],
+                        icons: [{ src: '/icons/shortcut-services.png', sizes: '96x96', type: 'image/png' }],
                     },
                     {
                         name: 'My Courses',
                         short_name: 'Courses',
                         url: '/courses',
-                        icons: [{ src: '/icons/shortcut-courses.png', sizes: '96x96' }],
+                        icons: [{ src: '/icons/shortcut-courses.png', sizes: '96x96', type: 'image/png' }],
                     },
                     {
                         name: 'Shop Now',
                         short_name: 'Shop',
                         url: '/products',
-                        icons: [{ src: '/icons/shortcut-shop.png', sizes: '96x96' }],
+                        icons: [{ src: '/icons/shortcut-shop.png', sizes: '96x96', type: 'image/png' }],
                     },
                 ],
                 screenshots: [

@@ -8,7 +8,7 @@ const Button = ({
     className,
     ...props
 }) => {
-    const baseStyles = "inline-flex items-center justify-center rounded transition-colors duration-base disabled:opacity-50 disabled:pointer-events-none";
+    const baseStyles = "inline-flex items-center justify-center rounded transition-colors duration-base disabled:opacity-50 disabled:pointer-events-none focus-visible:ring-2 focus-visible:ring-trust focus-visible:ring-offset-2 outline-none";
 
     const variants = {
         primary: "bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold",

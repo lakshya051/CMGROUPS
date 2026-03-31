@@ -5,7 +5,7 @@
   "launcherName": "Shoptify",
   "display": "standalone",
   "themeColor": "#e91e63",
-  "backgroundColor": "#EAEDED",
+  "backgroundColor": "#ffffff",
   "startUrl": "/",
   "iconUrl": "https://cmgroups.vercel.app/icons/icon-512x512.png",
   "maskableIconUrl": "https://cmgroups.vercel.app/icons/icon-512x512-maskable.png",

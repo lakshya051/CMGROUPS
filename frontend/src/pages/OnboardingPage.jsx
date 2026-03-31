@@ -13,7 +13,14 @@ export default function OnboardingPage() {
     const navigate = useNavigate();
 
     if (authLoading) {
-        return <div className="min-h-screen bg-page-bg" />;
+        return (
+            <div className="min-h-screen bg-page-bg flex items-center justify-center" role="status" aria-live="polite">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" aria-hidden="true" />
+                    <p className="text-text-muted text-sm">Loading...</p>
+                </div>
+            </div>
+        );
     }
     if (!isSignedIn) {
         return <Navigate to="/sign-in" replace />;

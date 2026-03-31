@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     ShoppingBag, Search, Eye, CheckCircle, Truck, XCircle,
-    Shield, X, MapPin, User, Package, CreditCard, Tag, Calendar,
+    Shield, MapPin, User, Package, CreditCard, Tag, Calendar,
     ChevronRight, Wallet, Download, ExternalLink
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
+import Modal from '../../components/ui/Modal';
 import { ordersAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { handleImageError } from '../../utils/image';
+import toast from 'react-hot-toast';
 
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
 const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) => {
-    if (!order) return null;
-
-    const addr = order.shippingAddress;
+    const addr = order?.shippingAddress;
     const customerName = order.user?.name || order.guestInfo?.name || 'Guest';
     const customerEmail = order.user?.email || order.guestInfo?.email || '—';
     const customerPhone = order.user?.phone || order.guestInfo?.phone || '—';
@@ -53,51 +53,35 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
         (hasCoordinates ? `https://www.google.com/maps?q=${lat},${lng}` : null);
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div
-                className="bg-surface rounded-xl border border-border-default shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex items-start justify-between p-5 border-b border-border-default bg-page-bg flex-shrink-0">
-                    <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h2 className="text-xl font-bold text-text-primary">Order #{order.id}</h2>
-                            <span className={`px-2 py-0.5 rounded text-xs font-bold border ${statusColor}`}>
-                                {displayStatus}
+        <Modal isOpen={!!order} onClose={onClose} title={`Order #${order?.id}`} maxWidth="max-w-2xl">
+            {order && (
+                <div className="space-y-5">
+                    {/* Header Info */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-xl font-bold text-text-primary">Order #{order.id}</h2>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold border ${statusColor}`}>
+                            {displayStatus}
+                        </span>
+                        {order.isPaid ? (
+                            <span className="flex items-center gap-1 text-success text-xs font-bold bg-success/10 px-2 py-0.5 rounded border border-success/20">
+                                <CheckCircle size={11} /> PAID
                             </span>
-                            {order.isPaid ? (
-                                <span className="flex items-center gap-1 text-success text-xs font-bold bg-success/10 px-2 py-0.5 rounded border border-success/20">
-                                    <CheckCircle size={11} /> PAID
-                                </span>
-                            ) : (
-                                <span className="text-orange-400 text-xs font-bold bg-orange-400/10 px-2 py-0.5 rounded border border-orange-400/20">UNPAID</span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs text-text-muted mt-1">
-                            <Calendar size={12} />
-                            {new Date(order.createdAt).toLocaleString('en-IN', {
-                                day: '2-digit', month: 'short', year: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                            })}
-                            {order.deliveredAt && (
-                                <span className="ml-2 text-success">
-                                    · Delivered {new Date(order.deliveredAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </span>
-                            )}
-                        </div>
+                        ) : (
+                            <span className="text-orange-400 text-xs font-bold bg-orange-400/10 px-2 py-0.5 rounded border border-orange-400/20">UNPAID</span>
+                        )}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 hover:bg-surface-hover rounded-lg transition-colors text-text-muted hover:text-text-primary flex-shrink-0"
-                        aria-label="Close dialog"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
-
-                {/* Scrollable Body */}
-                <div className="overflow-y-auto flex-1 p-5 space-y-5">
+                    <div className="flex items-center gap-1.5 text-xs text-text-muted -mt-3">
+                        <Calendar size={12} />
+                        {new Date(order.createdAt).toLocaleString('en-IN', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                        })}
+                        {order.deliveredAt && (
+                            <span className="ml-2 text-success">
+                                · Delivered {new Date(order.deliveredAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                        )}
+                    </div>
 
                     {/* ── Ordered Items ─────────────────────────────── */}
                     <section>
@@ -296,8 +280,8 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                         </div>
                     </section>
                 </div>
-            </div>
-        </div>
+            )}
+        </Modal>
     );
 };
 
@@ -379,16 +363,16 @@ const AdminOrders = () => {
             setSelectedOrder(prev => prev?.id === orderId ? { ...prev, status: newStatus } : prev);
         } catch (err) {
             console.error('Failed to update order status:', err);
-            alert(err.message || 'Failed to update status');
+            toast.error(err.message || 'Failed to update status');
         }
     };
 
     const handleVerifyPayment = async () => {
-        if (!otpInput) { alert('Please enter the OTP'); return; }
+        if (!otpInput) { toast.error('Please enter the OTP'); return; }
         setIsVerifying(true);
         try {
             await ordersAPI.verifyPayment(verifyingOrderId, otpInput);
-            alert('Payment verified! Order confirmed.');
+            toast.success('Payment verified! Order confirmed.');
             setVerifyingOrderId(null);
             setOtpInput('');
             await fetchOrders(false);
@@ -397,7 +381,7 @@ const AdminOrders = () => {
                 return null;
             });
         } catch (err) {
-            alert(err.message || 'Failed to verify payment');
+            toast.error(err.message || 'Failed to verify payment');
         } finally {
             setIsVerifying(false);
         }
@@ -419,7 +403,7 @@ const AdminOrders = () => {
                     ));
                     setSelectedOrder(null);
                 } catch (err) {
-                    alert(err.message || 'Failed to process refund');
+                    toast.error(err.message || 'Failed to process refund');
                 }
             },
         });
@@ -516,8 +500,12 @@ const AdminOrders = () => {
                                     return (
                                         <tr
                                             key={order.id}
-                                            className="border-b border-border-default hover:bg-surface-hover transition-colors cursor-pointer"
+                                            className="border-b border-border-default hover:bg-surface-hover transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-trust focus-visible:outline-offset-[-2px]"
                                             onClick={() => setSelectedOrder(order)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedOrder(order); } }}
+                                            tabIndex={0}
+                                            role="button"
+                                            aria-label={`View order #${order.id}`}
                                         >
                                             <td className="p-4 font-mono text-sm font-bold text-text-primary">#{order.id}</td>
                                             <td className="p-4">
@@ -652,74 +640,66 @@ const AdminOrders = () => {
             )}
 
             {/* ── Order Detail Modal ─────────────────────────────────────── */}
-            {selectedOrder && (
-                <OrderDetailModal
-                    order={selectedOrder}
-                    onClose={() => setSelectedOrder(null)}
-                    onStatusUpdate={handleStatusUpdate}
-                    onVerifyPayment={(id) => {
-                        setSelectedOrder(null);
-                        setVerifyingOrderId(id);
-                    }}
-                />
-            )}
+            <OrderDetailModal
+                order={selectedOrder}
+                onClose={() => setSelectedOrder(null)}
+                onStatusUpdate={handleStatusUpdate}
+                onVerifyPayment={(id) => {
+                    setSelectedOrder(null);
+                    setVerifyingOrderId(id);
+                }}
+            />
 
             {/* ── OTP Verification Modal ─────────────────────────────────── */}
-            {verifyingOrderId && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-sm">
-                    <div className="bg-surface rounded-lg border border-border-default shadow-lg w-full max-w-md overflow-hidden">
-                        <div className="p-md border-b border-border-default flex justify-between items-center bg-page-bg">
-                            <div>
-                                <h2 className="text-xl font-bold flex items-center gap-2 text-text-primary">
-                                    <Shield className="text-trust" size={24} />
-                                    Verify Payment
-                                </h2>
-                                <p className="text-xs text-text-secondary mt-1">Order #{verifyingOrderId}</p>
-                            </div>
-                            <button
-                                onClick={() => { setVerifyingOrderId(null); setOtpInput(''); }}
-                                className="p-xs hover:bg-surface-hover rounded transition-colors text-text-muted hover:text-text-primary"
-                                aria-label="Close dialog"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-lg">
-                            <label className="block text-sm font-semibold mb-3 text-text-primary text-center">Enter 6-Digit Payment OTP</label>
-                            <input
-                                type="text"
-                                maxLength="6"
-                                placeholder="000000"
-                                className="w-full text-center text-3xl tracking-[0.5em] font-mono py-4 border-2 border-border-default rounded-lg focus:border-trust transition-all outline-none bg-surface"
-                                value={otpInput}
-                                onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                                autoFocus
-                            />
-                            <p className="text-xs text-text-secondary mt-4 text-center">
-                                Ask the customer for the verification code sent to them during checkout.
-                            </p>
-                        </div>
-                        <div className="p-md bg-page-bg border-t border-border-default flex gap-sm">
-                            <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => { setVerifyingOrderId(null); setOtpInput(''); }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="primary"
-                                className="flex-1"
-                                onClick={handleVerifyPayment}
-                                isLoading={isVerifying}
-                                disabled={otpInput.length !== 6}
-                            >
-                                Verify & Confirm
-                            </Button>
+            <Modal
+                isOpen={!!verifyingOrderId}
+                onClose={() => { setVerifyingOrderId(null); setOtpInput(''); }}
+                title="Verify Payment"
+                maxWidth="max-w-md"
+            >
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-text-primary">
+                        <Shield className="text-trust" size={24} />
+                        <div>
+                            <h2 className="text-xl font-bold">Verify Payment</h2>
+                            <p className="text-xs text-text-secondary">Order #{verifyingOrderId}</p>
                         </div>
                     </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-3 text-text-primary text-center">Enter 6-Digit Payment OTP</label>
+                        <input
+                            type="text"
+                            maxLength="6"
+                            placeholder="000000"
+                            className="w-full text-center text-3xl tracking-[0.5em] font-mono py-4 border-2 border-border-default rounded-lg focus:border-trust transition-all outline-none bg-surface"
+                            value={otpInput}
+                            onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                            autoFocus
+                        />
+                        <p className="text-xs text-text-secondary mt-4 text-center">
+                            Ask the customer for the verification code sent to them during checkout.
+                        </p>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                        <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => { setVerifyingOrderId(null); setOtpInput(''); }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="primary"
+                            className="flex-1"
+                            onClick={handleVerifyPayment}
+                            isLoading={isVerifying}
+                            disabled={otpInput.length !== 6}
+                        >
+                            Verify & Confirm
+                        </Button>
+                    </div>
                 </div>
-            )}
+            </Modal>
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}

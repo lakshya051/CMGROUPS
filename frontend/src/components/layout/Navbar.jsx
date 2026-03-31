@@ -16,7 +16,6 @@ import AccountDropdown from './AccountDropdown';
 const Navbar = () => {
     const [categories, setCategories] = useState([]);
     const [showCatMenu, setShowCatMenu] = useState(false);
-    const [showAccountMenu, setShowAccountMenu] = useState(false);
     const [searchCategory, setSearchCategory] = useState('all');
     const location = useLocation();
     const navigate = useNavigate();
@@ -28,11 +27,9 @@ const Navbar = () => {
     const { unreadCount, toggleOpen } = useNotifications();
     const { canInstall, install, isInstalled } = useInstallPrompt();
     const accountRef = useRef(null);
-    const accountTimeout = useRef(null);
 
     useEffect(() => {
         categoriesAPI.getAll().then(setCategories).catch(err => console.error('Failed to load categories:', err));
-        return () => clearTimeout(accountTimeout.current);
     }, []);
 
     useEffect(() => {
@@ -98,13 +95,7 @@ const Navbar = () => {
         }
     }, [currentSearchContext.path, location.pathname, navigate]);
 
-    const handleAccountEnter = () => {
-        clearTimeout(accountTimeout.current);
-        setShowAccountMenu(true);
-    };
-    const handleAccountLeave = () => {
-        accountTimeout.current = setTimeout(() => setShowAccountMenu(false), 200);
-    };
+    
 
     const handleLogout = async () => {
         setShowAccountMenu(false);
@@ -158,10 +149,12 @@ const Navbar = () => {
                 <SearchBar {...searchBarProps} isMobile />
 
                 {/* Row 3: Location Strip */}
-                <div className="flex items-center gap-1.5 px-4 py-1.5 bg-page-bg border-t border-border-default">
+                <Link to={user ? '/dashboard/settings' : '/sign-in'} className="flex items-center gap-1.5 px-4 py-1.5 bg-page-bg border-t border-border-default hover:bg-surface-hover transition-colors">
                     <MapPin size={14} className="text-text-secondary flex-shrink-0" />
-                    <span className="text-xs text-text-secondary truncate">Deliver to Etah 207001</span>
-                </div>
+                    <span className="text-xs text-text-secondary truncate">
+                        {user?.city ? `Deliver to ${user.city}` : 'Set delivery location'}
+                    </span>
+                </Link>
             </div>
 
             {/* ═══════════ DESKTOP ═══════════ */}
@@ -173,13 +166,15 @@ const Navbar = () => {
                             <Link to="/" className="text-2xl font-heading font-bold text-text-primary flex-shrink-0">
                                 Shopt<span className="text-trust">ify</span>
                             </Link>
-                            <div className="hidden lg:flex items-center gap-1.5 text-text-secondary hover:text-text-primary cursor-pointer flex-shrink-0 px-2 py-1 rounded-md hover:bg-surface-hover transition-colors">
+                            <Link to={user ? '/dashboard/settings' : '/sign-in'} className="hidden lg:flex items-center gap-1.5 text-text-secondary hover:text-text-primary cursor-pointer flex-shrink-0 px-2 py-1 rounded-md hover:bg-surface-hover transition-colors">
                                 <MapPin size={16} className="text-text-secondary" />
                                 <div className="flex flex-col leading-tight">
                                     <span className="text-[10px] text-text-muted">Deliver to</span>
-                                    <span className="text-xs font-semibold text-text-primary">Etah 207001</span>
+                                    <span className="text-xs font-semibold text-text-primary">
+                                        {user?.city || 'Set location'}
+                                    </span>
                                 </div>
-                            </div>
+                            </Link>
                         </div>
 
                         <SearchBar {...searchBarProps} isMobile={false} />
@@ -188,9 +183,6 @@ const Navbar = () => {
                             <AccountDropdown
                                 user={user}
                                 isSignedIn={isSignedIn}
-                                showAccountMenu={showAccountMenu}
-                                handleAccountEnter={handleAccountEnter}
-                                handleAccountLeave={handleAccountLeave}
                                 handleLogout={handleLogout}
                                 accountRef={accountRef}
                             />
@@ -231,11 +223,24 @@ const Navbar = () => {
                                 onMouseEnter={() => setShowCatMenu(true)}
                                 onMouseLeave={() => setShowCatMenu(false)}
                             >
-                                <NavLink to="/products" label="Products" active={isActive('/products')} hasArrow />
+                                <button
+                                    onClick={() => setShowCatMenu(prev => !prev)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowCatMenu(prev => !prev); } if (e.key === 'Escape') setShowCatMenu(false); }}
+                                    aria-expanded={showCatMenu}
+                                    aria-haspopup="true"
+                                    className={`flex items-center gap-0.5 px-3 py-1 rounded text-sm font-medium transition-colors whitespace-nowrap ${
+                                        isActive('/products')
+                                            ? 'text-trust font-semibold bg-trust/5'
+                                            : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+                                    }`}
+                                >
+                                    Products
+                                    <ChevronDown size={12} className={`transition-transform ${showCatMenu ? 'rotate-180' : ''}`} />
+                                </button>
                                 {showCatMenu && (
-                                    <div className="absolute left-0 top-full z-[60] min-w-[13rem] pt-1 animate-in fade-in slide-in-from-top-2">
+                                    <div className="absolute left-0 top-full z-[60] min-w-[13rem] pt-1 animate-in fade-in slide-in-from-top-2" role="menu">
                                         <div className="w-52 bg-surface border border-border-default shadow-card rounded-lg py-1.5">
-                                            <Link to="/products" className="block px-4 py-2 text-sm font-semibold text-text-primary hover:bg-surface-hover transition-colors">
+                                            <Link to="/products" role="menuitem" onClick={() => setShowCatMenu(false)} className="block px-4 py-2 text-sm font-semibold text-text-primary hover:bg-surface-hover transition-colors">
                                                 All Products
                                             </Link>
                                             {categories.length > 0 && <div className="h-px bg-border-default mx-2" />}
@@ -243,6 +248,8 @@ const Navbar = () => {
                                                 <Link
                                                     key={cat.id}
                                                     to={`/products?category=${encodeURIComponent(cat.name)}`}
+                                                    role="menuitem"
+                                                    onClick={() => setShowCatMenu(false)}
                                                     className="block px-4 py-2 text-sm text-text-secondary hover:text-trust hover:bg-surface-hover transition-colors"
                                                 >
                                                     {cat.name}

@@ -7,16 +7,33 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
+const navigationHandler = new NetworkFirst({
+    cacheName: 'navigations',
+    networkTimeoutSeconds: 3,
+});
+
 const navigationRoute = new NavigationRoute(
-    new NetworkFirst({
-        cacheName: 'navigations',
-        networkTimeoutSeconds: 3,
-    }),
+    async (params) => {
+        try {
+            return await navigationHandler.handle(params);
+        } catch (error) {
+            const cache = await caches.open('offline-fallback');
+            const fallback = await cache.match('/offline.html');
+            if (fallback) return fallback;
+            return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/html' } });
+        }
+    },
     {
         denylist: [/^\/api\//, /^\/.well-known\//],
     }
 );
 registerRoute(navigationRoute);
+
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open('offline-fallback').then((cache) => cache.add('/offline.html'))
+    );
+});
 
 registerRoute(
     ({ url }) => /^https:\/\/fonts\.(googleapis|gstatic)\.com/.test(url.href),

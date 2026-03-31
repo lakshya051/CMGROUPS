@@ -13,9 +13,10 @@ export default function InstallPromptBanner() {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="fixed bottom-4 left-4 right-4 z-[9999] mx-auto max-w-md"
+                    className="fixed left-4 right-4 z-[9999] mx-auto max-w-md"
+                    style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom, 0px))' }}
                 >
-                    <div className="bg-surface rounded-2xl shadow-glass border border-border-default p-4 flex items-center gap-4">
+                    <div className="bg-surface rounded-2xl shadow-glass border border-border-default p-4 flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                             <Download className="w-6 h-6 text-primary" />
                         </div>
@@ -24,19 +25,19 @@ export default function InstallPromptBanner() {
                                 Install Shoptify App
                             </p>
                             <p className="text-xs text-text-muted mt-0.5">
-                                Quick access, offline browsing, and more
+                                Quick access, offline browsing & push notifications
                             </p>
                         </div>
                         <button
                             onClick={install}
-                            className="bg-primary hover:bg-primary/90 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors flex-shrink-0"
+                            className="bg-primary hover:bg-primary/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors flex-shrink-0 touch-manipulation"
                         >
                             Install
                         </button>
                         <button
                             onClick={dismiss}
-                            className="p-1.5 rounded-lg hover:bg-page-bg text-text-muted transition-colors flex-shrink-0"
-                            aria-label="Dismiss"
+                            className="p-2.5 rounded-lg hover:bg-page-bg text-text-muted transition-colors flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            aria-label="Dismiss install prompt"
                         >
                             <X size={18} />
                         </button>

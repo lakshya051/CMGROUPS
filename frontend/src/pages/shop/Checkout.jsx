@@ -6,7 +6,7 @@ import { useFormik } from 'formik';
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import {
-    CheckCircle, CreditCard, Shield, AlertCircle, Copy,
+    CheckCircle, CreditCard, Shield, AlertCircle, Copy, MapPin,
 } from 'lucide-react';
 import { checkoutSchema } from '../../utils/validationSchemas';
 import { computeBundleAwareSubtotal, computeBundleSavings } from '../../utils/bundleUtils';
@@ -378,7 +378,29 @@ const Checkout = () => {
 
     return (
         <div className="container mx-auto px-4 py-6 sm:py-12 max-w-4xl">
-            <h1 className="text-2xl sm:text-3xl font-heading font-bold mb-4 sm:mb-8">Checkout</h1>
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold mb-4 sm:mb-6">Checkout</h1>
+
+            {/* Progress Indicator */}
+            <div className="flex items-center justify-center mb-6 sm:mb-10">
+                {[
+                    { num: 1, label: 'Shipping', icon: MapPin },
+                    { num: 2, label: 'Payment', icon: CreditCard },
+                ].map(({ num, label, icon: Icon }, idx) => (
+                    <div key={num} className="flex items-center">
+                        {idx > 0 && (
+                            <div className={`w-12 sm:w-20 h-0.5 ${step >= num ? 'bg-trust' : 'bg-border-default'} transition-colors`} />
+                        )}
+                        <div className="flex flex-col items-center gap-1">
+                            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+                                step > num ? 'bg-trust text-white' : step === num ? 'bg-trust text-white ring-4 ring-trust/20' : 'bg-page-bg border-2 border-border-default text-text-muted'
+                            }`}>
+                                {step > num ? <CheckCircle size={18} /> : <Icon size={16} />}
+                            </div>
+                            <span className={`text-[11px] sm:text-xs font-medium ${step >= num ? 'text-trust' : 'text-text-muted'}`}>{label}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
 
             {orderError && (
                 <div className="bg-error/10 border border-error/20 text-error p-4 rounded-lg mb-6 flex items-center gap-2">

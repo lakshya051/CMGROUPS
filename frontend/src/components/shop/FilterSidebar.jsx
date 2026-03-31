@@ -1,4 +1,4 @@
-import React, { memo, useState, useMemo } from 'react'
+import React, { memo, useState, useMemo, useEffect, useRef } from 'react'
 import { Search, ChevronDown, ChevronUp, X, SlidersHorizontal } from 'lucide-react'
 
 const PRICE_RANGES = [
@@ -35,6 +35,16 @@ function FilterSidebar({
 }) {
     const [categorySearch, setCategorySearch] = useState('')
     const [showAllCategories, setShowAllCategories] = useState(false)
+    const asideRef = useRef(null)
+
+    useEffect(() => {
+        if (!isMobileOpen) return
+        const handleKey = (e) => {
+            if (e.key === 'Escape') onCloseMobile()
+        }
+        document.addEventListener('keydown', handleKey)
+        return () => document.removeEventListener('keydown', handleKey)
+    }, [isMobileOpen, onCloseMobile])
 
     const filteredCategories = useMemo(() => {
         if (!categorySearch.trim()) return categories
@@ -58,6 +68,10 @@ function FilterSidebar({
             )}
 
             <aside
+                ref={asideRef}
+                role={isMobileOpen ? 'dialog' : undefined}
+                aria-modal={isMobileOpen ? 'true' : undefined}
+                aria-label={isMobileOpen ? 'Filters' : undefined}
                 className={`
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0

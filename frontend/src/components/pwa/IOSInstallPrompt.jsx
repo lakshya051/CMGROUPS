@@ -8,6 +8,7 @@ const DISMISS_DAYS = 14;
 const MAX_DISMISSALS = 3;
 const VISIT_COUNT_KEY = 'ios_install_visits';
 const FIRST_VISIT_DELAY_MS = 45000;
+const REPEAT_VISIT_DELAY_MS = 10000;
 
 function isIOSSafari() {
     const ua = navigator.userAgent;
@@ -39,12 +40,9 @@ export default function IOSInstallPrompt() {
         const visits = Number(localStorage.getItem(VISIT_COUNT_KEY) || '0') + 1;
         localStorage.setItem(VISIT_COUNT_KEY, String(visits));
 
-        if (visits >= 2) {
-            setVisible(true);
-        } else {
-            const timer = setTimeout(() => setVisible(true), FIRST_VISIT_DELAY_MS);
-            return () => clearTimeout(timer);
-        }
+        const delay = visits >= 2 ? REPEAT_VISIT_DELAY_MS : FIRST_VISIT_DELAY_MS;
+        const timer = setTimeout(() => setVisible(true), delay);
+        return () => clearTimeout(timer);
     }, []);
 
     const dismiss = () => {
@@ -62,12 +60,13 @@ export default function IOSInstallPrompt() {
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    className="fixed inset-x-0 bottom-0 z-[9999] bg-surface rounded-t-2xl shadow-glass border-t border-border-default p-6 pb-8 max-w-md mx-auto"
+                    className="fixed inset-x-0 bottom-0 z-[9999] bg-surface rounded-t-2xl shadow-glass border-t border-border-default p-6 max-w-md mx-auto"
+                    style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
                 >
                     <button
                         onClick={dismiss}
-                        className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-page-bg text-text-muted transition-colors"
-                        aria-label="Close"
+                        className="absolute top-3 right-3 p-2.5 rounded-lg hover:bg-page-bg text-text-muted transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+                        aria-label="Close install instructions"
                     >
                         <X size={20} />
                     </button>
@@ -80,18 +79,18 @@ export default function IOSInstallPrompt() {
                             Add Shoptify to your Home Screen
                         </h3>
                         <p className="text-sm text-text-muted mt-1">
-                            Install our app for quick access and offline browsing
+                            Install for quick access, offline browsing & push notifications
                         </p>
                     </div>
 
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3 bg-page-bg rounded-xl p-3">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3 bg-page-bg rounded-xl p-3.5">
                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary font-bold text-sm">1</div>
                             <p className="text-sm text-text-primary">
-                                Tap the <Share size={16} className="inline-block mx-1 text-primary" /> Share button in Safari
+                                Tap the <Share size={16} className="inline-block mx-1 text-primary align-text-bottom" /> <strong>Share</strong> button in Safari
                             </p>
                         </div>
-                        <div className="flex items-center gap-3 bg-page-bg rounded-xl p-3">
+                        <div className="flex items-center gap-3 bg-page-bg rounded-xl p-3.5">
                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary font-bold text-sm">2</div>
                             <p className="text-sm text-text-primary">
                                 Scroll down and tap <strong>"Add to Home Screen"</strong>
@@ -101,7 +100,7 @@ export default function IOSInstallPrompt() {
 
                     <button
                         onClick={dismiss}
-                        className="mt-5 w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-xl transition-colors"
+                        className="mt-5 w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3.5 rounded-xl transition-colors touch-manipulation"
                     >
                         Got it
                     </button>

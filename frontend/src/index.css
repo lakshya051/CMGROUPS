@@ -139,3 +139,35 @@ nav,
         scroll-behavior: auto !important;
     }
 }
+
+/* 7. Standalone PWA / TWA shell — optimize for installed app experience */
+@media (display-mode: standalone) {
+    body {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    /* Allow text selection only in content areas */
+    main,
+    article,
+    p,
+    span,
+    h1, h2, h3, h4, h5, h6,
+    .selectable {
+        -webkit-user-select: text;
+        user-select: text;
+    }
+
+    /* Ensure inputs remain selectable */
+    input, textarea, select, [contenteditable] {
+        -webkit-user-select: auto;
+        user-select: auto;
+    }
+}
+
+/* 8. Fullscreen TWA — hide browser chrome artifacts */
+@media (display-mode: fullscreen) {
+    .safe-top {
+        padding-top: max(var(--safe-area-top), 20px);
+    }
+}

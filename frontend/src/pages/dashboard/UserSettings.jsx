@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { User, Mail, Lock, Phone, Save, CheckCircle, Eye, EyeOff, Shield, AlertCircle } from 'lucide-react';
+import { User, Mail, Lock, Phone, Save, CheckCircle, Eye, EyeOff, Shield, AlertCircle, Bell, BellOff } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../lib/api';
 import { useFormik } from 'formik';
 import { profileUpdateSchema } from '../../utils/validationSchemas';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 function PasswordStrength({ password }) {
     const { score, label, color, segments } = useMemo(() => {
@@ -79,6 +80,8 @@ const UserSettings = () => {
     const { user, setUser } = useAuth();
     const [message, setMessage] = useState('');
     const [showPasswordSection, setShowPasswordSection] = useState(false);
+    const { isSupported: pushSupported, isSubscribed: pushSubscribed, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe, permission: pushPermission } = usePushNotifications();
+    const [pushLoading, setPushLoading] = useState(false);
 
     const formik = useFormik({
         initialValues: {
@@ -224,6 +227,70 @@ const UserSettings = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Push Notifications Section */}
+                {pushSupported && (
+                    <div className="bg-surface rounded-xl border border-border-default overflow-hidden">
+                        <div className="px-5 py-4 border-b border-border-default">
+                            <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+                                <Bell size={18} className="text-trust" /> Push Notifications
+                            </h2>
+                            <p className="text-xs text-text-muted mt-0.5">Get notified about orders, services & updates</p>
+                        </div>
+                        <div className="p-5">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-text-primary">
+                                        {pushSubscribed ? 'Notifications are enabled' : 'Enable push notifications'}
+                                    </p>
+                                    <p className="text-xs text-text-muted mt-0.5">
+                                        {pushPermission === 'denied'
+                                            ? 'Notifications are blocked in your browser settings. Please allow them and try again.'
+                                            : pushSubscribed
+                                                ? 'You\'ll receive alerts for order updates, service bookings, and promotions.'
+                                                : 'Stay updated with order status, delivery alerts, and special offers.'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={pushLoading || pushPermission === 'denied'}
+                                    onClick={async () => {
+                                        setPushLoading(true);
+                                        try {
+                                            if (pushSubscribed) {
+                                                await pushUnsubscribe();
+                                            } else {
+                                                await pushSubscribe();
+                                            }
+                                        } catch (err) {
+                                            console.error('Push toggle failed:', err);
+                                        } finally {
+                                            setPushLoading(false);
+                                        }
+                                    }}
+                                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 flex-shrink-0 touch-manipulation ${
+                                        pushSubscribed ? 'bg-trust' : 'bg-border-default'
+                                    } ${pushLoading || pushPermission === 'denied' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                    role="switch"
+                                    aria-checked={pushSubscribed}
+                                    aria-label={pushSubscribed ? 'Disable push notifications' : 'Enable push notifications'}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                        pushSubscribed ? 'translate-x-6' : 'translate-x-1'
+                                    }`} />
+                                </button>
+                            </div>
+                            {pushPermission === 'denied' && (
+                                <div className="mt-3 bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 flex items-start gap-2">
+                                    <BellOff size={14} className="text-orange-500 mt-0.5 flex-shrink-0" />
+                                    <p className="text-xs text-orange-600">
+                                        Notifications are blocked. Open your browser settings and allow notifications for this site, then reload the page.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Password Section */}
                 <div className="bg-surface rounded-xl border border-border-default overflow-hidden">

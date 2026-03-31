@@ -39,10 +39,12 @@ const BottomNav = ({ onMenuClick }) => {
                         <Link
                             key={item.label}
                             to={item.path}
-                            className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 transition-colors ${
+                            aria-current={active ? 'page' : undefined}
+                            className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 transition-colors relative ${
                                 active ? 'text-trust' : 'text-text-secondary'
                             }`}
                         >
+                            {active && <span className="absolute top-0 left-1/4 right-1/4 h-0.5 bg-trust rounded-full" />}
                             <div className="relative">
                                 <Icon size={22} />
                                 {item.label === 'Cart' && cartCount > 0 && (
