@@ -4,8 +4,7 @@
     "namespace": "android_app",
     "package_name": "com.cmgroups.shopnow",
     "sha256_cert_fingerprints": [
-      "TODO:REPLACE_WITH_UPLOAD_KEY_FINGERPRINT",
-      "TODO:REPLACE_WITH_PLAY_APP_SIGNING_FINGERPRINT"
+      "REPLACE_WITH_YOUR_UPLOAD_KEY_SHA256_FINGERPRINT"
     ]
   }
 }]

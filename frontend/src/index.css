@@ -128,6 +128,12 @@ nav,
     padding-bottom: var(--safe-area-bottom);
 }
 
+.dashboard-viewport {
+    height: 100vh;
+    height: 100dvh;
+    padding-bottom: var(--safe-area-bottom);
+}
+
 /* 6. Respect reduced-motion user preference */
 @media (prefers-reduced-motion: reduce) {
     *,

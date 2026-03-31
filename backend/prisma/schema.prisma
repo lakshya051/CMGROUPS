@@ -34,7 +34,6 @@ model User {
   walletTransactions  WalletTransaction[]
   productAlerts       ProductAlert[]
   notifications       Notification[]
-  deviceRegistrations DeviceRegistration[]
   pushSubscriptions   PushSubscription[]
   wishlists           Wishlist[]
   cartItems           CartItem[]
@@ -602,20 +601,6 @@ model Notification {
 
   @@index([userId])
   @@index([userId, isRead])
-}
-
-model DeviceRegistration {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  user       User     @relation(fields: [userId], references: [id])
-  platform   String
-  token      String   @unique
-  isActive   Boolean  @default(true)
-  lastSeenAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([userId, platform, isActive])
 }
 
 model PushSubscription {
