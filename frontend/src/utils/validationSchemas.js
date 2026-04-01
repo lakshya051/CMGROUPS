@@ -1,4 +1,5 @@
 import * as Yup from 'yup';
+import { DELIVERY_PINCODE } from '../constants';
 
 // ─── Reusable field schemas ───────────────────────────────────────────────────
 
@@ -87,7 +88,10 @@ export const checkoutSchema = Yup.object({
     city: Yup.string().required('City is required'),
     state: Yup.string().optional(),
     postalCode: Yup.string()
-        .matches(/^[0-9]{6}$/, 'Enter a valid 6-digit pincode')
+        .oneOf(
+            [DELIVERY_PINCODE],
+            `We currently deliver only to PIN ${DELIVERY_PINCODE} (Etah, Uttar Pradesh).`
+        )
         .required('Pincode is required'),
 });
 

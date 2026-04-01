@@ -9,7 +9,7 @@ import { useShop } from '../../context/ShopContext'
 import { useNavigate } from 'react-router-dom'
 import { EmptyState, SkeletonCard } from '../../components/ui/index'
 import toast from 'react-hot-toast'
-import { handleImageError } from '../../utils/image'
+import { getOrderLineThumbUrl, handleImageError } from '../../utils/image'
 
 // ─── Order Timeline Steps ───────────────────────────────────────
 const TIMELINE_STEPS = [
@@ -374,7 +374,7 @@ const UserOrders = () => {
 function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, onViewOtp, onTrack, isReturnable }) {
     const navigate = useNavigate()
     const isCancelled = order.status === 'Cancelled'
-    const thumbnails = (order.items || []).filter(i => i.product?.images?.[0] || i.product?.image).slice(0, 3)
+    const thumbnails = (order.items || []).slice(0, 3)
 
     return (
         <div className="bg-surface border border-border-default rounded-lg overflow-hidden min-w-0">
@@ -390,7 +390,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                                 style={{ zIndex: thumbnails.length - i }}
                             >
                                 <img
-                                    src={item.product.images?.[0] || item.product.image}
+                                    src={getOrderLineThumbUrl(item)}
                                     alt=""
                                     loading="lazy"
                                     width={40}
@@ -441,7 +441,7 @@ function OrderCard({ order, onCancel, onReturn, onBuyAgain, onDownloadInvoice, o
                     <div key={item.id} className="flex items-start sm:items-center gap-sm text-sm bg-page-bg border border-border-default rounded-lg p-sm min-w-0">
                         <div className="w-10 h-10 bg-surface border border-border-default rounded p-xs flex-shrink-0">
                             <img
-                                src={item.product?.images?.[0] || item.product?.image}
+                                src={getOrderLineThumbUrl(item)}
                                 alt=""
                                 loading="lazy"
                                 width={40}

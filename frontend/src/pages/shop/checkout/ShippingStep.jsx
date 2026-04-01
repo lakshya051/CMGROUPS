@@ -2,6 +2,7 @@ import React from 'react';
 import { Truck, CheckCircle, BookMarked, MapPin, Link2, Locate, AlertCircle, Zap } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import AddressCard from './AddressCard';
+import { DELIVERY_PINCODE, DEFAULT_DELIVERY_CITY, DEFAULT_DELIVERY_STATE } from '../../../constants';
 
 const ShippingStep = ({
     step,
@@ -30,6 +31,13 @@ const ShippingStep = ({
             <Zap size={14} className="text-trust flex-shrink-0" />
             <p className="text-xs text-trust font-medium">
                 Estimated delivery: <span className="font-bold">Within 24 hours</span> of order confirmation
+            </p>
+        </div>
+
+        <div className="flex items-start gap-2 bg-page-bg border border-border-default rounded-lg px-3 py-2 mb-3">
+            <MapPin size={14} className="text-text-muted flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-text-secondary leading-snug">
+                Product delivery is available only for PIN <span className="font-semibold text-text-primary">{DELIVERY_PINCODE}</span> ({DEFAULT_DELIVERY_CITY}, {DEFAULT_DELIVERY_STATE}). City and state below default to Etah and Uttar Pradesh — you can change them if needed.
             </p>
         </div>
 
@@ -204,7 +212,7 @@ const ShippingStep = ({
                     <input
                         type="text"
                         name="city"
-                        placeholder="City *"
+                        placeholder="City * (default: Etah)"
                         aria-label="City"
                         autoComplete="address-level2"
                         className={`input-field ${formik.touched.city && formik.errors.city ? 'border-red-500' : ''}`}
@@ -220,7 +228,7 @@ const ShippingStep = ({
                 <input
                     type="text"
                     name="state"
-                    placeholder="State"
+                    placeholder="State (default: Uttar Pradesh)"
                     aria-label="State"
                     autoComplete="address-level1"
                     className="input-field"
@@ -236,11 +244,12 @@ const ShippingStep = ({
                         placeholder="PIN Code *"
                         aria-label="PIN code"
                         autoComplete="postal-code"
-                        className={`input-field ${formik.touched.postalCode && formik.errors.postalCode ? 'border-red-500' : ''}`}
+                        className={`input-field bg-surface-hover/50 ${formik.touched.postalCode && formik.errors.postalCode ? 'border-red-500' : ''}`}
                         value={formik.values.postalCode}
                         onChange={onDeliveryFieldChange}
                         onBlur={formik.handleBlur}
-                        readOnly={step !== 1}
+                        readOnly
+                        title="Delivery is only available for PIN 207001 (Etah)"
                     />
                     {formik.touched.postalCode && formik.errors.postalCode && (
                         <p className="text-error text-sm mt-1">{formik.errors.postalCode}</p>

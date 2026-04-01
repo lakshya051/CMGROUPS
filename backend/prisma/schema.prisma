@@ -47,6 +47,7 @@ model User {
   attendances        Attendance[]
   auditLogs          AuditLog[]
   bundleReviews      BundleReview[] @relation("BundleReviews")
+  adminNotifications AdminNotificationLog[] @relation("AdminNotifications")
 
   @@index([firebaseUid])
   @@index([role])
@@ -832,4 +833,20 @@ model QuantityTier {
 
   @@index([productId])
   @@unique([productId, minQty])
+}
+
+model AdminNotificationLog {
+  id             Int      @id @default(autoincrement())
+  adminId        Int
+  admin          User     @relation("AdminNotifications", fields: [adminId], references: [id])
+  title          String
+  message        String
+  type           String   @default("SYSTEM")
+  target         String
+  recipientCount Int
+  link           String?
+  createdAt      DateTime @default(now())
+
+  @@index([adminId])
+  @@index([createdAt])
 }

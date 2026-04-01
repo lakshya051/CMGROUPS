@@ -3,7 +3,7 @@ import {
     CheckCircle, CreditCard, Truck, Store, Shield, Gift, Zap, Layers, Wrench,
 } from 'lucide-react';
 import Button from '../../../components/ui/Button';
-import { handleImageError } from '../../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../../utils/image';
 
 const PaymentStep = ({
     step,
@@ -244,7 +244,7 @@ export const OrderSummaryPanel = ({ cart, subtotal, bundleSavings = 0, tax, coup
                                 group.items.map(item => (
                                     <div key={item.uniqueId || item.id} className="flex gap-2 text-xs text-text-secondary pl-1">
                                         <img
-                                            src={item.images?.[0] || item.image}
+                                            src={getProductImageUrl(item)}
                                             alt=""
                                             loading="lazy"
                                             width={32}
@@ -282,7 +282,7 @@ export const OrderSummaryPanel = ({ cart, subtotal, bundleSavings = 0, tax, coup
                 {standaloneItems.map(item => (
                     <div key={item.uniqueId || item.id} className="flex gap-3 text-sm">
                         <img
-                            src={item.images?.[0] || item.image}
+                            src={getProductImageUrl(item)}
                             alt=""
                             loading="lazy"
                             width={48}

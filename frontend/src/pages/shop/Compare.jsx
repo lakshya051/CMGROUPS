@@ -5,7 +5,7 @@ import { Trash2, X, ShoppingCart, Star, Zap } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import SectionLoader from '../../components/ui/SectionLoader';
 import { productsAPI } from '../../lib/api';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import { MAX_COMPARE_ITEMS } from '../../constants';
 
 const Compare = () => {
@@ -83,7 +83,7 @@ const Compare = () => {
                                     <div className="flex flex-col items-center">
                                         <div className="w-32 h-32 bg-surface rounded-lg p-2 shadow-sm mb-4 border border-border-default">
                                             <img
-                                                src={p.images?.[0] || p.image}
+                                                src={getProductImageUrl(p)}
                                                 alt={p.title}
                                                 loading="lazy"
                                                 width={128}

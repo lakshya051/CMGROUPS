@@ -6,7 +6,7 @@ import PriceDisplay from '../../components/common/PriceDisplay'
 import { ShoppingCart, Tag, Bookmark, ArrowRight, Zap, Layers, ChevronDown, ChevronUp, Trash2, Wrench, Package } from 'lucide-react'
 import { couponsAPI, productsAPI, bundlesAPI } from '../../lib/api'
 import { FREE_DELIVERY_THRESHOLD, EMI_MINIMUM_ORDER, SAVED_LATER_STORAGE_KEY } from '../../constants'
-import { handleImageError } from '../../utils/image'
+import { getProductImageUrl, handleImageError } from '../../utils/image'
 import { computeBundleAwareSubtotal, computeBundleSavings } from '../../utils/bundleUtils'
 import { useSEO } from '../../hooks/useSEO'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -322,7 +322,7 @@ const Cart = () => {
                                     >
                                         <div className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs flex-shrink-0">
                                             <img
-                                                src={item.images?.[0] || item.image}
+                                                src={getProductImageUrl(item)}
                                                 alt={item.title}
                                                 loading="lazy"
                                                 width={80}
@@ -522,7 +522,7 @@ const Cart = () => {
                             >
                                 <div className="w-full h-[120px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-xs mb-sm">
                                     <img
-                                        src={product.images?.[0] || product.image}
+                                        src={getProductImageUrl(product)}
                                         alt={product.title}
                                         loading="lazy"
                                         width={180}
@@ -674,7 +674,7 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
                         <div key={item.uniqueId} className="flex gap-3 p-3 sm:px-md">
                             <div className="w-12 h-12 bg-page-bg border border-border-default rounded flex items-center justify-center p-0.5 shrink-0">
                                 <img
-                                    src={item.images?.[0] || item.image}
+                                    src={getProductImageUrl(item)}
                                     alt={item.title}
                                     loading="lazy"
                                     onError={handleImageError}
@@ -742,7 +742,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
                     className={`w-20 h-20 sm:w-[100px] sm:h-[100px] bg-page-bg border border-border-default rounded-lg flex items-center justify-center p-1.5 flex-shrink-0 ${inStock ? '' : 'opacity-60'}`}
                 >
                     <img
-                        src={item.images?.[0] || item.image}
+                        src={getProductImageUrl(item)}
                         alt={item.title}
                         loading="lazy"
                         width={100}

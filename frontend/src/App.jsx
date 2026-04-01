@@ -100,6 +100,7 @@ const AdminAuditLog = lazyRetry(() => import('./pages/admin/AdminAuditLog'));
 const AdminBundles = lazyRetry(() => import('./pages/admin/AdminBundles'));
 const AdminBundleTemplates = lazyRetry(() => import('./pages/admin/AdminBundleTemplates'));
 const AdminSheetsSync = lazyRetry(() => import('./pages/admin/AdminSheetsSync'));
+const AdminNotifications = lazyRetry(() => import('./pages/admin/AdminNotifications'));
 
 function App() {
     return (
@@ -190,6 +191,7 @@ function App() {
                                 <Route path="bundles" element={<AdminBundles />} />
                                 <Route path="bundle-templates" element={<AdminBundleTemplates />} />
                                 <Route path="sheets" element={<AdminSheetsSync />} />
+                                <Route path="notifications" element={<AdminNotifications />} />
                                 <Route path="audit-log" element={<AdminAuditLog />} />
                             </Route>
 

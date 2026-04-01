@@ -12,6 +12,10 @@ import NotificationDropdown from '../notifications/NotificationDropdown';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import SearchBar, { SEARCH_CATEGORIES } from './SearchBar';
 import AccountDropdown from './AccountDropdown';
+import { DEFAULT_DELIVERY_CITY, DEFAULT_DELIVERY_STATE } from '../../constants';
+
+/** Service area (User model has no city field; show storefront delivery zone). */
+const DELIVERY_AREA_LABEL = `${DEFAULT_DELIVERY_CITY}, ${DEFAULT_DELIVERY_STATE}`;
 
 const Navbar = () => {
     const [categories, setCategories] = useState([]);
@@ -149,10 +153,14 @@ const Navbar = () => {
                 <SearchBar {...searchBarProps} isMobile />
 
                 {/* Row 3: Location Strip */}
-                <Link to={user ? '/dashboard/settings' : '/sign-in'} className="flex items-center gap-1.5 px-4 py-1.5 bg-page-bg border-t border-border-default hover:bg-surface-hover transition-colors">
+                <Link
+                    to={user ? '/dashboard/settings' : '/sign-in'}
+                    title={user ? 'Manage address in settings' : 'Sign in to save your address'}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-page-bg border-t border-border-default hover:bg-surface-hover transition-colors"
+                >
                     <MapPin size={14} className="text-text-secondary flex-shrink-0" />
                     <span className="text-xs text-text-secondary truncate">
-                        {user?.city ? `Deliver to ${user.city}` : 'Set delivery location'}
+                        Deliver to {DELIVERY_AREA_LABEL}
                     </span>
                 </Link>
             </div>
@@ -166,12 +174,16 @@ const Navbar = () => {
                             <Link to="/" className="text-2xl font-heading font-bold text-text-primary flex-shrink-0">
                                 Shopt<span className="text-trust">ify</span>
                             </Link>
-                            <Link to={user ? '/dashboard/settings' : '/sign-in'} className="hidden lg:flex items-center gap-1.5 text-text-secondary hover:text-text-primary cursor-pointer flex-shrink-0 px-2 py-1 rounded-md hover:bg-surface-hover transition-colors">
-                                <MapPin size={16} className="text-text-secondary" />
-                                <div className="flex flex-col leading-tight">
+                            <Link
+                                to={user ? '/dashboard/settings' : '/sign-in'}
+                                title={user ? 'Manage address in settings' : 'Sign in to save your address'}
+                                className="hidden lg:flex items-center gap-1.5 text-text-secondary hover:text-text-primary cursor-pointer flex-shrink-0 px-2 py-1 rounded-md hover:bg-surface-hover transition-colors max-w-[11rem]"
+                            >
+                                <MapPin size={16} className="text-text-secondary shrink-0" />
+                                <div className="flex flex-col leading-tight min-w-0">
                                     <span className="text-[10px] text-text-muted">Deliver to</span>
-                                    <span className="text-xs font-semibold text-text-primary">
-                                        {user?.city || 'Set location'}
+                                    <span className="text-xs font-semibold text-text-primary truncate" title={DELIVERY_AREA_LABEL}>
+                                        {DELIVERY_AREA_LABEL}
                                     </span>
                                 </div>
                             </Link>

@@ -27,6 +27,13 @@ router.post('/', protect, async (req, res) => {
             return res.status(400).json({ error: 'address, city, pincode, and phone are required' });
         }
 
+        const DELIVERY_PINCODE = '207001';
+        if (String(pincode).trim() !== DELIVERY_PINCODE) {
+            return res.status(400).json({
+                error: `Saved addresses must use PIN ${DELIVERY_PINCODE} (Etah, Uttar Pradesh).`,
+            });
+        }
+
         if (latitude !== undefined && Number.isNaN(parseFloat(latitude))) {
             return res.status(400).json({ error: 'Invalid latitude' });
         }

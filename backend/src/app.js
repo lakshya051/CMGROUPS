@@ -30,6 +30,7 @@ import contactRoutes from './routes/contact.js';
 import bundleRoutes from './routes/bundles.js';
 import bundleTemplateRoutes from './routes/bundleTemplates.js';
 import sheetsRoutes from './routes/sheets.js';
+import adminNotificationRoutes from './routes/adminNotifications.js';
 
 const app = express();
 // Render, Heroku, etc. set X-Forwarded-For; express-rate-limit requires trust proxy when that header exists.
@@ -130,6 +131,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/bundles', bundleRoutes);
 app.use('/api/bundle-templates', bundleTemplateRoutes);
 app.use('/api/admin/sheets', sheetsRoutes);
+app.use('/api/admin/notifications', adminNotificationRoutes);
 
 app.get('/', (req, res) => {
     res.json({ status: 'Shoptify API is running', version: '2.0.0' });

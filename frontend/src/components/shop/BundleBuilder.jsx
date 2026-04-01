@@ -4,7 +4,7 @@ import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { ChevronDown, ChevronUp, Check, ShoppingCart, Percent, Zap, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 const BundleBuilder = ({ template }) => {
@@ -262,7 +262,7 @@ const BundleBuilder = ({ template }) => {
                                                     className="w-full text-left"
                                                 >
                                                     <img
-                                                        src={product.images?.[0]}
+                                                        src={getProductImageUrl(product)}
                                                         alt={product.title}
                                                         onError={handleImageError}
                                                         className="w-full h-16 object-contain mb-1"

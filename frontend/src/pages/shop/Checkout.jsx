@@ -16,10 +16,7 @@ import { useSEO } from '../../hooks/useSEO';
 import ShippingStep from './checkout/ShippingStep';
 import PaymentStep, { OrderSummaryPanel } from './checkout/PaymentStep';
 import BundleServiceScheduler from './checkout/BundleServiceScheduler';
-import { FREE_DELIVERY_THRESHOLD } from '../../constants';
-
-const DEFAULT_CITY = 'Hathras';
-const DEFAULT_PINCODE = '204101';
+import { FREE_DELIVERY_THRESHOLD, DELIVERY_PINCODE, DEFAULT_DELIVERY_CITY, DEFAULT_DELIVERY_STATE } from '../../constants';
 
 const buildMapsUrl = (lat, lng) =>
     `https://www.google.com/maps?q=${lat},${lng}`;
@@ -102,9 +99,9 @@ const Checkout = () => {
             email: user?.email || '',
             phone: user?.phone || '',
             addressLine: '',
-            city: DEFAULT_CITY,
-            state: '',
-            postalCode: DEFAULT_PINCODE,
+            city: DEFAULT_DELIVERY_CITY,
+            state: DEFAULT_DELIVERY_STATE,
+            postalCode: DELIVERY_PINCODE,
         },
         enableReinitialize: true,
         validationSchema: checkoutSchema,
@@ -152,7 +149,8 @@ const Checkout = () => {
         resetSaveAddressState();
         formik.setFieldValue('addressLine', addr.address);
         formik.setFieldValue('city', addr.city);
-        formik.setFieldValue('postalCode', addr.pincode);
+        formik.setFieldValue('state', DEFAULT_DELIVERY_STATE);
+        formik.setFieldValue('postalCode', DELIVERY_PINCODE);
         formik.setFieldValue('phone', addr.phone);
 
         if (addr.latitude && addr.longitude) {

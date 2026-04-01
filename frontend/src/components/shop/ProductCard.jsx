@@ -4,7 +4,7 @@ import Button from '../ui/Button';
 import PriceDisplay from '../common/PriceDisplay';
 import { Heart, ShoppingCart, Star, ArrowLeftRight, Eye, Bell, Zap } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 
 const ProductCard = ({ product }) => {
     const { addToCart, toggleWishlist, wishlist, addToCompare, initBuyNow } = useShop();
@@ -98,7 +98,7 @@ const ProductCard = ({ product }) => {
                     aria-label={`View ${product.title}`}
                 >
                     <img
-                        src={product.images?.[0] || product.image}
+                        src={getProductImageUrl(product)}
                         alt={product.title}
                         loading="lazy"
                         decoding="async"

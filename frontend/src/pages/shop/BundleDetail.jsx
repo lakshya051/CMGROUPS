@@ -4,7 +4,7 @@ import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { bundlesAPI, reviewsAPI } from '../../lib/api';
 import { useSEO } from '../../hooks/useSEO';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import PriceDisplay from '../../components/common/PriceDisplay';
 import { EmptyState } from '../../components/ui/index';
 import Button from '../../components/ui/Button';
@@ -576,7 +576,7 @@ const BundleDetail = () => {
                                     >
                                         <div className="w-16 h-16 bg-page-bg border border-border-default rounded flex items-center justify-center p-1 shrink-0 relative">
                                             <img
-                                                src={bi.product.images?.[0]}
+                                                src={getProductImageUrl(bi.product)}
                                                 alt={bi.product.title}
                                                 onError={handleImageError}
                                                 className="w-full h-full object-contain group-hover:scale-105 transition-transform"

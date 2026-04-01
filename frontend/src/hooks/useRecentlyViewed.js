@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RECENTLY_VIEWED_KEY } from '../constants';
+import { getProductImageUrl } from '../utils/image';
 
 const MAX_RECENTLY_VIEWED = 10;
 
@@ -23,7 +24,7 @@ export function useRecentlyViewed(excludeId = null) {
                 id: product.id,
                 title: product.title,
                 price: product.price,
-                image: product.images?.[0] || product.image,
+                image: getProductImageUrl(product),
                 category: product.category,
                 brand: product.brand,
                 rating: product.rating,

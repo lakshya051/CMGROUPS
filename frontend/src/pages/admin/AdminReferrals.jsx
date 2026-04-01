@@ -5,13 +5,12 @@ import {
     DollarSign,
     Gift,
     GraduationCap,
-    Package,
     ShoppingBag,
     Users,
     Wrench
 } from 'lucide-react';
 import { adminAPI } from '../../lib/api';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 const INITIAL_VISIBLE_ROWS = 50;
@@ -214,21 +213,15 @@ const AdminReferrals = () => {
                                                 <div className="space-y-1.5 max-w-xs">
                                                     {referral.order.items.map((item, itemIndex) => (
                                                         <div key={itemIndex} className="flex items-center gap-2">
-                                                            {(item.product?.images?.[0] || item.product?.image) ? (
-                                                                <img
-                                                                    src={item.product.images?.[0] || item.product.image}
-                                                                    alt={item.product.title}
-                                                                    loading="lazy"
-                                                                    width={32}
-                                                                    height={32}
-                                                                    onError={handleImageError}
-                                                                    className="w-8 h-8 rounded object-cover border border-border-default flex-shrink-0"
-                                                                />
-                                                            ) : (
-                                                                <div className="w-8 h-8 rounded bg-page-bg flex items-center justify-center flex-shrink-0">
-                                                                    <Package size={14} className="text-text-muted" />
-                                                                </div>
-                                                            )}
+                                                            <img
+                                                                src={getProductImageUrl(item.product)}
+                                                                alt={item.product?.title || ''}
+                                                                loading="lazy"
+                                                                width={32}
+                                                                height={32}
+                                                                onError={handleImageError}
+                                                                className="w-8 h-8 rounded object-cover border border-border-default flex-shrink-0"
+                                                            />
                                                             <div className="min-w-0">
                                                                 <p className="text-xs font-medium truncate">{item.product?.title || 'Unknown'}</p>
                                                                 <p className="text-[10px] text-text-muted">Qty: {item.quantity} x Rs {item.price?.toLocaleString()}</p>

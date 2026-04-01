@@ -6,7 +6,7 @@ import SectionLoader from '../../components/ui/SectionLoader';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useFormik } from 'formik';
 import { addProductSchema } from '../../utils/validationSchemas';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 const emptyProductValues = {
@@ -560,7 +560,7 @@ const AdminProducts = () => {
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded bg-surface p-1 flex-shrink-0">
                                                 <img
-                                                    src={product.images?.[0] || product.image}
+                                                    src={getProductImageUrl(product)}
                                                     alt=""
                                                     loading="lazy"
                                                     width={40}

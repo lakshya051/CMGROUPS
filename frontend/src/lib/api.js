@@ -687,6 +687,17 @@ export const sheetsAPI = {
         apiFetch('/admin/sheets/import/products', { method: 'POST' }, { timeout: 180000, retries: 1 }),
 };
 
+// ============ ADMIN NOTIFICATIONS ============
+export const adminNotificationsAPI = {
+    send: (data) => apiFetch('/admin/notifications/send', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+    getHistory: (page = 1, limit = 20) =>
+        apiFetch(`/admin/notifications/history?page=${page}&limit=${limit}`),
+    getStats: () => apiFetch('/admin/notifications/stats'),
+};
+
 // ============ REFERRALS ============
 export const referralsAPI = {
     getMyStats: () => apiFetch('/referrals/my-stats'),

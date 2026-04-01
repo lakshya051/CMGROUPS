@@ -1,3 +1,8 @@
+/** Product delivery is only available for this PIN (Etah, Uttar Pradesh). */
+export const DELIVERY_PINCODE = '207001'
+export const DEFAULT_DELIVERY_CITY = 'Etah'
+export const DEFAULT_DELIVERY_STATE = 'Uttar Pradesh'
+
 export const FREE_DELIVERY_THRESHOLD = 499
 export const LOW_STOCK_THRESHOLD = 5
 export const MAX_COMPARE_ITEMS = 3

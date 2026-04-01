@@ -26,6 +26,7 @@ import {
     Layers,
     Puzzle,
     Table2,
+    Bell,
 } from 'lucide-react';
 import PointsBadge from '../ui/PointsBadge';
 
@@ -84,6 +85,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
         { name: 'Enrollments', path: '/admin/enrollments', icon: <ClipboardList size={20} /> },
         { name: 'Tally Prime Enquiries', path: '/admin/tally-enquiries', icon: <FileText size={20} /> },
         { name: 'CCTV Enquiries', path: '/admin/cctv-enquiries', icon: <FileText size={20} /> },
+        { name: 'Notifications', path: '/admin/notifications', icon: <Bell size={20} /> },
         { name: 'Google Sheets', path: '/admin/sheets', icon: <Table2 size={20} /> },
         { name: 'Audit Log', path: '/admin/audit-log', icon: <ScrollText size={20} /> },
     ];
@@ -95,7 +97,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
             {/* Header */}
             <div className="p-6 border-b border-border-default flex items-center justify-between">
                 <h2 className="text-xl font-heading font-bold">
-                    CM<span className="text-primary">GROUPS</span>
+                    Shopt<span className="text-primary">ify</span>
                     <span className="text-xs ml-2 bg-page-bg border border-border-default px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
                 </h2>
                 {/* Close button — mobile only */}
@@ -236,7 +238,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
                         <Menu size={22} />
                     </button>
                     <span className="font-heading font-bold text-base">
-                        CM<span className="text-primary">GROUPS</span>
+                        Shopt<span className="text-primary">ify</span>
                         <span className="text-xs ml-2 bg-page-bg border border-border-default px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
                     </span>
                     {user && <PointsBadge points={user.walletBalance} compact className="ml-auto" />}

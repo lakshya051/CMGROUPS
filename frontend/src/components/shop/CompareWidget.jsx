@@ -4,7 +4,7 @@ import { useShop } from '../../context/ShopContext';
 import { X, ArrowRight } from 'lucide-react';
 import Button from '../ui/Button';
 import { productsAPI } from '../../lib/api';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import { MAX_COMPARE_ITEMS } from '../../constants';
 
 const CompareWidget = () => {
@@ -40,7 +40,7 @@ const CompareWidget = () => {
                     {products.map(p => (
                         <div key={p.id} className="flex items-center gap-2 bg-page-bg/80 p-2 rounded border border-border-default">
                             <img
-                                src={p.images?.[0] || p.image}
+                                src={getProductImageUrl(p)}
                                 alt={p.title}
                                 loading="lazy"
                                 width={32}

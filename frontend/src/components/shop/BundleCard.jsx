@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { ShoppingCart, Layers, Wrench, Percent, Zap, Eye } from 'lucide-react';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 const resolveVariant = (bi) => {
@@ -149,7 +149,7 @@ const BundleCard = ({ bundle, compact = false }) => {
                         {productItems.slice(0, 3).map(bi => (
                             <img
                                 key={bi.id}
-                                src={bi.product?.images?.[0]}
+                                src={getProductImageUrl(bi.product)}
                                 alt={bi.product?.title}
                                 onError={handleImageError}
                                 className="w-16 h-16 object-contain rounded border border-border-default bg-surface p-0.5"

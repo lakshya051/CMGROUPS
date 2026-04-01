@@ -5,7 +5,7 @@ import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import PriceDisplay from '../common/PriceDisplay';
 import { Plus, ShoppingCart, Check, Zap } from 'lucide-react';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 const FrequentlyBoughtTogether = ({ product }) => {
@@ -93,7 +93,7 @@ const FrequentlyBoughtTogether = ({ product }) => {
                 {/* Current product */}
                 <div className="w-28 bg-surface rounded-xl border-2 border-primary/30 p-2 text-center relative">
                     <img
-                        src={product.images?.[0]}
+                        src={getProductImageUrl(product)}
                         alt={product.title}
                         onError={handleImageError}
                         className="w-full h-20 object-contain mb-1"
@@ -117,7 +117,7 @@ const FrequentlyBoughtTogether = ({ product }) => {
                             }`}
                         >
                             <img
-                                src={p.images?.[0]}
+                                src={getProductImageUrl(p)}
                                 alt={p.title}
                                 onError={handleImageError}
                                 className="w-full h-20 object-contain mb-1"

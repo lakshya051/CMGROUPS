@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { bundlesAPI, productsAPI, serviceTypesAPI, uploadAPI } from '../../lib/api';
 import { Plus, Edit2, Trash2, Search, X, Layers, Package, Wrench, BarChart3, Copy, TrendingUp, ToggleLeft, ToggleRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 
 const DISPLAY_OPTIONS = ['home', 'cctv', 'tally', 'pdp'];
 
@@ -391,7 +391,7 @@ const AdminBundles = () => {
                                         <div className="absolute top-full left-0 right-0 bg-surface border border-border-default rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto mt-1">
                                             {filteredProducts.map(p => (
                                                 <button type="button" key={p.id} onClick={() => addProduct(p)} className="w-full text-left px-3 py-2 hover:bg-surface-hover text-sm flex items-center gap-2">
-                                                    <img src={p.images?.[0]} alt="" className="w-8 h-8 object-contain rounded" onError={handleImageError} />
+                                                    <img src={getProductImageUrl(p)} alt="" className="w-8 h-8 object-contain rounded" onError={handleImageError} />
                                                     <span className="flex-1 truncate">{p.title}</span>
                                                     <span className="text-xs text-text-muted">₹{p.price?.toLocaleString('en-IN')}</span>
                                                 </button>

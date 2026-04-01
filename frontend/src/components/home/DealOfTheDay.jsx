@@ -4,7 +4,7 @@ import { productsAPI } from '../../lib/api';
 import { useShop } from '../../context/ShopContext';
 import { ShoppingCart, Clock, ChevronLeft, ChevronRight, Flame, Zap } from 'lucide-react';
 import PriceDisplay from '../common/PriceDisplay';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError } from '../../utils/image';
 
 const CountdownTimer = () => {
     const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
@@ -106,7 +106,7 @@ const DealCard = ({ product }) => {
                     </div>
                 )}
                 <img
-                    src={product.images?.[0] || product.image}
+                    src={getProductImageUrl(product)}
                     alt={product.title}
                     loading="lazy"
                     width={320}

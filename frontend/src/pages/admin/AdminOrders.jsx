@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    ShoppingBag, Search, Eye, CheckCircle, Truck, XCircle,
+    Search, Eye, CheckCircle, Truck, XCircle,
     Shield, MapPin, User, Package, CreditCard, Tag, Calendar,
     ChevronRight, Wallet, Download, ExternalLink
 } from 'lucide-react';
@@ -9,7 +9,7 @@ import Modal from '../../components/ui/Modal';
 import { ordersAPI } from '../../lib/api';
 import SectionLoader from '../../components/ui/SectionLoader';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { handleImageError } from '../../utils/image';
+import { getOrderLineThumbUrl, handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 /** Label for an order line (product, bundle-only, or BYOB template). */
@@ -101,29 +101,21 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                         </h3>
                         <div className="border border-border-default rounded-lg overflow-hidden divide-y divide-border-default">
                             {order.items?.length > 0 ? order.items.map((item, idx) => {
-                                const product = item.product || {};
-                                const bundle = item.bundle;
-                                const thumb = product.images?.[0] || product.image || bundle?.image;
                                 const titleLine = formatOrderItemLine(item);
+                                const thumbSrc = getOrderLineThumbUrl(item);
                                 return (
                                     <div key={idx} className="flex items-center gap-3 p-3 hover:bg-surface-hover transition-colors">
                                         {/* Product Image */}
                                         <div className="w-14 h-14 rounded-lg bg-page-bg border border-border-default flex-shrink-0 overflow-hidden">
-                                            {thumb ? (
-                                                <img
-                                                    src={thumb}
-                                                    alt={titleLine}
-                                                    loading="lazy"
-                                                    width={56}
-                                                    height={56}
-                                                    onError={handleImageError}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-text-muted">
-                                                    <ShoppingBag size={20} />
-                                                </div>
-                                            )}
+                                            <img
+                                                src={thumbSrc}
+                                                alt={titleLine}
+                                                loading="lazy"
+                                                width={56}
+                                                height={56}
+                                                onError={handleImageError}
+                                                className="w-full h-full object-cover"
+                                            />
                                         </div>
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">

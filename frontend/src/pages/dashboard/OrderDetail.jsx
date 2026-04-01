@@ -5,7 +5,7 @@ import {
     Download, ShoppingCart, Calendar, XCircle, RotateCcw,
 } from 'lucide-react';
 import { ordersAPI } from '../../lib/api';
-import { handleImageError } from '../../utils/image';
+import { getLineItemImageUrl, handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 const TIMELINE_STEPS = [
@@ -173,7 +173,7 @@ export default function OrderDetail() {
                         <div key={item.id} className="p-4 flex gap-4">
                             <Link to={`/products/${item.productId}`} className="flex-shrink-0">
                                 <img
-                                    src={item.variant?.image || item.product?.images?.[0]}
+                                    src={getLineItemImageUrl(item)}
                                     alt={item.product?.title}
                                     onError={handleImageError}
                                     className="w-16 h-16 object-contain rounded-lg border border-border-default"

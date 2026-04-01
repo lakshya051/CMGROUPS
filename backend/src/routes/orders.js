@@ -93,6 +93,13 @@ router.post('/', optionalProtect, async (req, res) => {
             return res.status(400).json({ error: 'Order must have a non-zero payment amount' });
         }
 
+        const DELIVERY_PINCODE = '207001';
+        if (shippingAddress && String(shippingAddress.postalCode || '').trim() !== DELIVERY_PINCODE) {
+            return res.status(400).json({
+                error: `We currently deliver only to PIN ${DELIVERY_PINCODE} (Etah, Uttar Pradesh).`,
+            });
+        }
+
         const normalizedPaymentMethod = paymentMethod || 'pay_at_store';
 
         // 2. Validate stock for all items BEFORE creating order (Optimized for "alot of products")

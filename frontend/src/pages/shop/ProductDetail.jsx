@@ -12,7 +12,7 @@ import QuantityTierDisplay from '../../components/shop/QuantityTierDisplay';
 import BundleCard from '../../components/shop/BundleCard';
 import { bundlesAPI } from '../../lib/api';
 import { useRecentlyViewed } from '../../hooks/useRecentlyViewed';
-import { handleImageError } from '../../utils/image';
+import { getProductImageUrl, handleImageError, resolveImageUrl } from '../../utils/image';
 import toast from 'react-hot-toast';
 
 const ProductDetail = () => {
@@ -279,7 +279,7 @@ const ProductDetail = () => {
                 <div className="flex flex-col gap-3">
                     <div className="bg-surface rounded-lg p-xl flex items-center justify-center border border-border-default relative shadow-sm">
                         <img
-                            src={(product.images || [product.image])[activeImageIdx] || product.images?.[0] || product.image}
+                            src={getProductImageUrl(product, activeImageIdx)}
                             alt={product.title}
                             loading="eager"
                             fetchPriority="high"
@@ -308,7 +308,7 @@ const ProductDetail = () => {
                                     className={`flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all ${activeImageIdx === idx ? 'border-primary ring-2 ring-primary/30' : 'border-border-default hover:border-primary/50'}`}
                                 >
                                     <img
-                                        src={img}
+                                        src={resolveImageUrl(img)}
                                         alt={`${product.title} - ${idx + 1}`}
                                         loading="lazy"
                                         width={64}
@@ -706,7 +706,7 @@ const ProductDetail = () => {
                                 className="flex-shrink-0 w-44 bg-surface rounded-xl border border-border-default p-3 hover:shadow-card-hover hover:border-trust/40 transition-all group"
                             >
                                 <img
-                                    src={rp.images?.[0] || rp.image}
+                                    src={getProductImageUrl(rp)}
                                     alt={rp.title}
                                     loading="lazy"
                                     onError={handleImageError}
@@ -741,7 +741,7 @@ const ProductDetail = () => {
                                 className="flex-shrink-0 w-44 bg-surface rounded-xl border border-border-default p-3 hover:shadow-card-hover hover:border-trust/40 transition-all group"
                             >
                                 <img
-                                    src={rv.image}
+                                    src={getProductImageUrl(rv)}
                                     alt={rv.title}
                                     loading="lazy"
                                     onError={handleImageError}
