@@ -32,9 +32,12 @@ import bundleTemplateRoutes from './routes/bundleTemplates.js';
 import sheetsRoutes from './routes/sheets.js';
 
 const app = express();
-if (process.env.TRUST_PROXY) {
+// Render, Heroku, etc. set X-Forwarded-For; express-rate-limit requires trust proxy when that header exists.
+if (process.env.TRUST_PROXY !== undefined) {
     const proxyVal = Number(process.env.TRUST_PROXY);
     app.set('trust proxy', Number.isNaN(proxyVal) ? 1 : proxyVal);
+} else if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+    app.set('trust proxy', 1);
 }
 
 const limiter = rateLimit({

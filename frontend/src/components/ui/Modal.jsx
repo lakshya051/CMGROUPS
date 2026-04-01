@@ -14,6 +14,12 @@ export default function Modal({
 }) {
     const dialogRef = useRef(null);
     const previousFocus = useRef(null);
+    // Avoid re-running open effects when parents pass an inline onClose (new ref each render).
+    // Otherwise requestAnimationFrame re-focuses the first focusable (often the X button) on every keystroke.
+    const onCloseRef = useRef(onClose);
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
 
     const trapFocus = useCallback((e) => {
         if (e.key !== 'Tab' || !dialogRef.current) return;
@@ -38,13 +44,22 @@ export default function Modal({
         document.body.style.overflow = 'hidden';
 
         const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
+            if (e.key === 'Escape') onCloseRef.current();
             trapFocus(e);
         };
         document.addEventListener('keydown', handleKeyDown);
 
         requestAnimationFrame(() => {
-            const focusable = dialogRef.current?.querySelectorAll(FOCUSABLE);
+            const root = dialogRef.current;
+            if (!root) return;
+            const preferred = root.querySelector(
+                'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
+            );
+            if (preferred) {
+                preferred.focus();
+                return;
+            }
+            const focusable = root.querySelectorAll(FOCUSABLE);
             if (focusable?.length) focusable[0].focus();
         });
 
@@ -53,7 +68,7 @@ export default function Modal({
             document.body.style.overflow = '';
             previousFocus.current?.focus();
         };
-    }, [isOpen, onClose, trapFocus]);
+    }, [isOpen, trapFocus]);
 
     if (!isOpen) return null;
 
@@ -66,7 +81,7 @@ export default function Modal({
         >
             <div
                 className="fixed inset-0 bg-black/80 backdrop-blur-sm"
-                onClick={closeOnBackdrop ? onClose : undefined}
+                onClick={closeOnBackdrop ? () => onCloseRef.current() : undefined}
                 aria-hidden="true"
             />
             <div
@@ -75,7 +90,7 @@ export default function Modal({
             >
                 {showCloseButton && (
                     <button
-                        onClick={onClose}
+                        onClick={() => onCloseRef.current()}
                         className="absolute top-3 right-3 z-10 p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors touch-manipulation"
                         aria-label="Close dialog"
                     >
