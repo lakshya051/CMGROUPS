@@ -102,7 +102,6 @@ const Navbar = () => {
     
 
     const handleLogout = async () => {
-        setShowAccountMenu(false);
         await logout();
         navigate('/');
     };
@@ -168,7 +167,8 @@ const Navbar = () => {
             {/* ═══════════ DESKTOP ═══════════ */}
             <div className="hidden md:block">
                 {/* Row 1: Logo + deliver (left), search centered, account cluster (right) */}
-                <div className="bg-background/80 backdrop-blur-lg border-b border-border-default">
+                {/* z-40 so account dropdown (below this row) paints above row 2 sub-nav */}
+                <div className="relative z-40 bg-background/80 backdrop-blur-lg border-b border-border-default">
                     <div className="container mx-auto px-4 h-16 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 md:gap-4 min-w-0">
                         <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0 min-w-0">
                             <Link to="/" className="text-2xl font-heading font-bold text-text-primary flex-shrink-0">
@@ -225,7 +225,7 @@ const Navbar = () => {
                 </div>
 
                 {/* Row 2: Sub-Navigation (left-aligned links; overflow-x only on trailing items so flyout isn’t clipped) */}
-                <div className="bg-surface border-b border-border-default">
+                <div className="relative z-30 bg-surface border-b border-border-default">
                     <div className="container mx-auto px-4 h-10 flex items-center justify-between gap-3 min-w-0">
                         <nav className="flex items-center gap-1 min-w-0 flex-1">
                             <NavLink to="/" label="All" icon={<Menu size={14} />} active={isActive('/')} />

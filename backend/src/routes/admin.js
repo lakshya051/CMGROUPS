@@ -54,11 +54,11 @@ const buildServiceSettingsPayload = (timeSlots, maxBookingsPerSlot, currentSetti
 // GET /api/admin/users (Admin - list all users)
 router.get('/users', protect, adminOnly, async (req, res) => {
     try {
-        const { page = 1, limit = 20, search } = req.query;
+        const { page = 1, limit = 50, search } = req.query;
         const parsedPage = Number.parseInt(page, 10);
         const parsedLimit = Number.parseInt(limit, 10);
         const currentPage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-        const take = Math.min(20, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 20));
+        const take = Math.min(100, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 50));
         const skip = (currentPage - 1) * take;
 
         const where = {};

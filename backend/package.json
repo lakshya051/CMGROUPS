@@ -13,7 +13,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "dotenv -e .env -- node prisma/seed.js",
     "seed:bulk-products": "dotenv -e .env -- node prisma/seed-bulk-products.js",
-    "promote-admin": "node --env-file=.env scripts/promote-admin.js"
+    "promote-admin": "node --env-file=.env scripts/promote-admin.js",
+    "sync-firebase-users": "node --env-file=.env scripts/sync-firebase-users-to-prisma.js",
+    "sync-firebase-users:corp-tls": "env FIREBASE_ADMIN_INSECURE_TLS=1 node --env-file=.env scripts/sync-firebase-users-to-prisma.js"
   },
   "prisma": {
     "seed": "dotenv -e .env -- node prisma/seed.js"

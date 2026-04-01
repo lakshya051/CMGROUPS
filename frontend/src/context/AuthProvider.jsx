@@ -17,6 +17,29 @@ import { setTokenGetter } from '../lib/api';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+/** Load DB user via /auth/me, or create/link row via /auth/register (same as after sign-up). */
+async function fetchMeOrRegister(fbUser, idToken) {
+    const meRes = await fetch(`${API_BASE}/auth/me`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (meRes.ok) {
+        const data = await meRes.json();
+        return { ok: true, user: data.user };
+    }
+    const regRes = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+            name: fbUser.displayName?.trim() || fbUser.email?.split('@')[0]?.trim() || 'User',
+        }),
+    });
+    const regData = await regRes.json().catch(() => ({}));
+    if (regRes.ok && regData.user) {
+        return { ok: true, user: regData.user };
+    }
+    return { ok: false, error: regData.error || `HTTP ${meRes.status}` };
+}
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [firebaseUser, setFirebaseUser] = useState(null);
@@ -55,15 +78,12 @@ export const AuthProvider = ({ children }) => {
                 setTokenGetter(() => Promise.resolve(tokenRef.current));
 
                 try {
-                    const res = await fetch(`${API_BASE}/auth/me`, {
-                        headers: { Authorization: `Bearer ${idToken}` },
-                    });
+                    const { ok, user: dbUser, error } = await fetchMeOrRegister(fbUser, idToken);
                     if (cancelled) return;
-                    if (res.ok) {
-                        const data = await res.json();
-                        setUser(data.user);
+                    if (ok && dbUser) {
+                        setUser(dbUser);
                     } else {
-                        console.warn('DB user not found, signing out of Firebase');
+                        console.warn('DB user sync failed, signing out of Firebase:', error);
                         setUser(null);
                         setFirebaseUser(null);
                         tokenRef.current = null;
@@ -217,26 +237,26 @@ export const AuthProvider = ({ children }) => {
                     setTokenGetter(() => Promise.resolve(tokenRef.current));
                     let dbUser = null;
                     try {
-                        const res = await fetch(`${API_BASE}/auth/me`, {
-                            headers: { Authorization: `Bearer ${idToken}` },
-                        });
-                        if (res.ok) {
-                            const data = await res.json();
-                            dbUser = data.user;
-                            setUser(data.user);
+                        const { ok, user: synced, error } = await fetchMeOrRegister(cred.user, idToken);
+                        if (ok && synced) {
+                            dbUser = synced;
+                            setUser(synced);
                         } else {
-                            console.warn('DB user not found after email login, signing out');
+                            console.warn('DB user sync failed after email login, signing out:', error);
                             setUser(null);
                             tokenRef.current = null;
                             setTokenGetter(null);
                             if (auth) await signOut(auth);
+                            throw new Error(error || 'Could not connect your account to the server. Check your connection and try again.');
                         }
                     } catch (err) {
+                        if (err.message?.includes('Could not connect')) throw err;
                         console.error('Failed to fetch DB user after email login:', err);
                         setUser(null);
                         tokenRef.current = null;
                         setTokenGetter(null);
                         if (auth) await signOut(auth);
+                        throw err;
                     }
                     return { cred, user: dbUser };
                 },

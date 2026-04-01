@@ -79,8 +79,10 @@ const AccountDropdown = ({
             {open && user && (
                 <div
                     role="menu"
-                    className="absolute right-0 top-full mt-0.5 w-56 bg-surface border border-border-default rounded-lg shadow-card py-2 z-50 animate-in fade-in slide-in-from-top-2"
+                    className="absolute right-0 top-full z-[100] w-56 pt-1.5 -mt-1.5 animate-in fade-in slide-in-from-top-2"
                 >
+                    {/* Invisible hover bridge so moving from trigger → menu doesn’t fire mouseLeave and close */}
+                    <div className="rounded-lg border border-border-default bg-surface shadow-card py-2">
                     <div className="px-4 py-2 border-b border-border-default">
                         <p className="text-sm font-semibold text-text-primary">{user.name}</p>
                         <p className="text-xs text-text-muted">{user.email}</p>
@@ -99,12 +101,19 @@ const AccountDropdown = ({
                     </Link>
                     <div className="border-t border-border-default mt-1 pt-1">
                         <button
-                            onClick={handleLogout}
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setOpen(false);
+                                handleLogout();
+                            }}
                             role="menuitem"
                             className="flex items-center gap-2.5 px-4 py-2 text-sm text-error hover:bg-surface-hover transition-colors w-full text-left"
                         >
                             <LogOut size={15} /> Sign Out
                         </button>
+                    </div>
                     </div>
                 </div>
             )}

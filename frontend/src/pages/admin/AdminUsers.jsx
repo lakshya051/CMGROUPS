@@ -43,7 +43,7 @@ const AdminUsers = () => {
             try {
                 const res = await adminAPI.getUsers({
                     page,
-                    limit: 20,
+                    limit: 50,
                     search: debouncedSearch || undefined
                 });
                 if (res.data) {
