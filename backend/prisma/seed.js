@@ -128,42 +128,30 @@ async function main() {
         update: {},
         create: { email: 'admin@cmgroups.in', name: 'CM Admin', role: 'admin', phone: '9876543210', referralCode: 'CMADMIN' }
     });
-
-    const CUST_DATA = [
-        { email: 'rahul@example.com', name: 'Rahul Sharma', phone: '9876500001', referralCode: 'RAHUL01' },
-        { email: 'priya@example.com', name: 'Priya Patel', phone: '9876500002', referralCode: 'PRIYA02' },
-        { email: 'amit@example.com', name: 'Amit Kumar', phone: '9876500003', referralCode: 'AMIT03' },
-        { email: 'neha@example.com', name: 'Neha Singh', phone: '9876500004', referralCode: 'NEHA04' },
-        { email: 'vikram@example.com', name: 'Vikram Reddy', phone: '9876500005', referralCode: 'VIKRAM05' },
-        { email: 'ananya@example.com', name: 'Ananya Roy', phone: '9876500006', referralCode: 'ANANYA06' },
-        { email: 'rohan@example.com', name: 'Rohan Mehta', phone: '9876500007', referralCode: 'ROHAN07' },
-        { email: 'pooja@example.com', name: 'Pooja Das', phone: '9876500008', referralCode: 'POOJA08' },
-        { email: 'kiran@example.com', name: 'Kiran Nair', phone: '9876500009', referralCode: 'KIRAN09' },
-        { email: 'saurav@example.com', name: 'Saurav Ghosh', phone: '9876500010', referralCode: 'SAURAV10' },
-    ];
-    const customers = [];
-    for (const c of CUST_DATA) {
-        const u = await prisma.user.upsert({ where: { email: c.email }, update: {}, create: { ...c, role: 'customer' } });
-        customers.push(u);
-    }
-    console.log(`✅ ${customers.length} customers`);
+    console.log('✅ Admin user (demo orders/reviews/bookings attach to this account only — no extra seed users)');
 
     // ── Categories ────────────────────────────────────────────────────
     const CATS = [
-        { name: 'Graphics Cards', slug: 'graphics-cards', description: 'GPUs for gaming & workloads' },
-        { name: 'Processors', slug: 'processors', description: 'Desktop & laptop CPUs' },
-        { name: 'RAM', slug: 'ram', description: 'Memory modules' },
-        { name: 'Storage', slug: 'storage', description: 'SSDs, HDDs, NVMe' },
-        { name: 'Motherboards', slug: 'motherboards', description: 'Intel & AMD boards' },
-        { name: 'Power Supplies', slug: 'power-supplies', description: 'PSUs for every build' },
-        { name: 'Cabinets', slug: 'cabinets', description: 'PC cases' },
-        { name: 'Cooling', slug: 'cooling', description: 'Air & liquid coolers' },
-        { name: 'Monitors', slug: 'monitors', description: 'Gaming & pro displays' },
-        { name: 'Peripherals', slug: 'peripherals', description: 'Keyboards, mice, headsets' },
-        { name: 'Laptops', slug: 'laptops', description: 'Gaming & productivity laptops' },
-        { name: 'Accessories', slug: 'accessories', description: 'Cables, adapters, tools' },
+        { name: 'Graphics Cards', slug: 'graphics-cards', description: 'GPUs for gaming & workloads', image: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=800' },
+        { name: 'Processors', slug: 'processors', description: 'Desktop & laptop CPUs', image: 'https://images.unsplash.com/photo-1555617981-dac3880eac6e?w=800' },
+        { name: 'RAM', slug: 'ram', description: 'Memory modules', image: 'https://images.unsplash.com/photo-1563770660941-20978e870e26?w=800' },
+        { name: 'Storage', slug: 'storage', description: 'SSDs, HDDs, NVMe', image: 'https://images.unsplash.com/photo-1565536421961-d703e847c94b?w=800' },
+        { name: 'Motherboards', slug: 'motherboards', description: 'Intel & AMD boards', image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800' },
+        { name: 'Power Supplies', slug: 'power-supplies', description: 'PSUs for every build', image: 'https://images.unsplash.com/photo-1587202372589-95242d5af8e8?w=800' },
+        { name: 'Cabinets', slug: 'cabinets', description: 'PC cases', image: 'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?w=800' },
+        { name: 'Cooling', slug: 'cooling', description: 'Air & liquid coolers', image: 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=800' },
+        { name: 'Monitors', slug: 'monitors', description: 'Gaming & pro displays', image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=800' },
+        { name: 'Peripherals', slug: 'peripherals', description: 'Keyboards, mice, headsets', image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=800' },
+        { name: 'Laptops', slug: 'laptops', description: 'Gaming & productivity laptops', image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800' },
+        { name: 'Accessories', slug: 'accessories', description: 'Cables, adapters, tools', image: 'https://images.unsplash.com/photo-1555618254-5e28e2a3de2e?w=800' },
     ];
-    for (const c of CATS) await prisma.category.upsert({ where: { slug: c.slug }, update: {}, create: c });
+    for (const c of CATS) {
+        await prisma.category.upsert({
+            where: { slug: c.slug },
+            update: { description: c.description, image: c.image },
+            create: c
+        });
+    }
     console.log(`✅ ${CATS.length} categories`);
 
     // ── Service Types ─────────────────────────────────────────────────
@@ -179,6 +167,39 @@ async function main() {
     ];
     for (const s of ST) await prisma.serviceType.upsert({ where: { title: s.title }, update: {}, create: s });
     console.log(`✅ ${ST.length} service types`);
+
+    // ── Referral & tier defaults (admin UI expects rows) ─────────────────
+    if (!(await prisma.referralSettings.findFirst())) {
+        await prisma.referralSettings.create({
+            data: {
+                pointsPerProductPurchase: 200,
+                pointsPerServiceBooking: 100,
+                pointsPerCourseEnrollment: 300,
+                pointToRupeeRate: 100,
+                tierSystemEnabled: true
+            }
+        });
+    }
+    const tierCount = await prisma.tierConfig.count();
+    if (tierCount === 0) {
+        await prisma.tierConfig.createMany({
+            data: [
+                { tierName: 'Bronze', minPoints: 0, color: '#CD7F32' },
+                { tierName: 'Silver', minPoints: 500, color: '#C0C0C0' },
+                { tierName: 'Gold', minPoints: 2000, color: '#FFD700' },
+                { tierName: 'Platinum', minPoints: 5000, color: '#E5E4E2' }
+            ]
+        });
+    }
+    if (!(await prisma.serviceSettings.findFirst())) {
+        await prisma.serviceSettings.create({
+            data: {
+                timeSlots: ['09:00 AM - 11:00 AM', '11:00 AM - 01:00 PM', '02:00 PM - 04:00 PM', '04:00 PM - 06:00 PM'],
+                maxBookingsPerSlot: 3
+            }
+        });
+    }
+    console.log('✅ Referral settings, tier config, service booking slots');
 
     // ── Technicians (New for Service Hub) ──────────────────────────────
     const TECHS = [
@@ -200,6 +221,9 @@ async function main() {
         const existing = await prisma.product.findFirst({ where: { title: t.title } });
         if (existing) continue;
         const basePrice = t.base;
+        const variants = makeVariants(t.type, basePrice);
+        const imgPrimary = IMAGES[t.type];
+        const imgSecondary = `${IMAGES[t.type]}&auto=format&fit=crop&q=80`;
         const p = await prisma.product.create({
             data: {
                 title: t.title,
@@ -207,16 +231,17 @@ async function main() {
                 stock: rand(5, 40),
                 category: t.cat,
                 brand: pick(BRANDS[t.type]),
-                images: [IMAGES[t.type]],
+                sellerName: 'CM Groups',
+                images: [imgPrimary, imgSecondary],
+                hasVariants: variants.length > 1,
                 description: `${t.title} — premium ${t.cat.toLowerCase()} product. High performance, excellent build quality.`,
                 rating: parseFloat((3.8 + Math.random() * 1.1).toFixed(1)),
                 numReviews: rand(10, 300),
                 specs: { category: t.cat, type: t.type.toUpperCase(), warranty: `${rand(1, 3)} Year${rand(1, 3) > 1 ? 's' : ''}` },
             }
         });
-        const variants = makeVariants(t.type, basePrice);
         for (const v of variants) {
-            await prisma.productVariant.create({ data: { productId: p.id, name: v.name, price: v.price, stock: v.stock } });
+            await prisma.productVariant.create({ data: { productId: p.id, name: v.name, price: v.price, stock: v.stock, image: imgPrimary } });
         }
         productCount++;
     }
@@ -232,11 +257,16 @@ async function main() {
     ];
     const prods = await prisma.product.findMany({ take: 30 });
     for (let i = 0; i < prods.length; i++) {
-        const cust = customers[i % customers.length];
-        const exists = await prisma.review.findFirst({ where: { productId: prods[i].id, userId: cust.id } });
+        const exists = await prisma.review.findFirst({ where: { productId: prods[i].id, userId: admin.id } });
         if (!exists) {
             await prisma.review.create({
-                data: { productId: prods[i].id, userId: cust.id, rating: rand(4, 5), comment: reviewTexts[i % reviewTexts.length] }
+                data: {
+                    productId: prods[i].id,
+                    userId: admin.id,
+                    rating: rand(4, 5),
+                    comment: reviewTexts[i % reviewTexts.length],
+                    images: i % 7 === 0 ? [IMAGES.gpu] : []
+                }
             });
         }
     }
@@ -244,8 +274,7 @@ async function main() {
 
     // ── Sample Orders ─────────────────────────────────────────────────
     const orderProds = await prisma.product.findMany({ take: 20 });
-    for (let i = 0; i < 30; i++) {
-        const cust = customers[i % customers.length];
+    if ((await prisma.order.count()) === 0) for (let i = 0; i < 30; i++) {
         const p1 = orderProds[i % orderProds.length];
         const p2 = orderProds[(i + 3) % orderProds.length];
         const total = p1.price + p2.price;
@@ -253,18 +282,24 @@ async function main() {
         const createdAt = new Date(Date.now() - daysAgo * 86400000);
         await prisma.order.create({
             data: {
-                userId: cust.id,
+                userId: admin.id,
                 total,
                 isPaid: i < 25,
                 paymentMethod: pick(['razorpay', 'cod', 'upi']),
                 status: pick(['Processing', 'Shipped', 'Delivered', 'Delivered', 'Delivered']),
-                shippingAddress: JSON.stringify({ name: cust.name, address: `${i + 1}, MG Road`, city: pick(['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai']), pincode: `${560000 + i}`, phone: cust.phone }),
+                shippingAddress: {
+                    name: admin.name,
+                    address: `${i + 1}, MG Road`,
+                    city: pick(['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai']),
+                    pincode: `${560000 + i}`,
+                    phone: admin.phone
+                },
                 createdAt,
                 items: { create: [{ productId: p1.id, quantity: 1, price: p1.price }, { productId: p2.id, quantity: rand(1, 3), price: p2.price }] }
             }
         });
     }
-    console.log('✅ 30 orders created');
+    console.log(`✅ Demo orders in DB: ${await prisma.order.count()}`);
 
     // ── Service Bookings (25) ─────────────────────────────────────────
     const serviceTypes = ['Expert PC Repair', 'Deep Cleaning Service', 'Custom PC Build', 'Laptop Screen Repair', 'Data Recovery', 'Printer Setup & Repair', 'CCTV Installation', 'Networking Setup'];
@@ -300,11 +335,10 @@ async function main() {
         'Annual maintenance contract for 10 PCs',
     ];
 
-    for (let i = 0; i < 25; i++) {
-        const cust = customers[i % customers.length];
+    if ((await prisma.serviceBooking.count()) === 0) for (let i = 0; i < 25; i++) {
         await prisma.serviceBooking.create({
             data: {
-                userId: cust.id,
+                userId: admin.id,
                 serviceType: serviceTypes[i % serviceTypes.length],
                 description: issues[i],
                 deviceType: pick(devices),
@@ -312,8 +346,8 @@ async function main() {
                 date: new Date(Date.now() + rand(1, 10) * 86400000),
                 timeSlot: pick(['10:00 AM - 12:00 PM', '12:00 PM - 02:00 PM', '02:00 PM - 04:00 PM', '04:00 PM - 06:00 PM']),
                 status: statuses[i % statuses.length],
-                customerName: cust.name,
-                customerPhone: cust.phone,
+                customerName: admin.name,
+                customerPhone: admin.phone,
                 address: `${200 + i}, Tech Park Road`,
                 city: cities[i % cities.length],
                 pincode: `${560001 + i}`,
@@ -327,7 +361,7 @@ async function main() {
             }
         });
     }
-    console.log('✅ 25 service bookings created');
+    console.log(`✅ Service bookings in DB: ${await prisma.serviceBooking.count()}`);
 
     // ── Coupons ───────────────────────────────────────────────────────
     const coupons = [
@@ -392,23 +426,109 @@ async function main() {
     }
     console.log(`✅ ${BANNERS.length} banners`);
 
-    // ── Referrals ─────────────────────────────────────────────────────
-    for (let i = 0; i < 5; i++) {
-        const referrer = customers[i];
-        const referee = customers[(i + 1) % customers.length];
-        await prisma.user.update({ where: { id: referee.id }, data: { referredById: referrer.id } });
-        const ex = await prisma.referral.findFirst({ where: { referrerId: referrer.id, refereeId: referee.id } });
-        if (!ex) await prisma.referral.create({ data: { referrerId: referrer.id, refereeId: referee.id, status: pick(['pending', 'completed', 'rewarded']), rewardAmount: 200 } });
+    // ── Product bundles (home / deals) ───────────────────────────────────
+    const gpuP = await prisma.product.findFirst({ where: { category: 'Graphics Cards' }, orderBy: { id: 'asc' } });
+    const cpuP = await prisma.product.findFirst({ where: { category: 'Processors' }, orderBy: { id: 'asc' } });
+    const ramP = await prisma.product.findFirst({ where: { category: 'RAM' }, orderBy: { id: 'asc' } });
+    const storageP = await prisma.product.findFirst({ where: { category: 'Storage' }, orderBy: { id: 'asc' } });
+    if (gpuP && cpuP && ramP) {
+        const bundleDefs = [
+            {
+                name: '1080p Esports Starter',
+                slug: '1080p-esports-starter',
+                description: 'GPU + CPU + RAM — ready for high-FPS 1080p gaming.',
+                image: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=1200',
+                bundlePrice: Math.round((gpuP.price + cpuP.price + ramP.price) * 0.92),
+                displayOn: ['home', 'products'],
+                items: [
+                    { productId: gpuP.id, quantity: 1, position: 0 },
+                    { productId: cpuP.id, quantity: 1, position: 1 },
+                    { productId: ramP.id, quantity: 1, position: 2 }
+                ]
+            },
+            ...(storageP
+                ? [{
+                      name: 'Creator Workstation Core',
+                      slug: 'creator-workstation-core',
+                      description: 'CPU + RAM + fast NVMe storage for editing workloads.',
+                      image: 'https://images.unsplash.com/photo-1555617981-dac3880eac6e?w=1200',
+                      bundlePrice: Math.round((cpuP.price + ramP.price + storageP.price) * 0.9),
+                      displayOn: ['home'],
+                      items: [
+                          { productId: cpuP.id, quantity: 1, position: 0 },
+                          { productId: ramP.id, quantity: 1, position: 1 },
+                          { productId: storageP.id, quantity: 1, position: 2 }
+                      ]
+                  }]
+                : [])
+        ];
+        for (const def of bundleDefs) {
+            const existing = await prisma.bundle.findUnique({ where: { slug: def.slug } });
+            if (existing) continue;
+            await prisma.bundle.create({
+                data: {
+                    name: def.name,
+                    slug: def.slug,
+                    description: def.description,
+                    image: def.image,
+                    bundlePrice: def.bundlePrice,
+                    isActive: true,
+                    isGiftable: true,
+                    displayOn: def.displayOn,
+                    items: { create: def.items }
+                }
+            });
+        }
+        console.log('✅ Bundles (product combos)');
     }
-    console.log('✅ Referrals created');
+
+    // ── Quantity tiers (sample B2B pricing on one product) ────────────────
+    const tierProduct = await prisma.product.findFirst({ where: { category: 'Accessories' } });
+    if (tierProduct) {
+        const hasTiers = await prisma.quantityTier.count({ where: { productId: tierProduct.id } });
+        if (hasTiers === 0) {
+            await prisma.quantityTier.createMany({
+                data: [
+                    { productId: tierProduct.id, minQty: 5, price: Math.round(tierProduct.price * 0.95) },
+                    { productId: tierProduct.id, minQty: 10, price: Math.round(tierProduct.price * 0.88) },
+                    { productId: tierProduct.id, minQty: 25, price: Math.round(tierProduct.price * 0.82) }
+                ]
+            });
+            console.log('✅ Quantity tiers (sample product)');
+        }
+    }
+
+    // ── Mix & match bundle template ─────────────────────────────────────
+    if (!(await prisma.bundleTemplate.findFirst({ where: { name: 'Pick Any PC Parts' } }))) {
+        const tmpl = await prisma.bundleTemplate.create({
+            data: {
+                name: 'Pick Any PC Parts',
+                description: 'Choose one item from each slot — discount applied at checkout.',
+                image: 'https://images.unsplash.com/photo-1555617981-dac3880eac6e?w=800',
+                discount: 12,
+                discountType: 'percent',
+                templateType: 'slot',
+                isActive: true
+            }
+        });
+        await prisma.bundleTemplateSlot.createMany({
+            data: [
+                { templateId: tmpl.id, label: 'Graphics or CPU', category: 'Graphics Cards', minQty: 1, maxQty: 1, required: true, position: 0 },
+                { templateId: tmpl.id, label: 'Memory', category: 'RAM', minQty: 1, maxQty: 2, required: true, position: 1 },
+                { templateId: tmpl.id, label: 'Storage', category: 'Storage', minQty: 1, maxQty: 2, required: false, position: 2 }
+            ]
+        });
+        console.log('✅ Bundle template + slots');
+    }
 
     console.log('\n🎉 Database seeded! Summary:');
-    console.log(`   Products     : ${productCount} (with variants)`);
-    console.log(`   Customers    : ${customers.length}`);
-    console.log(`   Service Book.: 25`);
-    console.log(`   Courses      : ${COURSES.length} (${COURSES.length * 2} durations, ${COURSES.length * 2 * 4} batches)`);
-    console.log(`   Orders       : 30`);
-    console.log(`   Banners      : ${BANNERS.length}`);
+    console.log(`   Products     : ${await prisma.product.count()} (new this run: ${productCount})`);
+    console.log(`   Users        : ${await prisma.user.count()} (admin only — no seed customer accounts)`);
+    console.log(`   Service Book.: ${await prisma.serviceBooking.count()}`);
+    console.log(`   Courses      : ${await prisma.course.count()}`);
+    console.log(`   Orders       : ${await prisma.order.count()}`);
+    console.log(`   Banners      : ${await prisma.banner.count()}`);
+    console.log(`   Bundles      : ${await prisma.bundle.count()}`);
 }
 
 main()
