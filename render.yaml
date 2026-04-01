@@ -1,0 +1,11 @@
+# Optional Render Blueprint — set env vars (DATABASE_URL, DIRECT_URL, etc.) in the dashboard.
+services:
+  - type: web
+    name: cmgroups-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
