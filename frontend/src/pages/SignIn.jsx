@@ -155,7 +155,7 @@ export default function SignIn() {
 
                 <button
                     type="submit"
-                    disabled={loading || !firebaseConfigured}
+                    disabled={loading || (!resetMode && !firebaseConfigured)}
                     className="mt-1 w-full rounded-xl bg-gradient-to-r from-primary to-secondary py-3.5 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all duration-base hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:pointer-events-none disabled:opacity-45 active:scale-[0.98]"
                 >
                     {loading

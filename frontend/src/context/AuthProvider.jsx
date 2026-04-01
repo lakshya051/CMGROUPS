@@ -9,11 +9,10 @@ import {
     GoogleAuthProvider,
     signOut,
     sendEmailVerification,
-    sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { AuthContext } from './AuthContext';
-import { setTokenGetter } from '../lib/api';
+import { setTokenGetter, authAPI } from '../lib/api';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -265,11 +264,9 @@ export const AuthProvider = ({ children }) => {
                 resendVerificationEmail,
                 loginWithGoogle,
                 resetPassword: async (email) => {
-                    if (!auth) throw new Error('Firebase is not configured.');
-                    await sendPasswordResetEmail(auth, email, {
-                        url: `${window.location.origin}/sign-in`,
-                        handleCodeInApp: false,
-                    });
+                    const trimmed = String(email || '').trim();
+                    if (!trimmed) throw new Error('Email is required');
+                    await authAPI.forgotPassword(trimmed);
                 },
             }}
         >

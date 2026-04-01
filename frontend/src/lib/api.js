@@ -101,6 +101,13 @@ export const authAPI = {
             method: 'PUT',
             body: JSON.stringify(data)
         }),
+
+    /** Branded reset email from backend (not Firebase default template). */
+    forgotPassword: (email) =>
+        apiFetch('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        }),
 };
 
 // ============ PRODUCTS ============

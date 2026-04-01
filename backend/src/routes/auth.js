@@ -262,7 +262,8 @@ router.put('/profile', protect, async (req, res) => {
     }
 });
 
-// POST /api/auth/forgot-password — generate reset link & send branded email
+// POST /api/auth/forgot-password — generate reset link & send branded email (via your SMTP, not Firebase’s default template).
+// Deliverability: set SPF/DKIM/DMARC on the domain you send from; prefer mail from your own domain (e.g. noreply@yourdomain.com) over a random free address.
 router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) {
@@ -282,12 +283,30 @@ router.post('/forgot-password', async (req, res) => {
         const resetLink = await admin.auth().generatePasswordResetLink(email, actionCodeSettings);
 
         const year = new Date().getFullYear();
+        const brandName = process.env.EMAIL_BRAND_NAME || 'Shoptify';
+        const tagline = process.env.EMAIL_BRAND_TAGLINE || 'Your marketplace, learning hub & tech partner';
+
+        const textBody = [
+            `Reset your ${brandName} password`,
+            '',
+            'We received a request to reset your password. Use the link below within one hour:',
+            '',
+            resetLink,
+            '',
+            "If you didn't request this, you can ignore this email — your password will stay the same.",
+            '',
+            `— ${brandName}`,
+        ].join('\n');
 
         const html = `
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head>
 <body style="margin:0;padding:0;background-color:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <!-- Preheader (inbox snippet); hidden in most clients -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:transparent;opacity:0;">
+    Set a new password for your ${brandName} account — link expires in 1 hour.
+  </div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;padding:40px 20px;">
     <tr>
       <td align="center">
@@ -296,8 +315,8 @@ router.post('/forgot-password', async (req, res) => {
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#4F46E5 0%,#7C3AED 50%,#EC4899 100%);padding:40px 40px 32px;text-align:center;">
-              <h1 style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">Shoptify</h1>
-              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.75);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">Password Reset</p>
+              <h1 style="margin:0;font-size:28px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">${brandName}</h1>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.75);letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">Password reset</p>
             </td>
           </tr>
 
@@ -306,7 +325,7 @@ router.post('/forgot-password', async (req, res) => {
             <td style="padding:40px 40px 16px;">
               <h2 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#1a1a2e;">Reset your password</h2>
               <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#555770;">
-                We received a request to reset the password for your Shoptify account. Click the button below to choose a new password. This link will expire in <strong>1 hour</strong>.
+                We received a request to reset the password for your <strong>${brandName}</strong> account. Tap the button below to choose a new password. This link expires in <strong>1 hour</strong>.
               </p>
 
               <!-- CTA Button -->
@@ -355,10 +374,10 @@ router.post('/forgot-password', async (req, res) => {
           <!-- Footer -->
           <tr>
             <td style="background-color:#f9f9fb;padding:28px 40px;border-top:1px solid #eeecf5;text-align:center;">
-              <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#999;">Shoptify</p>
+              <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#999;">${brandName}</p>
               <p style="margin:0;font-size:11px;line-height:1.5;color:#b0b0c0;">
-                Your marketplace, learning hub &amp; tech partner.<br>
-                &copy; ${year} Shoptify. All rights reserved.
+                ${tagline.replace(/&/g, '&amp;')}<br>
+                &copy; ${year} ${brandName}. All rights reserved.
               </p>
             </td>
           </tr>
@@ -373,7 +392,7 @@ router.post('/forgot-password', async (req, res) => {
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
             console.log('\n[LOCAL DEV MOCK: Password Reset Email]');
             console.log(`To: ${email}`);
-            console.log(`Subject: Reset your Shoptify password`);
+            console.log(`Subject: Reset your ${brandName} password`);
             console.log(`Reset link: ${resetLink}`);
             console.log('----------------------------------------\n');
             return res.json(okResponse);
@@ -381,12 +400,20 @@ router.post('/forgot-password', async (req, res) => {
 
         res.json(okResponse);
 
+        const fromName = process.env.EMAIL_FROM_NAME || brandName;
+        const replyTo = process.env.EMAIL_REPLY_TO || process.env.EMAIL_USER;
+
         setImmediate(() => {
             transporter.sendMail({
-                from: `"Shoptify" <${process.env.EMAIL_USER}>`,
+                from: `"${fromName.replace(/"/g, '')}" <${process.env.EMAIL_USER}>`,
                 to: email,
-                subject: 'Reset your Shoptify password',
+                replyTo: replyTo || undefined,
+                subject: `Reset your ${brandName} password`,
+                text: textBody,
                 html,
+                headers: {
+                    'X-Entity-Ref-ID': `pw-reset-${Date.now()}`,
+                },
             }).catch(err => console.error('Password reset email error:', err));
         });
 
