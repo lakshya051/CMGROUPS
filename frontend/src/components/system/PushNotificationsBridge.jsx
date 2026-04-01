@@ -4,15 +4,23 @@ import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 const PushNotificationsBridge = () => {
     const { user } = useAuth();
-    const { isSupported, isSubscribed, refreshSubscription, permission } = usePushNotifications();
+    const { isSupported, isSubscribed, subscribe, refreshSubscription, permission } = usePushNotifications();
 
     useEffect(() => {
         if (!isSupported || !user?.id) return;
 
         if (isSubscribed && permission === 'granted') {
             refreshSubscription();
+            return;
         }
-    }, [isSupported, user?.id, isSubscribed, permission, refreshSubscription]);
+
+        if (permission === 'default' && !isSubscribed) {
+            const timer = setTimeout(() => {
+                subscribe().catch(err => console.warn('Auto push subscribe failed:', err));
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [isSupported, user?.id, isSubscribed, permission, refreshSubscription, subscribe]);
 
     return null;
 };

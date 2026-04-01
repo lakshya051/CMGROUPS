@@ -1292,24 +1292,19 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
             }
         }
 
-        // Send Order Confirmation Notifications
-        if (order.user) {
-            try {
-                if (order.user.email) {
-                    await sendOrderConfirmationEmail(order.user.email, order.id, order.total, {
-                        paymentMethod: order.paymentMethod,
-                        isPaid: true
-                    });
-                }
-                // SMS disabled
-            } catch (notifErr) {
-                console.error('Order notification error (non-blocking):', notifErr);
-            }
-        }
+        res.json({ success: true, message: 'Payment verified successfully!', order: updatedOrder });
 
-        if (order.userId) {
-            try {
-                await createUserNotification({
+        // Post-response: don't block admin UX on SMTP/notification latency
+        setImmediate(() => {
+            if (order.user?.email) {
+                sendOrderConfirmationEmail(order.user.email, order.id, order.total, {
+                    paymentMethod: order.paymentMethod,
+                    isPaid: true
+                }).catch(err => console.error('Order confirmation email error:', err));
+            }
+
+            if (order.userId) {
+                createUserNotification({
                     userId: order.userId,
                     title: 'Payment Verified',
                     message: `Payment received for order #${order.id}. Your order is now ${updatedOrder.status}.`,
@@ -1320,13 +1315,9 @@ router.post('/:id/verify-payment', protect, adminOnly, async (req, res) => {
                         title: 'Order Confirmed',
                         body: `Payment received for order #${order.id}.`,
                     },
-                });
-            } catch (notifErr) {
-                console.error('Payment verification notification error:', notifErr);
+                }).catch(err => console.error('Payment verification notification error:', err));
             }
-        }
-
-        res.json({ success: true, message: 'Payment verified successfully!', order: updatedOrder });
+        });
     } catch (error) {
         console.error('Verify payment error:', error);
         res.status(500).json({ error: 'Server error' });

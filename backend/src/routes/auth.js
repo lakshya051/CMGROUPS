@@ -379,14 +379,18 @@ router.post('/forgot-password', async (req, res) => {
             return res.json(okResponse);
         }
 
-        await transporter.sendMail({
-            from: `"Shoptify" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: 'Reset your Shoptify password',
-            html,
+        res.json(okResponse);
+
+        setImmediate(() => {
+            transporter.sendMail({
+                from: `"Shoptify" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: 'Reset your Shoptify password',
+                html,
+            }).catch(err => console.error('Password reset email error:', err));
         });
 
-        return res.json(okResponse);
+        return;
     } catch (err) {
         if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
             return res.json(okResponse);
