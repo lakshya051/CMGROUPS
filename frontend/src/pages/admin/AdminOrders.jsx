@@ -12,6 +12,17 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { handleImageError } from '../../utils/image';
 import toast from 'react-hot-toast';
 
+/** Label for an order line (product, bundle-only, or BYOB template). */
+function formatOrderItemLine(item) {
+    const p = item?.product;
+    const b = item?.bundle;
+    const t = item?.bundleTemplate;
+    if (p?.title) return p.title;
+    if (b?.name) return `Bundle: ${b.name}`;
+    if (t?.name) return `Build: ${t.name}`;
+    return item?.productId != null ? `Product #${item.productId}` : 'Bundle / service line';
+}
+
 // ─── Order Detail Modal ────────────────────────────────────────────────────────
 
 const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) => {
@@ -91,14 +102,17 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                         <div className="border border-border-default rounded-lg overflow-hidden divide-y divide-border-default">
                             {order.items?.length > 0 ? order.items.map((item, idx) => {
                                 const product = item.product || {};
+                                const bundle = item.bundle;
+                                const thumb = product.images?.[0] || product.image || bundle?.image;
+                                const titleLine = formatOrderItemLine(item);
                                 return (
                                     <div key={idx} className="flex items-center gap-3 p-3 hover:bg-surface-hover transition-colors">
                                         {/* Product Image */}
                                         <div className="w-14 h-14 rounded-lg bg-page-bg border border-border-default flex-shrink-0 overflow-hidden">
-                                            {(product.images?.[0] || product.image) ? (
+                                            {thumb ? (
                                                 <img
-                                                    src={product.images?.[0] || product.image}
-                                                    alt={product.title}
+                                                    src={thumb}
+                                                    alt={titleLine}
                                                     loading="lazy"
                                                     width={56}
                                                     height={56}
@@ -114,8 +128,14 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
                                             <p className="font-semibold text-sm text-text-primary truncate">
-                                                {product.title || `Product #${item.productId}`}
+                                                {titleLine}
                                             </p>
+                                            {item.bundleId != null && (
+                                                <p className="text-xs text-trust font-medium">Bundle line · ID {item.bundleId}{item.bundleInstanceId ? ` · ${item.bundleInstanceId}` : ''}</p>
+                                            )}
+                                            {item.bundleTemplateId != null && (
+                                                <p className="text-xs text-text-muted">Template ID: {item.bundleTemplateId}</p>
+                                            )}
                                             {item.variantId && (
                                                 <p className="text-xs text-text-muted">Variant ID: {item.variantId}</p>
                                             )}
@@ -493,7 +513,7 @@ const AdminOrders = () => {
                             {orders.length > 0 ? (
                                 orders.map(order => {
                                     // Compact item names for the table row
-                                    const itemNames = order.items?.map(i => i.product?.title || `#${i.productId}`) || [];
+                                    const itemNames = order.items?.map(i => formatOrderItemLine(i)) || [];
                                     const itemPreview = itemNames.slice(0, 2).join(', ');
                                     const extraItems = itemNames.length > 2 ? ` +${itemNames.length - 2} more` : '';
 

@@ -114,7 +114,7 @@ export function generateInvoice(order, user, res) {
 
                 doc
                     .font('Helvetica').fontSize(9).fillColor('#555555')
-                    .text('  ' + (item.product?.title || 'Item').substring(0, 33), 50, y)
+                    .text('  ' + (item.product?.title || bundleGroup.bundle?.name || bundleGroup.bundleTemplate?.name || 'Item').substring(0, 33), 50, y)
                     .text(`Rs. ${item.price.toLocaleString()}`, 280, y, { width: 90, align: 'right' })
                     .text(item.quantity.toString(), 370, y, { width: 90, align: 'right' })
                     .text(`Rs. ${lineTotal.toLocaleString()}`, 400, y, { align: 'right' });

@@ -34,8 +34,9 @@ function aggregateItemQuantities(items = []) {
             continue;
         }
 
+        if (item.productId == null || item.productId === '') continue;
         const productId = Number(item.productId);
-        if (Number.isFinite(productId)) {
+        if (Number.isFinite(productId) && productId > 0) {
             productIncrements.set(productId, (productIncrements.get(productId) || 0) + quantity);
         }
     }
@@ -434,8 +435,8 @@ router.post('/', optionalProtect, async (req, res) => {
 
             const createdOrder = await tx.order.create({ data: orderData });
 
-            if (items.length > 0) {
-                const orderItemsData = items.map(item => {
+            const orderItemsData = items.length > 0
+                ? items.map(item => {
                     const pId = parseInt(item.productId, 10);
                     const vId = item.variantId ? parseInt(item.variantId, 10) : null;
                     const qty = parseInt(item.quantity, 10);
@@ -480,8 +481,32 @@ router.post('/', optionalProtect, async (req, res) => {
                         bundleTemplateId,
                         bundleInstanceId: item.bundleInstanceId || null,
                     };
-                });
+                })
+                : [];
 
+            if (hasServiceOnlyBundles) {
+                for (const sob of serviceOnlyBundles) {
+                    const bid = parseInt(sob.bundleId, 10);
+                    if (!Number.isFinite(bid)) continue;
+                    const b = await tx.bundle.findUnique({
+                        where: { id: bid },
+                        select: { id: true, bundlePrice: true, isActive: true },
+                    });
+                    if (!b || !b.isActive) continue;
+                    orderItemsData.push({
+                        orderId: createdOrder.id,
+                        productId: null,
+                        variantId: null,
+                        quantity: 1,
+                        price: b.bundlePrice,
+                        bundleId: bid,
+                        bundleTemplateId: null,
+                        bundleInstanceId: sob.bundleInstanceId || null,
+                    });
+                }
+            }
+
+            if (orderItemsData.length > 0) {
                 await tx.orderItem.createMany({ data: orderItemsData });
             }
 
@@ -523,7 +548,13 @@ router.post('/', optionalProtect, async (req, res) => {
         const order = await prisma.order.findUnique({
             where: { id: newOrderId },
             include: {
-                items: { include: { product: true } },
+                items: {
+                    include: {
+                        product: true,
+                        bundle: { select: { id: true, name: true, image: true, bundlePrice: true } },
+                        bundleTemplate: { select: { id: true, name: true, discount: true } },
+                    },
+                },
                 user: {
                     select: {
                         id: true,
@@ -734,7 +765,9 @@ router.get('/detail/:id', protect, async (req, res) => {
                         product: {
                             select: { id: true, title: true, images: true, price: true, stock: true, isReturnable: true, returnWindowDays: true, category: true }
                         },
-                        variant: { select: { id: true, name: true, combination: true, price: true, sku: true, image: true } }
+                        variant: { select: { id: true, name: true, combination: true, price: true, sku: true, image: true } },
+                        bundle: { select: { id: true, name: true, image: true, bundlePrice: true, description: true } },
+                        bundleTemplate: { select: { id: true, name: true, discount: true } },
                     }
                 },
                 user: {
@@ -797,6 +830,9 @@ router.get('/my-orders', protect, async (req, res) => {
                             variantId: true,
                             quantity: true,
                             price: true,
+                            bundleId: true,
+                            bundleInstanceId: true,
+                            bundleTemplateId: true,
                             product: {
                                 select: {
                                     id: true,
@@ -807,7 +843,9 @@ router.get('/my-orders', protect, async (req, res) => {
                                     isReturnable: true,
                                     returnWindowDays: true
                                 }
-                            }
+                            },
+                            bundle: { select: { id: true, name: true, image: true, bundlePrice: true } },
+                            bundleTemplate: { select: { id: true, name: true } },
                         }
                     }
                 }
@@ -924,7 +962,12 @@ router.get('/', protect, adminOnly, async (req, res) => {
                     variantId: true,
                     quantity: true,
                     price: true,
-                    product: { select: { id: true, title: true, images: true } }
+                    bundleId: true,
+                    bundleInstanceId: true,
+                    bundleTemplateId: true,
+                    product: { select: { id: true, title: true, images: true } },
+                    bundle: { select: { id: true, name: true, image: true, bundlePrice: true } },
+                    bundleTemplate: { select: { id: true, name: true } },
                 }
             }
         };
