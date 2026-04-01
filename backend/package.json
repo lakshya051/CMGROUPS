@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "npx prisma migrate deploy && npx prisma generate",
+    "build": "node scripts/migrate-deploy.mjs && npx prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "dotenv -e .env -- node prisma/seed.js",
     "seed:bulk-products": "dotenv -e .env -- node prisma/seed-bulk-products.js",
