@@ -1,20 +1,42 @@
 /**
- * Render / Neon: `prisma migrate deploy` can fail with P1002 (advisory lock timeout)
- * when compute is cold or a previous deploy held the lock. Retries with backoff.
+ * Render / Neon deploy wrapper for `prisma migrate deploy`.
  *
- * Optional env (Render → Environment):
- *   PRISMA_MIGRATE_MAX_ATTEMPTS=5
- *   PRISMA_MIGRATE_RETRY_DELAY_MS=20000
- *   PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1  — last resort if retries still fail (single-writer only)
+ * Neon serverless Postgres suspends compute after idle. The first connection
+ * can take 3-8s to wake, eating into Prisma's hard-coded 10s advisory-lock
+ * timeout (P1002). This script:
+ *   1. Warms Neon compute with a simple query via DIRECT_URL before migrating.
+ *   2. Disables advisory locking (safe: single deploy runner on Render).
+ *   3. Retries on transient failures.
  */
 import { spawn } from 'child_process';
 import { setTimeout as delay } from 'timers/promises';
+import pg from 'pg';
+const { Client } = pg;
+
+async function warmupNeon() {
+    const url = process.env.DIRECT_URL || process.env.DATABASE_URL;
+    if (!url) return;
+    console.log('[migrate-deploy] Warming up Neon compute...');
+    const client = new Client({ connectionString: url, connectionTimeoutMillis: 30000 });
+    try {
+        await client.connect();
+        await client.query('SELECT 1');
+        console.log('[migrate-deploy] Neon compute is awake.');
+    } catch (e) {
+        console.warn('[migrate-deploy] Warmup query failed (will still attempt migrate):', e.message);
+    } finally {
+        await client.end().catch(() => {});
+    }
+}
 
 function runMigrate() {
     return new Promise((resolve) => {
         const child = spawn('npx', ['prisma', 'migrate', 'deploy'], {
             stdio: 'inherit',
-            env: { ...process.env },
+            env: {
+                ...process.env,
+                PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: '1',
+            },
             shell: process.platform === 'win32',
         });
         child.on('close', (code) => resolve(code ?? 1));
@@ -22,13 +44,13 @@ function runMigrate() {
     });
 }
 
-const maxAttempts = Math.max(1, Number.parseInt(process.env.PRISMA_MIGRATE_MAX_ATTEMPTS || '5', 10));
-const delayMs = Math.max(0, Number.parseInt(process.env.PRISMA_MIGRATE_RETRY_DELAY_MS || '20000', 10));
+const maxAttempts = 3;
+const delayMs = 10000;
 
 async function main() {
-    if (process.env.PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK === '1') {
-        console.warn('[migrate-deploy] PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 — use only when a single deploy runs migrations.');
-    }
+    console.log('[migrate-deploy] Advisory locking disabled (single Render deploy runner).');
+
+    await warmupNeon();
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const code = await runMigrate();
@@ -37,7 +59,8 @@ async function main() {
         }
         console.error(`[migrate-deploy] attempt ${attempt}/${maxAttempts} failed (exit ${code})`);
         if (attempt < maxAttempts) {
-            console.error(`[migrate-deploy] retrying in ${delayMs / 1000}s (Neon cold start / lock contention)...`);
+            console.error(`[migrate-deploy] retrying in ${delayMs / 1000}s...`);
+            await warmupNeon();
             await delay(delayMs);
         }
     }
