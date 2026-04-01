@@ -39,45 +39,55 @@ const getStockTarget = async (db, productId, variantId = null) => {
         throw createHttpError(404, 'Product not found');
     }
 
-    if (product.hasVariants && variantId == null) {
-        throw createHttpError(400, 'Please select a variant');
-    }
-
-    if (variantId == null) {
+    if (!product.hasVariants) {
         return {
             label: product.title,
             stock: product.stock,
+            effectiveVariantId: null,
         };
     }
 
-    const variant = await db.productVariant.findUnique({
-        where: { id: variantId },
-        select: { id: true, productId: true, name: true, stock: true, isActive: true },
+    if (variantId != null) {
+        const variant = await db.productVariant.findUnique({
+            where: { id: variantId },
+            select: { id: true, productId: true, name: true, stock: true, isActive: true },
+        });
+
+        if (!variant || variant.productId !== productId) {
+            throw createHttpError(404, 'Product variant not found');
+        }
+
+        if (!variant.isActive) {
+            throw createHttpError(400, 'This variant is no longer available');
+        }
+
+        return {
+            label: variant.name || 'Variant',
+            stock: variant.stock,
+            effectiveVariantId: variant.id,
+        };
+    }
+
+    const activeVariants = await db.productVariant.findMany({
+        where: { productId, isActive: true },
+        orderBy: { price: 'asc' },
+        select: { id: true, name: true, stock: true },
     });
 
-    if (!variant || variant.productId !== productId) {
-        throw createHttpError(404, 'Product variant not found');
+    if (activeVariants.length === 0) {
+        throw createHttpError(400, 'This product is not available');
     }
 
-    if (!variant.isActive) {
-        throw createHttpError(400, 'This variant is no longer available');
+    if (activeVariants.length === 1) {
+        const v = activeVariants[0];
+        return {
+            label: v.name || product.title,
+            stock: v.stock,
+            effectiveVariantId: v.id,
+        };
     }
 
-    return {
-        label: variant.name || 'Variant',
-        stock: variant.stock,
-    };
-};
-
-const assertAvailableStock = async (db, { productId, variantId = null, requestedQuantity }) => {
-    const target = await getStockTarget(db, productId, variantId);
-
-    if (target.stock < requestedQuantity) {
-        throw createHttpError(
-            400,
-            `Insufficient stock for "${target.label}". Available: ${target.stock}, Requested: ${requestedQuantity}`
-        );
-    }
+    throw createHttpError(400, 'Please select a variant');
 };
 
 const formatCartItem = (item, bundleMap = {}) => {
@@ -234,14 +244,18 @@ router.post('/items', async (req, res) => {
         const safeBundleId = bundleId ? String(bundleId) : null;
 
         await prisma.$transaction(async (tx) => {
-            const existing = await findCartItem(tx, userId, numProductId, numVariantId, safeBundleInstanceId);
+            const resolved = await getStockTarget(tx, numProductId, numVariantId);
+            const effectiveVariantId = resolved.effectiveVariantId;
+
+            const existing = await findCartItem(tx, userId, numProductId, effectiveVariantId, safeBundleInstanceId);
             const nextQuantity = (existing?.quantity || 0) + numQuantity;
 
-            await assertAvailableStock(tx, {
-                productId: numProductId,
-                variantId: numVariantId,
-                requestedQuantity: nextQuantity,
-            });
+            if (resolved.stock < nextQuantity) {
+                throw createHttpError(
+                    400,
+                    `Insufficient stock for "${resolved.label}". Available: ${resolved.stock}, Requested: ${nextQuantity}`
+                );
+            }
 
             if (existing) {
                 await tx.cartItem.update({
@@ -255,7 +269,7 @@ router.post('/items', async (req, res) => {
                 data: {
                     userId,
                     productId: numProductId,
-                    variantId: numVariantId,
+                    variantId: effectiveVariantId,
                     quantity: numQuantity,
                     bundleId: safeBundleId,
                     bundleInstanceId: safeBundleInstanceId,
@@ -289,7 +303,10 @@ router.patch('/items', async (req, res) => {
         const safeBundleInstanceId = bundleInstanceId ? String(bundleInstanceId) : '';
 
         await prisma.$transaction(async (tx) => {
-            const existing = await findCartItem(tx, userId, numProductId, numVariantId, safeBundleInstanceId);
+            const resolved = await getStockTarget(tx, numProductId, numVariantId);
+            const effectiveVariantId = resolved.effectiveVariantId;
+
+            const existing = await findCartItem(tx, userId, numProductId, effectiveVariantId, safeBundleInstanceId);
             if (!existing) {
                 throw createHttpError(404, 'Item not in cart');
             }
@@ -299,11 +316,12 @@ router.patch('/items', async (req, res) => {
                 return;
             }
 
-            await assertAvailableStock(tx, {
-                productId: numProductId,
-                variantId: numVariantId,
-                requestedQuantity: numQuantity,
-            });
+            if (resolved.stock < numQuantity) {
+                throw createHttpError(
+                    400,
+                    `Insufficient stock for "${resolved.label}". Available: ${resolved.stock}, Requested: ${numQuantity}`
+                );
+            }
 
             await tx.cartItem.update({
                 where: { id: existing.id },
@@ -335,7 +353,23 @@ router.post('/items/remove', async (req, res) => {
         const numProductId = parseId(productId, 'productId');
         const numVariantId = variantId == null ? null : parseId(variantId, 'variantId');
         const safeBundleInstanceId = bundleInstanceId ? String(bundleInstanceId) : '';
-        const existing = await findCartItem(prisma, userId, numProductId, numVariantId, safeBundleInstanceId);
+
+        let resolved;
+        try {
+            resolved = await getStockTarget(prisma, numProductId, numVariantId);
+        } catch (err) {
+            if (err.status) {
+                return res.status(err.status).json({ error: err.message });
+            }
+            throw err;
+        }
+        const existing = await findCartItem(
+            prisma,
+            userId,
+            numProductId,
+            resolved.effectiveVariantId,
+            safeBundleInstanceId
+        );
 
         if (existing) {
             await prisma.cartItem.delete({ where: { id: existing.id } });
@@ -390,46 +424,17 @@ router.post('/sync', async (req, res) => {
                 existingItems.map((item) => [cartItemKey(item.productId, item.variantId, item.bundleInstanceId || ''), item])
             );
 
-            const productIds = [...new Set([...incomingItems.values()].map(i => i.productId))];
-            const variantIds = [...new Set(
-                [...incomingItems.values()].filter(i => i.variantId != null).map(i => i.variantId)
-            )];
-
-            const [products, variants] = await Promise.all([
-                prisma.product.findMany({
-                    where: { id: { in: productIds } },
-                    select: { id: true, title: true, stock: true },
-                }),
-                variantIds.length > 0
-                    ? prisma.productVariant.findMany({
-                        where: { id: { in: variantIds } },
-                        select: { id: true, productId: true, name: true, stock: true },
-                    })
-                    : [],
-            ]);
-
-            const productMap = new Map(products.map(p => [p.id, p]));
-            const variantMap = new Map(variants.map(v => [v.id, v]));
-
             for (const incoming of incomingItems.values()) {
-                const key = cartItemKey(incoming.productId, incoming.variantId, incoming.bundleInstanceId || '');
-                const existing = existingByKey.get(key);
                 let allowedQuantity = 0;
+                let key;
+                let existing;
+                let effectiveVariantId;
 
                 try {
-                    const product = productMap.get(incoming.productId);
-                    if (!product) throw createHttpError(404, 'Product not found');
-
-                    let target;
-                    if (incoming.variantId == null) {
-                        target = { label: product.title, stock: product.stock };
-                    } else {
-                        const variant = variantMap.get(incoming.variantId);
-                        if (!variant || variant.productId !== incoming.productId) {
-                            throw createHttpError(404, 'Product variant not found');
-                        }
-                        target = { label: variant.name || 'Variant', stock: variant.stock };
-                    }
+                    const target = await getStockTarget(prisma, incoming.productId, incoming.variantId);
+                    effectiveVariantId = target.effectiveVariantId;
+                    key = cartItemKey(incoming.productId, effectiveVariantId, incoming.bundleInstanceId || '');
+                    existing = existingByKey.get(key);
 
                     const desiredQuantity = existing
                         ? Math.max(existing.quantity, incoming.quantity)
@@ -466,7 +471,7 @@ router.post('/sync', async (req, res) => {
                         data: {
                             userId,
                             productId: incoming.productId,
-                            variantId: incoming.variantId,
+                            variantId: effectiveVariantId,
                             quantity: allowedQuantity,
                             bundleId: incoming.bundleId || null,
                             bundleInstanceId: incoming.bundleInstanceId || '',

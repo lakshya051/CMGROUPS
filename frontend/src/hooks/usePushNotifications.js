@@ -112,21 +112,22 @@ export function usePushNotifications() {
         setIsSubscribed(false);
     }, [isSupported]);
 
-    // Layer 2: re-subscribe silently on every app open
+    // Layer 2: re-subscribe silently on every app open (also recovers expired subscriptions)
     const refreshSubscription = useCallback(async () => {
         if (!isSupported) return;
         if (Notification.permission !== 'granted') return;
 
         try {
             const reg = await navigator.serviceWorker.ready;
-            const existing = await reg.pushManager.getSubscription();
+            let existing = await reg.pushManager.getSubscription();
+
             if (!existing) {
-                if (localStorage.getItem(LS_KEY) === 'true') {
-                    localStorage.removeItem(LS_KEY);
-                    setIsSubscribed(false);
-                }
-                return;
+                existing = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+                });
             }
+
             const json = existing.toJSON();
             const headers = await getAuthHeaders();
             const res = await fetch(`${API_BASE}/push/subscribe`, {
@@ -138,6 +139,9 @@ export function usePushNotifications() {
                 }),
             });
             if (!res.ok) throw new Error('Push subscription refresh failed');
+
+            localStorage.setItem(LS_KEY, 'true');
+            setIsSubscribed(true);
         } catch (err) {
             console.warn('Push refresh failed silently:', err);
         }

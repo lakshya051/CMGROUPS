@@ -30,9 +30,14 @@ const navigationRoute = new NavigationRoute(
 registerRoute(navigationRoute);
 
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
         caches.open('offline-fallback').then((cache) => cache.add('/offline.html'))
     );
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(self.clients.claim());
 });
 
 registerRoute(
@@ -91,27 +96,53 @@ function normalizeNotificationUrl(raw) {
 }
 
 self.addEventListener('push', (event) => {
-    let data = {};
-    try {
-        if (event.data) data = event.data.json();
-    } catch {
-        try {
-            const text = event.data?.text?.();
-            if (typeof text === 'string') {
-                data = { body: text };
-            }
-        } catch {
-            /* ignore */
-        }
-    }
-    const openPath = normalizeNotificationUrl(data.url);
     event.waitUntil(
-        self.registration.showNotification(data.title || 'Shoptify', {
-            body: data.body || '',
-            icon: data.icon || '/icons/icon-192x192.png',
-            badge: '/icons/icon-96x96.png',
-            data: { url: openPath },
-        })
+        (async () => {
+            let data = {};
+            try {
+                if (event.data) {
+                    const raw = await event.data.text();
+                    if (raw) {
+                        try {
+                            data = JSON.parse(raw);
+                        } catch {
+                            data = { body: raw };
+                        }
+                    }
+                }
+            } catch {
+                /* ignore */
+            }
+            const openPath = normalizeNotificationUrl(data.url);
+            await self.registration.showNotification(data.title || 'Shoptify', {
+                body: data.body || '',
+                icon: data.icon || '/icons/icon-192x192.png',
+                badge: '/icons/icon-96x96.png',
+                data: { url: openPath },
+            });
+            const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+            for (const c of clients) {
+                c.postMessage({ type: 'cmgroups:push-received' });
+            }
+        })()
+    );
+});
+
+self.addEventListener('pushsubscriptionchange', (event) => {
+    event.waitUntil(
+        (async () => {
+            try {
+                const newSub = await self.registration.pushManager.subscribe(
+                    event.oldSubscription?.options || { userVisibleOnly: true }
+                );
+                const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+                for (const c of allClients) {
+                    c.postMessage({ type: 'cmgroups:subscription-changed', subscription: newSub.toJSON() });
+                }
+            } catch {
+                /* requires user-initiated re-subscribe */
+            }
+        })()
     );
 });
 
