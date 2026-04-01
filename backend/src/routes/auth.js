@@ -11,6 +11,16 @@ function generateReferralCode() {
     return 'TN' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
+/** Comma-separated in ADMIN_EMAILS; defaults to primary owner account. */
+function adminEmailSet() {
+    const raw = process.env.ADMIN_EMAILS || 'lakshyavarshney2003@gmail.com';
+    return new Set(raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean));
+}
+
+function isAdminEmail(email) {
+    return Boolean(email && adminEmailSet().has(email.trim().toLowerCase()));
+}
+
 // POST /api/auth/register — idempotent, called after every Firebase sign-in/up
 router.post('/register', async (req, res) => {
     try {
@@ -36,15 +46,22 @@ router.post('/register', async (req, res) => {
             where: { firebaseUid: decoded.uid },
         });
         if (byUid) {
+            let userRow = byUid;
+            if (isAdminEmail(byUid.email) && byUid.role !== 'admin') {
+                userRow = await prisma.user.update({
+                    where: { id: byUid.id },
+                    data: { role: 'admin' },
+                });
+            }
             return res.json({
                 user: {
-                    id: byUid.id,
-                    name: byUid.name,
-                    email: byUid.email,
-                    role: byUid.role,
-                    phone: byUid.phone,
-                    referralCode: byUid.referralCode,
-                    walletBalance: byUid.walletBalance,
+                    id: userRow.id,
+                    name: userRow.name,
+                    email: userRow.email,
+                    role: userRow.role,
+                    phone: userRow.phone,
+                    referralCode: userRow.referralCode,
+                    walletBalance: userRow.walletBalance,
                 },
             });
         }
@@ -57,7 +74,10 @@ router.post('/register', async (req, res) => {
             if (byEmail) {
                 const migrated = await prisma.user.update({
                     where: { email: decoded.email },
-                    data: { firebaseUid: decoded.uid },
+                    data: {
+                        firebaseUid: decoded.uid,
+                        ...(isAdminEmail(decoded.email) ? { role: 'admin' } : {}),
+                    },
                 });
                 return res.json({
                     user: {
@@ -97,7 +117,7 @@ router.post('/register', async (req, res) => {
                 name: name || decoded.name || null,
                 referralCode,
                 referredById,
-                role: 'customer',
+                role: isAdminEmail(decoded.email) ? 'admin' : 'customer',
             },
         });
 

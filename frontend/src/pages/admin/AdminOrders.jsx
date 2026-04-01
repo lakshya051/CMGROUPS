@@ -16,9 +16,9 @@ import toast from 'react-hot-toast';
 
 const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) => {
     const addr = order?.shippingAddress;
-    const customerName = order.user?.name || order.guestInfo?.name || 'Guest';
-    const customerEmail = order.user?.email || order.guestInfo?.email || '—';
-    const customerPhone = order.user?.phone || order.guestInfo?.phone || '—';
+    const customerName = order?.user?.name || order?.guestInfo?.name || 'Guest';
+    const customerEmail = order?.user?.email || order?.guestInfo?.email || '—';
+    const customerPhone = order?.user?.phone || order?.guestInfo?.phone || '—';
 
     const statusColors = {
         Processing: 'text-blue-700 bg-blue-400/10 border-blue-400/20',
@@ -30,25 +30,25 @@ const OrderDetailModal = ({ order, onClose, onStatusUpdate, onVerifyPayment }) =
     };
 
     const displayStatus =
-        order.returnStatus === 'Requested' ? 'Return Requested' :
-            order.returnStatus === 'Completed' ? 'Returned' :
-                order.status;
+        order?.returnStatus === 'Requested' ? 'Return Requested' :
+            order?.returnStatus === 'Completed' ? 'Returned' :
+                order?.status;
 
     const statusColor =
-        order.returnStatus === 'Requested' ? 'text-purple-500 bg-purple-500/10 border-purple-500/20' :
-            order.returnStatus === 'Completed' ? 'text-purple-700 bg-purple-500/20 border-purple-500/30' :
-                (statusColors[order.status] || 'text-text-muted bg-page-bg border-border-default');
+        order?.returnStatus === 'Requested' ? 'text-purple-500 bg-purple-500/10 border-purple-500/20' :
+            order?.returnStatus === 'Completed' ? 'text-purple-700 bg-purple-500/20 border-purple-500/30' :
+                (statusColors[order?.status] || 'text-text-muted bg-page-bg border-border-default');
 
-    const subtotal = order.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) || 0;
-    const walletUsed = order.walletUsed || 0;
+    const subtotal = order?.items?.reduce((sum, item) => sum + item.price * item.quantity, 0) || 0;
+    const walletUsed = order?.walletUsed || 0;
     const addressLine1 = addr?.address || addr?.line1 || null;
     const addressLine2 = addr?.line2 || null;
     const postalCode = addr?.postalCode || addr?.pincode || addr?.zip || addr?.zipCode || null;
-    const lat = Number(order.latitude);
-    const lng = Number(order.longitude);
+    const lat = Number(order?.latitude);
+    const lng = Number(order?.longitude);
     const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
     const googleMapsUrl =
-        order.googleMapLink ||
+        order?.googleMapLink ||
         addr?.googleMapLink ||
         (hasCoordinates ? `https://www.google.com/maps?q=${lat},${lng}` : null);
 
