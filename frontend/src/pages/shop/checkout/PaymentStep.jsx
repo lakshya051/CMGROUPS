@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    CheckCircle, CreditCard, Truck, Store, Shield, Gift, Zap, Layers, Wrench,
+    CheckCircle, CreditCard, Truck, Store, Shield, Gift, Zap, Layers, Wrench, Tag,
 } from 'lucide-react';
 import Button from '../../../components/ui/Button';
 import { getProductImageUrl, handleImageError } from '../../../utils/image';
@@ -29,6 +29,13 @@ const PaymentStep = ({
     onGiftMessageChange,
     servicesScheduled = true,
     hasBundleServices = false,
+    couponCode = '',
+    onCouponCodeChange = () => {},
+    onApplyCoupon = () => {},
+    onRemoveCoupon = () => {},
+    couponLoading = false,
+    couponError = '',
+    appliedCouponCode = null,
 }) => (
     <div className={`bg-surface border rounded-lg shadow-sm p-4 sm:p-lg transition-all duration-300 ${step === 2 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-50'}`}>
         <div className="flex items-center gap-3 sm:gap-4 mb-4">
@@ -100,6 +107,49 @@ const PaymentStep = ({
                         </label>
                     </div>
                 )}
+
+                <div className="border border-border-default rounded-xl p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-trust">
+                        <Tag size={18} />
+                        <h4 className="font-bold text-sm">Promo / coupon code</h4>
+                        <span className="text-xs text-text-muted">(optional)</span>
+                    </div>
+                    {appliedCouponCode ? (
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-success uppercase tracking-wide">{appliedCouponCode}</span>
+                            <button
+                                type="button"
+                                onClick={onRemoveCoupon}
+                                className="text-xs font-medium text-error hover:underline"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    className="input-field uppercase flex-1"
+                                    placeholder="Enter coupon code"
+                                    value={couponCode}
+                                    onChange={(e) => onCouponCodeChange(e.target.value)}
+                                    disabled={couponLoading}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="shrink-0"
+                                    onClick={onApplyCoupon}
+                                    disabled={couponLoading || !String(couponCode).trim()}
+                                >
+                                    {couponLoading ? '…' : 'Apply'}
+                                </Button>
+                            </div>
+                            {couponError ? <p className="text-xs text-error">{couponError}</p> : null}
+                        </>
+                    )}
+                </div>
 
                 <div className="border border-border-default rounded-xl p-4 space-y-3">
                     <div className="flex items-center gap-2 text-trust">

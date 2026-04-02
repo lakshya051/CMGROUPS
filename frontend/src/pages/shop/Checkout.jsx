@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -10,7 +10,13 @@ import {
 } from 'lucide-react';
 import { checkoutSchema } from '../../utils/validationSchemas';
 import { computeBundleAwareSubtotal, computeBundleSavings } from '../../utils/bundleUtils';
-import { addressesAPI } from '../../lib/api';
+import { addressesAPI, couponsAPI } from '../../lib/api';
+import {
+    buildCartItemsSummary,
+    buildCouponStateFromValidation,
+    computeCouponDiscountFromRules,
+    isCouponApplicableToItems,
+} from '../../utils/couponPricing';
 import toast from 'react-hot-toast';
 import { useSEO } from '../../hooks/useSEO';
 import ShippingStep from './checkout/ShippingStep';
@@ -22,7 +28,7 @@ const buildMapsUrl = (lat, lng) =>
     `https://www.google.com/maps?q=${lat},${lng}`;
 
 const Checkout = () => {
-    const { cart, placeOrder, coupon, buyNowItems } = useShop();
+    const { cart, placeOrder, coupon, buyNowItems, applyCoupon, removeCoupon } = useShop();
     const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -55,6 +61,10 @@ const Checkout = () => {
     const [addressLabel, setAddressLabel] = useState('');
     const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
+    const [couponCode, setCouponCode] = useState('');
+    const [couponLoading, setCouponLoading] = useState(false);
+    const [couponError, setCouponError] = useState('');
+
     const resetSaveAddressState = () => {
         setSaveAddressChecked(false);
         setAddressLabel('');
@@ -68,6 +78,7 @@ const Checkout = () => {
     }, [user]);
 
     const checkoutItems = isBuyNowMode && buyNowItems.length > 0 ? buyNowItems : cart;
+
     const hasGiftableBundle = checkoutItems.some(item => item.bundleInfo?.isGiftable);
     const hasBundleServices = checkoutItems.some(item => item.bundleInfo?.hasService);
 
@@ -83,9 +94,48 @@ const Checkout = () => {
     const handleServiceScheduleChange = (bundleInstanceId, schedule) => {
         setServiceSchedules(prev => ({ ...prev, [bundleInstanceId]: schedule }));
     };
-    const subtotal = computeBundleAwareSubtotal(checkoutItems);
-    const bundleSavings = computeBundleSavings(checkoutItems);
-    const couponDiscount = coupon?.discount || 0;
+
+    const subtotal = useMemo(() => computeBundleAwareSubtotal(checkoutItems), [checkoutItems]);
+    const bundleSavings = useMemo(() => computeBundleSavings(checkoutItems), [checkoutItems]);
+    const couponDiscount = useMemo(() => {
+        if (!coupon?.code) return 0;
+        return computeCouponDiscountFromRules(coupon, checkoutItems, subtotal);
+    }, [coupon, checkoutItems, subtotal]);
+
+    const couponInvalidForCheckout = useMemo(() => {
+        if (!coupon?.code) return false;
+        return !isCouponApplicableToItems(checkoutItems, coupon.applicableTo);
+    }, [coupon, checkoutItems]);
+
+    useEffect(() => {
+        if (!couponInvalidForCheckout) return;
+        removeCoupon();
+        toast.error('Coupon removed — no eligible items in this order.');
+    }, [couponInvalidForCheckout, removeCoupon]);
+
+    const handleApplyCheckoutCoupon = async () => {
+        if (!couponCode.trim()) return;
+        setCouponLoading(true);
+        setCouponError('');
+        try {
+            const summary = buildCartItemsSummary(checkoutItems);
+            const data = await couponsAPI.validate(couponCode.trim(), summary, subtotal);
+            applyCoupon(buildCouponStateFromValidation(data, checkoutItems));
+            setCouponCode('');
+            toast.success('Coupon applied');
+        } catch (err) {
+            setCouponError(err?.message || 'Invalid or expired coupon');
+            removeCoupon();
+        } finally {
+            setCouponLoading(false);
+        }
+    };
+
+    const handleRemoveCheckoutCoupon = () => {
+        removeCoupon();
+        setCouponError('');
+        setCouponCode('');
+    };
     const deliveryFee = subtotal < FREE_DELIVERY_THRESHOLD ? 40 : 0;
     const tax = Math.round((subtotal - couponDiscount) * 0.18);
     const computedTotal = Math.round((subtotal - couponDiscount) * 1.18 + deliveryFee);
@@ -458,6 +508,13 @@ const Checkout = () => {
                         onGiftMessageChange={setGiftMessage}
                         servicesScheduled={allServicesScheduled}
                         hasBundleServices={hasBundleServices}
+                        couponCode={couponCode}
+                        onCouponCodeChange={setCouponCode}
+                        onApplyCoupon={handleApplyCheckoutCoupon}
+                        onRemoveCoupon={handleRemoveCheckoutCoupon}
+                        couponLoading={couponLoading}
+                        couponError={couponError}
+                        appliedCouponCode={coupon?.code || null}
                     />
                 </div>
 

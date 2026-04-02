@@ -13,6 +13,8 @@ const EMPTY_FORM_VALUES = {
     value: '',
     minOrderAmount: '',
     maxUses: '',
+    maxUsesPerUser: '',
+    firstOrderOnly: false,
     expiresAt: '',
 };
 const getEmptyFormValues = () => ({ ...EMPTY_FORM_VALUES });
@@ -39,6 +41,8 @@ const getFormValues = (coupon = null) => {
         value: coupon.value ?? '',
         minOrderAmount: coupon.minOrderAmount ?? '',
         maxUses: coupon.maxUses ?? '',
+        maxUsesPerUser: coupon.maxUsesPerUser ?? '',
+        firstOrderOnly: !!coupon.firstOrderOnly,
         expiresAt: formatDateTimeLocal(coupon.expiresAt),
     };
 };
@@ -49,6 +53,8 @@ const buildCouponPayload = (values) => ({
     value: Number(values.value),
     minOrderAmount: values.minOrderAmount === '' ? null : Number(values.minOrderAmount),
     maxUses: values.maxUses === '' ? null : Number(values.maxUses),
+    maxUsesPerUser: values.maxUsesPerUser === '' || values.maxUsesPerUser === undefined ? null : Number(values.maxUsesPerUser),
+    firstOrderOnly: !!values.firstOrderOnly,
     expiresAt: values.expiresAt ? new Date(values.expiresAt).toISOString() : null,
 });
 
@@ -89,6 +95,13 @@ const AdminCoupons = () => {
             .typeError('Must be a number')
             .integer('Must be a whole number')
             .min(1, 'Must be at least 1'),
+        maxUsesPerUser: Yup.number()
+            .transform(transformOptionalNumber)
+            .nullable()
+            .typeError('Must be a number')
+            .integer('Must be a whole number')
+            .min(1, 'Must be at least 1'),
+        firstOrderOnly: Yup.boolean(),
         expiresAt: Yup.date()
             .transform(transformOptionalDate)
             .nullable()
@@ -240,6 +253,18 @@ const AdminCoupons = () => {
                                 <span className="text-text-muted">Expiry</span>
                                 <span className="text-right text-text-main">{formatDisplayDate(coupon.expiresAt)}</span>
                             </div>
+                            {(coupon.firstOrderOnly || coupon.maxUsesPerUser != null) && (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {coupon.firstOrderOnly && (
+                                        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 border border-amber-500/25">First order only</span>
+                                    )}
+                                    {coupon.maxUsesPerUser != null && (
+                                        <span className="text-[10px] px-2 py-0.5 rounded bg-violet-500/15 text-violet-700 border border-violet-500/25">
+                                            Max {coupon.maxUsesPerUser} / account
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-4 text-xs">
@@ -359,6 +384,39 @@ const AdminCoupons = () => {
                                     />
                                     {formik.touched.maxUses && formik.errors.maxUses && <p className="text-error text-sm mt-1">{formik.errors.maxUses}</p>}
                                 </div>
+                            </div>
+
+                            <div className="flex items-start gap-3 p-3 rounded-lg border border-border-default bg-page-bg/50">
+                                <input
+                                    id="firstOrderOnly"
+                                    name="firstOrderOnly"
+                                    type="checkbox"
+                                    className="mt-1 w-4 h-4 rounded accent-primary"
+                                    checked={formik.values.firstOrderOnly}
+                                    onChange={formik.handleChange}
+                                />
+                                <label htmlFor="firstOrderOnly" className="text-sm cursor-pointer">
+                                    <span className="font-medium text-text-primary">First order only</span>
+                                    <p className="text-text-muted text-xs mt-0.5">Customer must have no prior orders (signed-in checkout).</p>
+                                </label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-1">Max uses per user</label>
+                                <input
+                                    name="maxUsesPerUser"
+                                    type="number"
+                                    className={`input-field ${formik.touched.maxUsesPerUser && formik.errors.maxUsesPerUser ? 'border-red-500' : ''}`}
+                                    placeholder="Optional — e.g. 1 for once per account"
+                                    value={formik.values.maxUsesPerUser}
+                                    onChange={formik.handleChange}
+                                    onBlur={formik.handleBlur}
+                                    min="1"
+                                    step="1"
+                                />
+                                {formik.touched.maxUsesPerUser && formik.errors.maxUsesPerUser && (
+                                    <p className="text-error text-sm mt-1">{formik.errors.maxUsesPerUser}</p>
+                                )}
                             </div>
 
                             <div>

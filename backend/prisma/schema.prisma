@@ -463,16 +463,18 @@ model ServiceInvoice {
 }
 
 model Coupon {
-  id             Int       @id @default(autoincrement())
-  code           String    @unique
-  discountType   String
-  value          Float
-  active         Boolean   @default(true)
-  expiresAt      DateTime?
-  minOrderAmount Float?
-  maxUses        Int?
-  usedCount      Int       @default(0)
-  applicableTo   String    @default("all")
+  id               Int       @id @default(autoincrement())
+  code             String    @unique
+  discountType     String
+  value            Float
+  active           Boolean   @default(true)
+  expiresAt        DateTime?
+  minOrderAmount   Float?
+  maxUses          Int?
+  usedCount        Int       @default(0)
+  applicableTo     String    @default("all")
+  firstOrderOnly   Boolean   @default(false)
+  maxUsesPerUser   Int?
 }
 
 model Referral {

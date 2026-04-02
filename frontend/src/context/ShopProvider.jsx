@@ -4,6 +4,8 @@ import { useAuth } from './AuthContext';
 import { ShopContext } from './ShopContext';
 import { MAX_COMPARE_ITEMS } from '../constants';
 import toast from 'react-hot-toast';
+import { computeBundleAwareSubtotal } from '../utils/bundleUtils';
+import { computeCouponDiscountFromRules } from '../utils/couponPricing';
 
 const getErrorMessage = (err, fallback) => (err instanceof Error && err.message ? err.message : fallback);
 
@@ -328,8 +330,8 @@ export const ShopProvider = ({ children }) => {
         }
     }, [user]);
 
-    const applyCoupon = (couponData) => setCoupon(couponData);
-    const removeCoupon = () => setCoupon(null);
+    const applyCoupon = useCallback((couponData) => setCoupon(couponData), []);
+    const removeCoupon = useCallback(() => setCoupon(null), []);
 
     const setBuyNow = useCallback((items) => {
         setBuyNowItems(items);
@@ -440,6 +442,11 @@ export const ShopProvider = ({ children }) => {
                 serviceNames: item.bundleInfo.serviceNames || [],
             }));
 
+            const subtotalForCoupon = computeBundleAwareSubtotal(sourceItems);
+            const discountAmount = coupon
+                ? computeCouponDiscountFromRules(coupon, sourceItems, subtotalForCoupon)
+                : 0;
+
             const order = await ordersAPI.place(
                 items,
                 orderData.total,
@@ -449,7 +456,7 @@ export const ShopProvider = ({ children }) => {
                 orderData.useWallet || false,
                 orderData.walletUsed || 0,
                 coupon?.code || null,
-                coupon?.discount || 0,
+                discountAmount,
                 orderData.latitude || null,
                 orderData.longitude || null,
                 orderData.googleMapLink || null,
@@ -465,6 +472,7 @@ export const ShopProvider = ({ children }) => {
                 clearCart();
                 try { await cartAPI.clear(); } catch { /* ignore */ }
             }
+            setCoupon(null);
             if (orderData.useWallet && refreshUser) {
                 await refreshUser();
             }

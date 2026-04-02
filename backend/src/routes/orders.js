@@ -1,7 +1,9 @@
 import express from 'express';
 import crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
+import { assertCouponUserEligibility } from '../utils/couponUserRules.js';
 import { sendOrderConfirmationEmail } from '../utils/emailNotifications.js';
 import { generateInvoice } from '../utils/invoiceGenerator.js';
 import { calculateOrderReferralPoints } from '../utils/referralHelper.js';
@@ -10,6 +12,9 @@ import { logAudit } from '../utils/auditLog.js';
 import { syncRecord } from '../utils/sheetsSync.js';
 
 const router = express.Router();
+
+const FREE_DELIVERY_THRESHOLD = Number(process.env.FREE_DELIVERY_THRESHOLD) || 499;
+const DELIVERY_FEE_AMOUNT = Number(process.env.DELIVERY_FEE_AMOUNT) || 40;
 
 const checkoutTimingEnabled = process.env.CHECKOUT_TIMING_LOGS === 'true';
 
@@ -203,11 +208,13 @@ router.post('/', optionalProtect, async (req, res) => {
 
         // Compute server-side total from DB prices (with quantity tier pricing)
         let computedSubtotal = 0;
+        let nonBundleLinesSum = 0;
         for (const item of items) {
             const qty = parseInt(item.quantity, 10);
+            let lineAmount = 0;
             if (item.variantId) {
                 const variant = variantMap.get(parseInt(item.variantId, 10));
-                if (variant) computedSubtotal += variant.price * qty;
+                if (variant) lineAmount = variant.price * qty;
             } else {
                 const pid = parseInt(item.productId, 10);
                 const product = productMap.get(pid);
@@ -219,8 +226,12 @@ router.post('/', optionalProtect, async (req, res) => {
                         const applicableTier = tiers.find(t => totalQtyForProduct >= t.minQty);
                         if (applicableTier) unitPrice = applicableTier.price;
                     }
-                    computedSubtotal += unitPrice * qty;
+                    lineAmount = unitPrice * qty;
                 }
+            }
+            computedSubtotal += lineAmount;
+            if (!(item.bundleInstanceId && item.bundleId)) {
+                nonBundleLinesSum += lineAmount;
             }
         }
 
@@ -235,6 +246,7 @@ router.post('/', optionalProtect, async (req, res) => {
             }
         }
 
+        let totalBundleCatalog = 0;
         for (const [, group] of Object.entries(bundleGroups)) {
             let groupCatalogTotal = 0;
             for (const item of group.items) {
@@ -257,6 +269,8 @@ router.post('/', optionalProtect, async (req, res) => {
                     }
                 }
             }
+
+            totalBundleCatalog += groupCatalogTotal;
 
             let bundlePrice = groupCatalogTotal;
             const bundleIdStr = group.bundleId;
@@ -289,6 +303,7 @@ router.post('/', optionalProtect, async (req, res) => {
         }
 
         // Add service-only bundle prices (bundles with no products, only services)
+        let serviceOnlyBundleCatalogSum = 0;
         if (hasServiceOnlyBundles) {
             for (const sob of serviceOnlyBundles) {
                 const bundleId = parseInt(sob.bundleId, 10);
@@ -299,11 +314,12 @@ router.post('/', optionalProtect, async (req, res) => {
                 });
                 if (bundle && bundle.isActive) {
                     computedSubtotal += bundle.bundlePrice;
+                    serviceOnlyBundleCatalogSum += bundle.bundlePrice;
                 }
             }
         }
 
-        // Server-side coupon validation
+        // Server-side coupon validation (discount base aligns with frontend couponPricing.js)
         let serverDiscount = 0;
         let validatedCoupon = null;
         if (couponCode && String(couponCode).trim()) {
@@ -322,15 +338,40 @@ router.post('/', optionalProtect, async (req, res) => {
             if (validatedCoupon.minOrderAmount != null && computedSubtotal < validatedCoupon.minOrderAmount) {
                 return res.status(400).json({ error: `Minimum order amount of ₹${validatedCoupon.minOrderAmount} required for this coupon` });
             }
+
+            try {
+                await assertCouponUserEligibility(prisma, validatedCoupon, req.user?.id);
+            } catch (e) {
+                if (e.isCouponUserRule) {
+                    return res.status(400).json({ error: e.message });
+                }
+                throw e;
+            }
+
+            const applicableTo = validatedCoupon.applicableTo || 'all';
+            let couponBase = computedSubtotal;
+            if (applicableTo === 'products') {
+                couponBase = nonBundleLinesSum;
+            } else if (applicableTo === 'bundles') {
+                couponBase = totalBundleCatalog + serviceOnlyBundleCatalogSum;
+            } else if (applicableTo === 'services' || applicableTo === 'courses') {
+                couponBase = 0;
+            }
+
+            if (applicableTo !== 'all' && couponBase <= 0) {
+                return res.status(400).json({ error: 'This coupon does not apply to the items in this order' });
+            }
+
             if (validatedCoupon.discountType === 'percent') {
-                serverDiscount = Math.round(computedSubtotal * (validatedCoupon.value / 100) * 100) / 100;
+                serverDiscount = Math.round(couponBase * (validatedCoupon.value / 100) * 100) / 100;
             } else {
-                serverDiscount = validatedCoupon.value;
+                serverDiscount = Math.min(validatedCoupon.value, couponBase);
             }
             serverDiscount = Math.min(serverDiscount, computedSubtotal);
         }
 
-        const serverTotal = Math.round((computedSubtotal - serverDiscount) * 1.18);
+        const deliveryFee = computedSubtotal < FREE_DELIVERY_THRESHOLD ? DELIVERY_FEE_AMOUNT : 0;
+        const serverTotal = Math.round((computedSubtotal - serverDiscount) * 1.18 + deliveryFee);
         const tolerance = Math.max(2, serverTotal * 0.01);
         if (Math.abs(serverTotal - parsedTotal - (parsedWalletUsed || 0)) > tolerance && Math.abs(serverTotal - parsedTotal) > tolerance) {
             const totalPlusWallet = parsedTotal + parsedWalletUsed;
@@ -347,6 +388,10 @@ router.post('/', optionalProtect, async (req, res) => {
 
         // *** TRANSACTION: wallet deduction + order creation + stock decrement ***
         const newOrderId = await prisma.$transaction(async (tx) => {
+            if (validatedCoupon) {
+                await assertCouponUserEligibility(tx, validatedCoupon, req.user?.id);
+            }
+
             // 1. Deduct wallet balance (if applicable)
             if (useWallet && parsedWalletUsed > 0 && req.user) {
                 const updatedWallet = await tx.user.updateMany({
@@ -548,7 +593,8 @@ router.post('/', optionalProtect, async (req, res) => {
             return createdOrder.id; // return id only; full fetch happens outside tx
         }, {
             maxWait: 10000,
-            timeout: 20000  // bumped from 15 s; real fix is the removed include above
+            timeout: 20000, // bumped from 15 s; real fix is the removed include above
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         });
 
         // Fetch full order AFTER the transaction has committed — no tx lock held here
@@ -753,7 +799,14 @@ router.post('/', optionalProtect, async (req, res) => {
             user: req.user?.id
         });
         // If it's a known error from the transaction (like stock issue), return 400
-        if (error.message && (error.message.includes('Insufficient stock') || error.message.includes('Invalid item data') || error.message.includes('Insufficient wallet balance') || error.message.includes('Coupon usage limit'))) {
+        if (
+            error.isCouponUserRule ||
+            (error.message &&
+                (error.message.includes('Insufficient stock') ||
+                    error.message.includes('Invalid item data') ||
+                    error.message.includes('Insufficient wallet balance') ||
+                    error.message.includes('Coupon usage limit')))
+        ) {
             return res.status(400).json({ error: error.message });
         }
         res.status(500).json({ error: 'Internal server error. Our team has been notified.' });

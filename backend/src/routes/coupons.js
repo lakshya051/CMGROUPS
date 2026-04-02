@@ -1,7 +1,8 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import prisma from '../lib/prisma.js';
-import { protect, adminOnly } from '../middleware/auth.js';
+import { protect, adminOnly, optionalProtect } from '../middleware/auth.js';
+import { assertCouponUserEligibility } from '../utils/couponUserRules.js';
 
 const validateLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -94,13 +95,23 @@ const buildCouponData = (body, { partial = false } = {}) => {
         data.applicableTo = body.applicableTo;
     }
 
+    if (!partial || body.firstOrderOnly !== undefined) {
+        if (body.firstOrderOnly !== undefined && typeof body.firstOrderOnly !== 'boolean') {
+            throw new Error('firstOrderOnly must be a boolean');
+        }
+        if (body.firstOrderOnly !== undefined) data.firstOrderOnly = body.firstOrderOnly;
+    }
+
+    const maxUsesPerUser = parseOptionalNumber(body.maxUsesPerUser, 'maxUsesPerUser', { integer: true, min: 1 });
+    if (maxUsesPerUser !== undefined) data.maxUsesPerUser = maxUsesPerUser;
+
     return data;
 };
 
-// POST /api/coupons/validate (Public - validate a coupon code)
-router.post('/validate', validateLimiter, async (req, res) => {
+// POST /api/coupons/validate (optional auth — Bearer token enables first-order / per-user checks)
+router.post('/validate', validateLimiter, optionalProtect, async (req, res) => {
     try {
-        const { code, cartItems } = req.body;
+        const { code, cartItems, orderSubtotal } = req.body;
 
         if (!code || typeof code !== 'string') return res.status(400).json({ error: 'Coupon code is required' });
 
@@ -116,6 +127,30 @@ router.post('/validate', validateLimiter, async (req, res) => {
 
         if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) {
             return res.status(400).json({ error: 'Coupon usage limit reached' });
+        }
+
+        const needsUserForRules = coupon.firstOrderOnly || coupon.maxUsesPerUser != null;
+        if (needsUserForRules && !req.user) {
+            return res.status(400).json({ error: 'You must be signed in to use this coupon.' });
+        }
+        if (needsUserForRules && req.user) {
+            try {
+                await assertCouponUserEligibility(prisma, coupon, req.user.id);
+            } catch (e) {
+                if (e.isCouponUserRule) {
+                    return res.status(400).json({ error: e.message });
+                }
+                throw e;
+            }
+        }
+
+        if (coupon.minOrderAmount != null && orderSubtotal !== undefined && orderSubtotal !== null && orderSubtotal !== '') {
+            const sub = Number(orderSubtotal);
+            if (Number.isFinite(sub) && sub < coupon.minOrderAmount) {
+                return res.status(400).json({
+                    error: `Minimum order amount of ₹${coupon.minOrderAmount} required for this coupon`,
+                });
+            }
         }
 
         if (coupon.applicableTo !== 'all' && Array.isArray(cartItems) && cartItems.length > 0) {
@@ -140,6 +175,8 @@ router.post('/validate', validateLimiter, async (req, res) => {
             code: coupon.code,
             minOrderAmount: coupon.minOrderAmount,
             applicableTo: coupon.applicableTo,
+            firstOrderOnly: coupon.firstOrderOnly,
+            maxUsesPerUser: coupon.maxUsesPerUser,
         });
     } catch (error) {
         console.error('Validate coupon error:', error);

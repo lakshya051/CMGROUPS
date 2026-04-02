@@ -8,6 +8,7 @@ import { couponsAPI, productsAPI, bundlesAPI } from '../../lib/api'
 import { FREE_DELIVERY_THRESHOLD, EMI_MINIMUM_ORDER, SAVED_LATER_STORAGE_KEY } from '../../constants'
 import { getProductImageUrl, handleImageError } from '../../utils/image'
 import { computeBundleAwareSubtotal, computeBundleSavings } from '../../utils/bundleUtils'
+import { buildCartItemsSummary, buildCouponStateFromValidation, computeCouponDiscountFromRules } from '../../utils/couponPricing'
 import { useSEO } from '../../hooks/useSEO'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 
@@ -17,7 +18,6 @@ const Cart = () => {
     useSEO({ title: 'Your Cart — Shoptify', description: 'Review your shopping cart before checkout.', noIndex: true })
 
     const [couponCode, setCouponCode] = useState('')
-    const discount = coupon?.discount || 0
     const appliedCoupon = coupon?.code || null
     const [couponError, setCouponError] = useState('')
     const [couponLoading, setCouponLoading] = useState(false)
@@ -68,6 +68,11 @@ const Cart = () => {
         [cart]
     )
 
+    const discount = useMemo(() => {
+        if (!coupon?.code) return 0
+        return computeCouponDiscountFromRules(coupon, cart, subtotal)
+    }, [coupon, cart, subtotal])
+
     const totalItems = useMemo(
         () => cart.reduce((n, item) => n + item.quantity, 0),
         [cart]
@@ -103,38 +108,10 @@ const Cart = () => {
         setCouponLoading(true)
         setCouponError('')
         try {
-            const cartItemsSummary = cart.map(item => ({
-                productId: item.productId || null,
-                serviceTypeId: item.serviceTypeId || null,
-                courseId: item.courseId || null,
-                bundleId: item.bundleId || item.bundleInfo?.bundleId || null,
-            }))
-            const data = await couponsAPI.validate(couponCode, cartItemsSummary)
-            if (data.valid) {
-                let applicableSubtotal = subtotal
-                if (data.applicableTo && data.applicableTo !== 'all') {
-                    applicableSubtotal = cart.reduce((sum, item) => {
-                        const isBundle = !!(item.bundleId || item.bundleInfo?.bundleId)
-                        const isService = !!item.serviceTypeId
-                        const isCourse = !!item.courseId
-                        const isProduct = !!item.productId && !isBundle
-                        let matches = false
-                        if (data.applicableTo === 'bundles') matches = isBundle
-                        else if (data.applicableTo === 'products') matches = isProduct
-                        else if (data.applicableTo === 'services') matches = isService
-                        else if (data.applicableTo === 'courses') matches = isCourse
-                        return matches ? sum + (item.price * item.quantity) : sum
-                    }, 0)
-                }
-                const disc = data.discountType === 'percent'
-                    ? applicableSubtotal * (data.value / 100)
-                    : Math.min(data.value, applicableSubtotal)
-                applyCoupon({ code: data.code, discount: disc, discountType: data.discountType, value: data.value, applicableTo: data.applicableTo })
-                setCouponCode('')
-            } else {
-                setCouponError(data.message || 'Invalid or expired coupon code')
-                removeCoupon()
-            }
+            const cartItemsSummary = buildCartItemsSummary(cart)
+            const data = await couponsAPI.validate(couponCode.trim(), cartItemsSummary, subtotal)
+            applyCoupon(buildCouponStateFromValidation(data, cart))
+            setCouponCode('')
         } catch (err) {
             setCouponError(err?.message || 'Invalid or expired coupon code')
             removeCoupon()

@@ -527,10 +527,16 @@ export const serviceTypesAPI = {
 
 // ============ COUPONS ============
 export const couponsAPI = {
-    validate: (code, cartItems = []) =>
+    validate: (code, cartItems = [], orderSubtotal = null) =>
         apiFetch('/coupons/validate', {
             method: 'POST',
-            body: JSON.stringify({ code, cartItems })
+            body: JSON.stringify({
+                code,
+                cartItems,
+                ...(orderSubtotal != null && Number.isFinite(Number(orderSubtotal))
+                    ? { orderSubtotal: Number(orderSubtotal) }
+                    : {}),
+            }),
         }),
 
     getAll: () => apiFetch('/coupons'),
