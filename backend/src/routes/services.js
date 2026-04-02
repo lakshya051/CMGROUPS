@@ -56,8 +56,8 @@ const getServiceSettings = async () => {
 const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
 
 /**
- * Safe booking select — always excludes pickupOtp from responses.
- * OTP is only surfaced via notification emails.
+ * Safe booking select — excludes pickup/delivery OTP from generic responses.
+ * Pickup OTP is email/notifications; delivery OTP is added for the owner's list only (see BOOKING_MY_BOOKINGS_SELECT).
  */
 const BOOKING_SAFE_SELECT = {
     id: true,
@@ -105,6 +105,9 @@ const BOOKING_SAFE_SELECT = {
     technician: { select: { id: true, name: true, phone: true, skills: true } },
     invoice: true
 };
+
+/** GET /my-bookings — booking owner must see deliveryOtp to share with technician before admin can mark Delivered */
+const BOOKING_MY_BOOKINGS_SELECT = { ...BOOKING_SAFE_SELECT, deliveryOtp: true };
 
 /** Admin list/detail — includes pickupOtp and deliveryOtp */
 const BOOKING_ADMIN_SELECT = { ...BOOKING_SAFE_SELECT, pickupOtp: true, deliveryOtp: true };
@@ -296,10 +299,9 @@ router.post('/book', protect, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/my-bookings', protect, async (req, res) => {
     try {
-        // Use explicit select to exclude pickupOtp
         const bookings = await prisma.serviceBooking.findMany({
             where: { userId: req.user.id },
-            select: BOOKING_SAFE_SELECT,
+            select: BOOKING_MY_BOOKINGS_SELECT,
             orderBy: { createdAt: 'desc' }
         });
         res.json(bookings);
@@ -442,15 +444,23 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 });
             }
         }
-        // Enforce delivery OTP verification before marking as Delivered
+        // Delivered only from Completed after delivery OTP has been verified in admin
         if (status === 'Delivered') {
             const current = await prisma.serviceBooking.findUnique({
                 where: { id: bookingId },
                 select: { status: true, deliveryOtpVerified: true }
             });
-            if (current?.status === 'Completed' && !current.deliveryOtpVerified) {
+            if (!current) {
+                return res.status(404).json({ error: 'Booking not found' });
+            }
+            if (current.status !== 'Completed') {
                 return res.status(400).json({
-                    error: 'Customer must provide the delivery OTP first. Verify the delivery OTP before marking as Delivered.'
+                    error: 'Booking must be in Completed status before it can be marked as Delivered.'
+                });
+            }
+            if (!current.deliveryOtpVerified) {
+                return res.status(400).json({
+                    error: 'Verify the customer\'s delivery OTP before marking as Delivered.'
                 });
             }
         }
@@ -689,20 +699,29 @@ router.patch('/:id/status', protect, adminOnly, async (req, res) => {
                 sendServiceNotification(booking, status).catch((err) => console.error('sendServiceNotification error (deferred):', err));
                 if (booking.user?.id) {
                     const isCompleted = status === 'Completed';
+                    const isDelivered = status === 'Delivered';
                     createUserNotification({
                         userId: booking.user.id,
-                        title: isCompleted ? `Delivery OTP for SRV-${booking.id}` : 'Service Status Updated',
-                        message: isCompleted
-                            ? `Your device is ready! A delivery OTP has been sent. Share it with the technician when receiving your device.`
-                            : `Your service request SRV-${booking.id} is now ${status}.`,
+                        title: isDelivered
+                            ? `Delivered — SRV-${booking.id}`
+                            : isCompleted
+                                ? `Delivery OTP for SRV-${booking.id}`
+                                : 'Service Status Updated',
+                        message: isDelivered
+                            ? 'Your device has been delivered. Download your invoice from My Services.'
+                            : isCompleted
+                                ? `Your device is ready! A delivery OTP has been sent. Share it with the technician when receiving your device.`
+                                : `Your service request SRV-${booking.id} is now ${status}.`,
                         type: 'service',
                         link: '/dashboard/services',
                         push: {
                             enabled: true,
-                            title: isCompleted ? 'Delivery OTP Ready' : undefined,
-                            body: isCompleted
-                                ? `Your delivery OTP for SRV-${booking.id} is available in Shoptify.`
-                                : `Your service request SRV-${booking.id} is now ${status}.`,
+                            title: isDelivered ? 'Service delivered' : isCompleted ? 'Delivery OTP Ready' : undefined,
+                            body: isDelivered
+                                ? `SRV-${booking.id} delivered — invoice available in the app.`
+                                : isCompleted
+                                    ? `Your delivery OTP for SRV-${booking.id} is available in Shoptify.`
+                                    : `Your service request SRV-${booking.id} is now ${status}.`,
                         },
                     }).catch((notifErr) => {
                         console.error('In-app notification error (deferred):', notifErr);

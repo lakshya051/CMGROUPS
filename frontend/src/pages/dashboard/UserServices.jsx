@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Wrench, Calendar, Clock, CheckCircle, XCircle, MapPin, Phone,
     Cpu, IndianRupee, User as UserIcon, Settings, Gift, FileText,
-    AlertTriangle, RefreshCw, ShieldCheck, UserCheck, Download, Shield
+    AlertTriangle, RefreshCw, ShieldCheck, UserCheck, Download, Shield, Package
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { Link } from 'react-router-dom';
@@ -24,7 +24,8 @@ const TIMELINE_STEPS = [
     { key: 'Confirmed', label: 'Confirmed', icon: CheckCircle },
     { key: 'Picked Up', label: 'Tech Assigned', icon: UserCheck },
     { key: 'In Progress', label: 'In Progress', icon: Wrench },
-    { key: 'Completed', label: 'Completed', icon: ShieldCheck },
+    { key: 'Completed', label: 'Ready', icon: ShieldCheck },
+    { key: 'Delivered', label: 'Delivered', icon: Package },
 ];
 
 const ORDER_IDX = Object.fromEntries(TIMELINE_STEPS.map((s, i) => [s.key, i]));
@@ -90,13 +91,16 @@ const StatusTimeline = ({ currentStatus }) => {
     }
 
     const currentIdx = ORDER_IDX[currentStatus] ?? 0;
+    // When past the last timeline key (shouldn't happen), cap at final step
+    const lastIdx = TIMELINE_STEPS.length - 1;
+    const activeIdx = Math.min(currentIdx, lastIdx);
 
     return (
         <div className="relative py-3">
             <div className="flex items-start justify-between gap-1">
                 {TIMELINE_STEPS.map(({ key, label, icon: Icon }, idx) => {
-                    const isComplete = idx <= currentIdx;
-                    const isCurrent = idx === currentIdx;
+                    const isComplete = idx <= activeIdx;
+                    const isCurrent = idx === activeIdx;
                     return (
                         <React.Fragment key={key}>
                             <div className="flex flex-col items-center min-w-[56px]">
@@ -114,7 +118,7 @@ const StatusTimeline = ({ currentStatus }) => {
                                 </span>
                             </div>
                             {idx < TIMELINE_STEPS.length - 1 && (
-                                <div className={`flex-1 h-0.5 mt-4 transition-all duration-300 ${idx < currentIdx ? 'bg-trust' : 'bg-border-default'}`} />
+                                <div className={`flex-1 h-0.5 mt-4 transition-all duration-300 ${idx < activeIdx ? 'bg-trust' : 'bg-border-default'}`} />
                             )}
                         </React.Fragment>
                     );
@@ -151,6 +155,14 @@ const UserServices = () => {
     }, []);
 
     useEffect(() => { fetchBookings(); }, [fetchBookings]);
+
+    useEffect(() => {
+        const onVis = () => {
+            if (document.visibilityState === 'visible') fetchBookings();
+        };
+        document.addEventListener('visibilitychange', onVis);
+        return () => document.removeEventListener('visibilitychange', onVis);
+    }, [fetchBookings]);
 
     const handleVerifyOtp = async (bookingId) => {
         const otp = otpInput[bookingId]?.trim();
@@ -370,7 +382,29 @@ const UserServices = () => {
                                             </div>
                                         )}
 
-                                        {/* Delivery OTP — show to customer when Completed */}
+                                        {/* Delivered — success banner */}
+                                        {booking.status === 'Delivered' && (
+                                            <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                                                        <Package size={20} className="text-green-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-green-800">Device Delivered Successfully</p>
+                                                        {booking.deliveredAt && (
+                                                            <p className="text-xs text-green-600">
+                                                                {new Date(booking.deliveredAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm text-green-700 ml-[52px]">
+                                                    Your service is complete. Thank you for choosing Shoptify!
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Delivery OTP — show to customer when Completed (not yet delivered) */}
                                         {booking.status === 'Completed' && booking.deliveryOtp && !booking.deliveryOtpVerified && (
                                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                                 <p className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-2 flex items-center gap-1.5">
@@ -386,8 +420,8 @@ const UserServices = () => {
                                             </div>
                                         )}
                                         {booking.status === 'Completed' && booking.deliveryOtpVerified && (
-                                            <div className="flex items-center gap-2 text-green-700 text-sm font-semibold bg-green-50 border border-green-200 rounded-xl px-4 py-2">
-                                                <CheckCircle size={16} />Delivery OTP Verified — Device received
+                                            <div className="flex items-center gap-2 text-green-700 text-sm font-semibold bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+                                                <CheckCircle size={16} />OTP Verified — Delivery in progress
                                             </div>
                                         )}
 
@@ -437,7 +471,7 @@ const UserServices = () => {
                                         {/* Action Buttons */}
                                         <div className="flex flex-wrap gap-2 pt-2 border-t border-border-default">
                                             {/* Invoice Download */}
-                                            {(booking.status === 'Completed' || booking.status === 'Delivered') && booking.invoiceUrl && (
+                                            {booking.status === 'Delivered' && booking.invoiceUrl && (
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
@@ -446,6 +480,12 @@ const UserServices = () => {
                                                 >
                                                     <Download size={14} />Download Invoice
                                                 </Button>
+                                            )}
+                                            {booking.status === 'Completed' && booking.invoiceUrl && (
+                                                <p className="text-xs text-text-secondary flex items-center gap-1.5 w-full">
+                                                    <FileText size={14} className="flex-shrink-0 text-text-muted" />
+                                                    Invoice will be available for download after your device is marked as delivered.
+                                                </p>
                                             )}
 
                                             {/* Cancel Button — Pending only */}

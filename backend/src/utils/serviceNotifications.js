@@ -46,18 +46,31 @@ export async function sendServiceNotification(booking, newStatus) {
                 break;
 
             case 'Completed': {
-                const safeInvoiceUrl = booking.invoiceUrl && /^https?:\/\//i.test(booking.invoiceUrl)
-                    ? escapeHtml(booking.invoiceUrl)
-                    : null;
-                const invoiceLink = safeInvoiceUrl ? `<br/><a href="${safeInvoiceUrl}">Download Invoice</a>` : '';
-                subject = `Service Completed — ${bookingRef}`;
+                subject = `Service Ready for Delivery — ${bookingRef}`;
                 bodyMessage = `
                     <p>Your device has been repaired and is ready for delivery!</p>
                     <p><strong>Final Amount:</strong> ₹${escapeHtml(String(booking.finalPrice ?? 'N/A'))}</p>
-                    ${safeInvoiceUrl ? `<p><strong>Invoice:</strong> ${invoiceLink}</p>` : ''}
+                    <p><strong>Invoice:</strong> Your invoice PDF will be available in your account <strong>after</strong> the technician completes delivery and the booking is marked as delivered.</p>
                     <p>When the technician delivers your device, share the Delivery OTP below to confirm receipt.</p>
                 `;
                 showDeliveryOtp = Boolean(booking.deliveryOtp);
+                break;
+            }
+
+            case 'Delivered': {
+                const safeInvoiceUrl = booking.invoiceUrl && /^https?:\/\//i.test(booking.invoiceUrl)
+                    ? escapeHtml(booking.invoiceUrl)
+                    : null;
+                const invoiceLink = safeInvoiceUrl
+                    ? `<p><strong>Invoice:</strong> <a href="${safeInvoiceUrl}">Download your service invoice (PDF)</a></p>`
+                    : '<p><strong>Invoice:</strong> You can download your invoice from <strong>Dashboard → My Services</strong> when it is available.</p>';
+                subject = `Service Delivered — ${bookingRef}`;
+                bodyMessage = `
+                    <p>Your device for <strong>${bookingRef}</strong> has been <strong>delivered</strong>. Thank you for choosing Shoptify!</p>
+                    <p><strong>Final Amount:</strong> ₹${escapeHtml(String(booking.finalPrice ?? 'N/A'))}</p>
+                    ${invoiceLink}
+                    <p>If you have any questions about this service, reply to our support or visit your service dashboard.</p>
+                `;
                 break;
             }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Wrench, Search, CheckCircle, Clock, X, Calendar, MapPin, Phone, User,
     IndianRupee, Settings, Key, ChevronDown, ChevronUp, AlertCircle, Gift,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { servicesAPI, techniciansAPI, serviceTypesAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
+import toast from 'react-hot-toast';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const STATUS_PIPELINE = ['Pending', 'Confirmed', 'Picked Up', 'In Progress', 'Completed', 'Delivered'];
@@ -26,10 +27,20 @@ const STATUS_BADGE = {
 // ──────────────────────────────────────────────────────────────────────────
 // Booking Detail Modal
 // ──────────────────────────────────────────────────────────────────────────
-const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes }) => {
+const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes, onDeliveredSuccess }) => {
     const [localBooking, setLocalBooking] = useState(booking);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+
+    // Keep modal in sync whenever the parent-supplied booking prop changes
+    const bookingRef = useRef(booking);
+    useEffect(() => {
+        bookingRef.current = booking;
+        setLocalBooking(prev => {
+            if (prev.id !== booking.id) return booking;
+            return { ...prev, ...booking };
+        });
+    }, [booking]);
 
     // Fields
     const [estimatedPrice, setEstimatedPrice] = useState(booking.estimatedPrice || '');
@@ -79,12 +90,19 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
     const completeSubtotal = (parseFloat(completeLaborCost) || 0) + (parseFloat(completePartsCost) || 0);
     const completeTotal = completeSubtotal;
 
+    const applyUpdate = (updated) => {
+        setLocalBooking(prev => ({ ...prev, ...updated }));
+        onUpdate(updated);
+    };
+
     const update = async (data) => {
         setSaving(true); setError('');
         try {
             const updated = await servicesAPI.updateStatus(localBooking.id, data);
-            setLocalBooking(prev => ({ ...prev, ...updated }));
-            onUpdate(updated);
+            applyUpdate(updated);
+            if (updated.status === 'Delivered' && typeof onDeliveredSuccess === 'function') {
+                onDeliveredSuccess();
+            }
         } catch (err) {
             setError(err.message || 'Update failed');
         } finally {
@@ -105,8 +123,7 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
         setSaving(true); setError('');
         try {
             const updated = await servicesAPI.assignTechnician(localBooking.id, selectedTechId);
-            setLocalBooking(prev => ({ ...prev, ...updated }));
-            onUpdate(updated);
+            applyUpdate(updated);
         } catch (err) { setError(err.message || 'Assign failed'); }
         finally { setSaving(false); }
     };
@@ -152,9 +169,8 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
         try {
             await servicesAPI.regenerateOtp(localBooking.id);
             const fresh = await servicesAPI.getBooking(localBooking.id);
-            setLocalBooking(prev => ({ ...prev, ...fresh }));
-            onUpdate(fresh);
-            alert('New OTP generated and sent to customer email.');
+            applyUpdate(fresh);
+            toast.success('New OTP generated and sent to customer.');
         } catch (err) { setError(err.message || 'Regenerate failed'); }
         finally { setRegenLoading(false); }
     };
@@ -164,10 +180,14 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
         setVerifyingDelivery(true); setError('');
         try {
             const result = await servicesAPI.verifyDeliveryOtp(localBooking.id, deliveryOtpInput);
-            setLocalBooking(prev => ({ ...prev, ...result.booking }));
-            onUpdate(result.booking);
+            applyUpdate(result.booking);
             setDeliveryOtpInput('');
-            alert('Delivery OTP verified! You can now mark this booking as Delivered.');
+            toast.success('OTP verified! Marking as delivered...');
+
+            // Auto-advance to Delivered (Urban Company style: OTP verify = delivered)
+            const delivered = await servicesAPI.updateStatus(localBooking.id, { status: 'Delivered' });
+            applyUpdate(delivered);
+            if (typeof onDeliveredSuccess === 'function') onDeliveredSuccess();
         } catch (err) { setError(err.message || 'Failed to verify delivery OTP'); }
         finally { setVerifyingDelivery(false); }
     };
@@ -177,9 +197,8 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
         try {
             await servicesAPI.regenerateDeliveryOtp(localBooking.id);
             const fresh = await servicesAPI.getBooking(localBooking.id);
-            setLocalBooking(prev => ({ ...prev, ...fresh }));
-            onUpdate(fresh);
-            alert('New delivery OTP generated and sent to customer.');
+            applyUpdate(fresh);
+            toast.success('New delivery OTP sent to customer.');
         } catch (err) { setError(err.message || 'Regenerate failed'); }
         finally { setRegenDeliveryLoading(false); }
     };
@@ -189,8 +208,9 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
         return idx >= 0 && idx < STATUS_PIPELINE.length - 1 ? STATUS_PIPELINE[idx + 1] : null;
     })();
 
-    const isCompleted = localBooking.status === 'Completed' || localBooking.status === 'Delivered';
+    const isTerminal = localBooking.status === 'Completed' || localBooking.status === 'Delivered';
     const isCancelled = localBooking.status === 'Cancelled';
+    const isDelivered = localBooking.status === 'Delivered';
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -207,7 +227,7 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[localBooking.status] || ''}`}>
                                     {localBooking.status}
                                 </span>
-                                {localBooking.referralCodeUsed && isCompleted && (
+                                {localBooking.referralCodeUsed && isTerminal && (
                                     <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-green-50 border border-green-200 text-green-700">
                                         <Gift size={10} />Referral Bonus Triggered
                                     </span>
@@ -286,7 +306,7 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                                     <Gift size={12} className="text-primary" />
                                     <span className="text-text-muted">Referral Code:</span>
                                     <span className="font-mono font-bold text-primary">{localBooking.referralCodeUsed}</span>
-                                    {isCompleted && <span className="text-xs text-green-600 font-semibold">✓ Bonus Triggered</span>}
+                                    {isTerminal && <span className="text-xs text-green-600 font-semibold">✓ Bonus Triggered</span>}
                                 </div>
                             )}
                         </div>
@@ -384,9 +404,10 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                     )}
 
                     {/* Invoice */}
-                    {isCompleted && localBooking.invoiceUrl && (
+                    {isTerminal && localBooking.invoiceUrl && (
                         <div>
                             <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">Invoice</p>
+                            <p className="text-xs text-text-muted mb-2">Customers can download this PDF from their dashboard after the booking is marked <strong>Delivered</strong>.</p>
                             <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-green-700">
                                     <FileText size={16} />
@@ -400,53 +421,75 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                         </div>
                     )}
 
-                    {/* Delivery OTP — show when booking is Completed */}
-                    {localBooking.status === 'Completed' && (
+                    {/* Delivery — show when Completed (OTP verify) or Delivered (success) */}
+                    {(localBooking.status === 'Completed' || isDelivered) && (
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">Delivery OTP Verification</p>
-                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-                                {!localBooking.deliveryOtpVerified ? (
-                                    <>
-                                        <p className="text-sm text-blue-700">
-                                            Ask the customer for the delivery OTP. They received it via email and in-app notification when the service was marked as completed.
-                                        </p>
-                                        <div className="flex gap-2 items-end">
-                                            <div className="flex-1">
-                                                <label className="block text-xs font-bold text-blue-800 mb-1">Enter Customer's Delivery OTP</label>
-                                                <input
-                                                    type="text"
-                                                    maxLength="6"
-                                                    placeholder="000000"
-                                                    className="w-full text-center text-xl tracking-[0.3em] font-mono py-2 border-2 border-blue-300 rounded-lg focus:border-blue-500 transition-all outline-none bg-white"
-                                                    value={deliveryOtpInput}
-                                                    onChange={e => setDeliveryOtpInput(e.target.value.replace(/\D/g, ''))}
-                                                />
-                                            </div>
-                                            <Button size="sm" disabled={deliveryOtpInput.length !== 6 || verifyingDelivery} onClick={handleVerifyDeliveryOtp}
-                                                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
-                                                {verifyingDelivery ? <RefreshCw size={13} className="animate-spin" /> : <Shield size={13} />}
-                                                Verify
-                                            </Button>
-                                        </div>
-                                        <button onClick={handleRegenDeliveryOtp} disabled={regenDeliveryLoading}
-                                            className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-60">
-                                            {regenDeliveryLoading ? <RefreshCw size={11} className="animate-spin" /> : <Key size={11} />}
-                                            Regenerate Delivery OTP (resends to customer)
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
-                                        <CheckCircle size={16} />Delivery OTP verified — you can now mark as Delivered
+                            <p className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-2">
+                                {isDelivered ? 'Delivery Completed' : 'Delivery OTP Verification'}
+                            </p>
+                            {isDelivered ? (
+                                <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
+                                    <div className="flex items-center gap-2 text-green-700 font-semibold">
+                                        <CheckCircle size={18} />
+                                        <span>Device delivered to customer</span>
                                     </div>
-                                )}
-                            </div>
+                                    {localBooking.deliveredAt && (
+                                        <p className="text-xs text-green-600 ml-7">
+                                            {new Date(localBooking.deliveredAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : !localBooking.deliveryOtpVerified ? (
+                                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                                    <p className="text-sm text-blue-700">
+                                        Ask the customer for their 6-digit delivery OTP. Verifying it will automatically mark this booking as <strong>Delivered</strong>.
+                                    </p>
+                                    <div className="flex gap-2 items-end">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-bold text-blue-800 mb-1">Enter Customer's Delivery OTP</label>
+                                            <input
+                                                type="text"
+                                                maxLength="6"
+                                                placeholder="000000"
+                                                className="w-full text-center text-xl tracking-[0.3em] font-mono py-2 border-2 border-blue-300 rounded-lg focus:border-blue-500 transition-all outline-none bg-white"
+                                                value={deliveryOtpInput}
+                                                onChange={e => setDeliveryOtpInput(e.target.value.replace(/\D/g, ''))}
+                                            />
+                                        </div>
+                                        <Button size="sm" disabled={deliveryOtpInput.length !== 6 || verifyingDelivery} onClick={handleVerifyDeliveryOtp}
+                                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
+                                            {verifyingDelivery ? <RefreshCw size={13} className="animate-spin" /> : <Shield size={13} />}
+                                            {verifyingDelivery ? 'Verifying...' : 'Verify & Deliver'}
+                                        </Button>
+                                    </div>
+                                    <button onClick={handleRegenDeliveryOtp} disabled={regenDeliveryLoading}
+                                        className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-60">
+                                        {regenDeliveryLoading ? <RefreshCw size={11} className="animate-spin" /> : <Key size={11} />}
+                                        Regenerate Delivery OTP (resends to customer)
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                                    <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm">
+                                        <CheckCircle size={16} />Delivery OTP verified but status is still Completed
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        disabled={saving}
+                                        onClick={() => update({ status: 'Delivered' })}
+                                        className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                                    >
+                                        {saving ? <RefreshCw size={13} className="animate-spin" /> : <CheckCircle size={14} />}
+                                        Mark as Delivered Now
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* Status Action Buttons */}
-                    {!isCancelled && (
+                    {!isCancelled && !isDelivered && (
                         <div className="flex flex-wrap gap-2 pt-2 border-t border-border-default">
-                            {/* "Confirm" (Pending): use form estimated price if set (ask once), else show price modal */}
                             {localBooking.status === 'Pending' && (
                                 <Button
                                     size="sm"
@@ -466,10 +509,10 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                                 </Button>
                             )}
 
-                            {/* Generic Next → (not Pending→Confirmed, not Picked Up, not In Progress→Completed). Pickup is OTP-only — customer must verify in app. */}
-                            {nextStatus && localBooking.status !== 'Pending' && nextStatus !== 'Completed' && nextStatus !== 'Picked Up' && (
+                            {/* Generic Next (skip Confirmed→Picked Up which is OTP-only, Completed→Delivered which is handled by OTP verify above, In Progress→Completed which has its own button) */}
+                            {nextStatus && localBooking.status !== 'Pending' && nextStatus !== 'Completed' && nextStatus !== 'Picked Up' && nextStatus !== 'Delivered' && (
                                 <Button size="sm" variant="outline"
-                                    disabled={saving || (localBooking.status === 'Completed' && !localBooking.deliveryOtpVerified)}
+                                    disabled={saving}
                                     onClick={handleNextStatus}
                                     className="flex items-center gap-1.5">
                                     ➡ Move to {nextStatus}
@@ -477,24 +520,22 @@ const BookingModal = ({ booking, technicians, onClose, onUpdate, serviceTypes })
                             )}
                             {localBooking.status === 'Confirmed' && !localBooking.otpVerified && (
                                 <span className="text-xs text-text-muted font-medium px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
-                                    Pickup when customer enters OTP in app
+                                    Waiting for customer to verify pickup OTP
                                 </span>
                             )}
                             {localBooking.status === 'Completed' && !localBooking.deliveryOtpVerified && (
                                 <span className="text-xs text-text-muted font-medium px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
-                                    Verify delivery OTP before marking as Delivered
+                                    Enter delivery OTP above to complete delivery
                                 </span>
                             )}
 
-                            {/* In Progress → Complete (itemised costs) */}
                             {localBooking.status === 'In Progress' && (
                                 <Button size="sm" onClick={() => setShowCompletePrompt(true)} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700">
                                     <CheckCircle size={14} />Mark Completed
                                 </Button>
                             )}
 
-                            {/* Cancel */}
-                            {!isCompleted && (
+                            {!isTerminal && (
                                 <button onClick={() => setShowCancelPrompt(true)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-error hover:bg-error/10 rounded-lg border border-error/20 transition-colors">
                                     <X size={13} />Cancel Booking
@@ -718,6 +759,15 @@ const AdminServices = () => {
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     }, [page, filterStatus]);
+
+    const fetchBookingsRef = useRef(fetchBookings);
+    fetchBookingsRef.current = fetchBookings;
+
+    const handleDeliveredSuccess = useCallback(() => {
+        toast.success('Booking marked as Delivered.');
+        setFilterStatus('Delivered');
+        setTimeout(() => fetchBookingsRef.current(), 0);
+    }, []);
 
     const fetchTechnicians = useCallback(() => {
         setTechLoading(true);
@@ -977,6 +1027,7 @@ const AdminServices = () => {
                     onClose={() => setSelectedBooking(null)}
                     onUpdate={handleBookingUpdate}
                     serviceTypes={serviceTypes}
+                    onDeliveredSuccess={handleDeliveredSuccess}
                 />
             )}
         </div>
