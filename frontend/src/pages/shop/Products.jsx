@@ -165,7 +165,7 @@ const Products = () => {
 
         fetchProducts()
         return () => controller.abort()
-    }, [page, debouncedSearchTerm, categoryKey, priceRangeKey, selectedCategories, selectedPriceRanges, conditionFilter, sortBy])
+    }, [page, debouncedSearchTerm, categoryKey, priceRangeKey, conditionFilter, sortBy])
 
     // ─── Derived ────────────────────────────────────────────────
     const categories = useMemo(() => dbCategories.map(c => c.name).sort(), [dbCategories])

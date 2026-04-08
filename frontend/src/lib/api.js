@@ -114,9 +114,9 @@ export const authAPI = {
 
 // ============ PRODUCTS ============
 export const productsAPI = {
-    getAll: (params = {}) => {
+    getAll: (params = {}, fetchOptions = {}) => {
         const query = new URLSearchParams(params).toString();
-        return apiFetch(`/products${query ? `?${query}` : ''}`);
+        return apiFetch(`/products${query ? `?${query}` : ''}`, fetchOptions);
     },
 
     getById: (id) => apiFetch(`/products/${id}`),

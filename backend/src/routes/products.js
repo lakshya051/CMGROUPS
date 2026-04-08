@@ -80,7 +80,9 @@ router.get('/', async (req, res) => {
         const whereInStock = { ...where, stock: { gt: 0 } };
         const whereOutOfStock = { ...where, stock: { lte: 0 } };
 
-        const [total, inStockCount] = await Promise.all([
+        // Sequential queries via $transaction to use one DB connection at a time for this handler.
+        // Parallel Promise.all was exhausting the pool (P2024) under concurrent /api/products traffic.
+        const [total, inStockCount] = await prisma.$transaction([
             prisma.product.count({ where }),
             prisma.product.count({ where: whereInStock }),
         ]);
@@ -101,26 +103,27 @@ router.get('/', async (req, res) => {
             }
         };
 
-        const [inStockProducts, outOfStockProducts] = await Promise.all([
-            inStockTake > 0
-                ? prisma.product.findMany({
+        const [inStockProducts, outOfStockProducts] = await prisma.$transaction(async (tx) => {
+            const inStock = inStockTake > 0
+                ? await tx.product.findMany({
                     where: whereInStock,
                     orderBy,
                     skip: inStockSkip,
                     take: inStockTake,
                     include: variantInclude,
                 })
-                : [],
-            outOfStockTake > 0
-                ? prisma.product.findMany({
+                : [];
+            const outOfStock = outOfStockTake > 0
+                ? await tx.product.findMany({
                     where: whereOutOfStock,
                     orderBy,
                     skip: outOfStockSkip,
                     take: outOfStockTake,
                     include: variantInclude,
                 })
-                : [],
-        ]);
+                : [];
+            return [inStock, outOfStock];
+        }, { timeout: 30_000 });
 
         const allFetched = [...inStockProducts, ...outOfStockProducts].map(p => {
             const variantStock = p.hasVariants && p.variants.length > 0
@@ -160,7 +163,7 @@ router.get('/', async (req, res) => {
             }
         };
 
-        cache.set(cacheKey, result);
+        cache.set(cacheKey, result, 300);
         res.json(result);
 
     } catch (error) {
