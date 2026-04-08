@@ -107,8 +107,11 @@ export default defineConfig(({ mode }) => ({
             injectManifest: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
             },
+            // Required to test offline / custom offline.html in DevTools (Network → Offline).
+            // Without this, `vite` has no controlling SW, so Chrome shows its dino page.
             devOptions: {
-                enabled: false,
+                enabled: mode === 'development',
+                type: 'module',
             },
         }),
         // Bundle analyzer - only runs during `npm run build:analyze`
@@ -123,6 +126,19 @@ export default defineConfig(({ mode }) => ({
         alias: {
             '@': path.resolve(__dirname, './src'),
         },
+    },
+    // With PWA dev enabled, Workbox is pulled in after first load; without this, Vite
+    // discovers packages in waves and triggers "optimized dependencies changed → reloading" repeatedly.
+    optimizeDeps: {
+        include: [
+            'workbox-window',
+            'workbox-core',
+            'workbox-precaching',
+            'workbox-routing',
+            'workbox-strategies',
+            'workbox-expiration',
+            'workbox-cacheable-response',
+        ],
     },
     esbuild: {
         drop: ['console', 'debugger'],

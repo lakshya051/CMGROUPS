@@ -17,9 +17,8 @@ const navigationRoute = new NavigationRoute(
         try {
             return await navigationHandler.handle(params);
         } catch (error) {
-            const cache = await caches.open('offline-fallback');
-            const fallback = await cache.match('/offline.html');
-            if (fallback) return fallback;
+            const offline = await caches.match('/offline.html');
+            if (offline) return offline;
             return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/html' } });
         }
     },
