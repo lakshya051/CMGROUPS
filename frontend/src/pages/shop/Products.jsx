@@ -6,7 +6,7 @@ import FilterSidebar from '../../components/shop/FilterSidebar'
 import { SkeletonCard, EmptyState } from '../../components/ui/index'
 import { useShop } from '../../context/ShopContext'
 import {
-    Filter, SearchX, Search, X, ArrowLeftRight, ChevronLeft, ChevronRight, Layers,
+    Filter, SearchX, Search, X, ArrowLeftRight, ChevronLeft, ChevronRight, Layers, Loader2,
 } from 'lucide-react'
 import { categoriesAPI, productsAPI, bundlesAPI } from '../../lib/api'
 
@@ -66,38 +66,36 @@ const Products = () => {
             .catch(() => setFeaturedBundles([]))
     }, [])
 
-    // ─── Sync URL changes to local state ────────────────────────
-    const urlSyncRef = useRef(false)
-    useEffect(() => {
-        const urlQ = searchParams.get('q') || '';
-        if (urlQ !== debouncedSearchTerm) {
-            urlSyncRef.current = true
-            setSearchTerm(urlQ);
-            setDebouncedSearchTerm(urlQ);
-        }
-    }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Stable string keys so array deps don't cause spurious re-fetches
+    const categoryKey = useMemo(() => selectedCategories.slice().sort().join(','), [selectedCategories])
+    const priceRangeKey = useMemo(
+        () => selectedPriceRanges.map(r => `${r.min}-${r.max}`).join(','),
+        [selectedPriceRanges]
+    )
 
-    // ─── Debounce search (skip when driven by URL change) ───────
+    // ─── Sync URL ?q= → local inputs (when Navbar or back/forward changes it)
     useEffect(() => {
-        if (urlSyncRef.current) {
-            urlSyncRef.current = false
-            return
-        }
-        const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 300)
-        return () => clearTimeout(timer)
+        const urlQ = searchParams.get('q') || ''
+        setSearchTerm(urlQ)
+        setDebouncedSearchTerm(urlQ)
+    }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ─── Commit search on Enter (no live debounce) ──────────────
+    const commitSearch = useCallback(() => {
+        setDebouncedSearchTerm(searchTerm.trim())
     }, [searchTerm])
 
     // ─── Reset page on filter change ───────────────────────────
     useEffect(() => {
         setPage(1)
-    }, [debouncedSearchTerm, selectedCategories, selectedPriceRanges, minRating, conditionFilter, includeOutOfStock, sortBy])
+    }, [debouncedSearchTerm, categoryKey, priceRangeKey, minRating, conditionFilter, includeOutOfStock, sortBy])
 
     // ─── Sync filters → URL params (skip if nothing changed) ───
     const prevParamsStr = useRef(searchParams.toString())
     useEffect(() => {
         const params = new URLSearchParams()
         if (debouncedSearchTerm) params.set('q', debouncedSearchTerm)
-        if (selectedCategories.length) params.set('category', selectedCategories.join(','))
+        if (selectedCategories.length) params.set('category', categoryKey)
         if (selectedPriceRanges.length) {
             params.set(
                 'price',
@@ -117,10 +115,12 @@ const Products = () => {
             prevParamsStr.current = nextStr
             setSearchParams(params, { replace: true })
         }
-    }, [debouncedSearchTerm, selectedCategories, selectedPriceRanges, minRating, conditionFilter, includeOutOfStock, sortBy, page, setSearchParams])
+    }, [debouncedSearchTerm, categoryKey, priceRangeKey, selectedCategories, selectedPriceRanges, minRating, conditionFilter, includeOutOfStock, sortBy, page, setSearchParams])
 
     // ─── Fetch Products ─────────────────────────────────────────
     useEffect(() => {
+        const controller = new AbortController()
+
         const fetchProducts = async () => {
             setLoading(true)
             setError(null)
@@ -128,9 +128,8 @@ const Products = () => {
                 const params = { page, limit: LIMIT }
 
                 if (debouncedSearchTerm) params.search = debouncedSearchTerm
-                if (selectedCategories.length > 0) params.category = selectedCategories.join(',')
+                if (selectedCategories.length > 0) params.category = categoryKey
 
-                // Compute effective price range from checkbox selections
                 if (selectedPriceRanges.length > 0) {
                     const effectiveMin = Math.min(...selectedPriceRanges.map(r => r.min))
                     const effectiveMax = Math.max(...selectedPriceRanges.map(r => r.max))
@@ -142,7 +141,8 @@ const Products = () => {
                 else if (conditionFilter === 'PreOwned') params.isSecondHand = 'true'
                 if (sortBy) params.sort = sortBy
 
-                const res = await productsAPI.getAll(params)
+                const res = await productsAPI.getAll(params, { signal: controller.signal })
+                if (controller.signal.aborted) return
                 if (res && res.data) {
                     setProducts(res.data)
                     setTotalProducts(res.pagination?.total || res.data.length)
@@ -155,15 +155,17 @@ const Products = () => {
                     setProducts([])
                 }
             } catch (err) {
+                if (controller.signal.aborted) return
                 console.error('Failed to fetch products:', err)
                 setError('Something went wrong while loading products. Please try again.')
             } finally {
-                setLoading(false)
+                if (!controller.signal.aborted) setLoading(false)
             }
         }
 
         fetchProducts()
-    }, [page, debouncedSearchTerm, selectedCategories, selectedPriceRanges, conditionFilter, sortBy, minRating, includeOutOfStock])
+        return () => controller.abort()
+    }, [page, debouncedSearchTerm, categoryKey, priceRangeKey, selectedCategories, selectedPriceRanges, conditionFilter, sortBy])
 
     // ─── Derived ────────────────────────────────────────────────
     const categories = useMemo(() => dbCategories.map(c => c.name).sort(), [dbCategories])
@@ -194,6 +196,7 @@ const Products = () => {
 
     const clearAllFilters = useCallback(() => {
         setSearchTerm('')
+        setDebouncedSearchTerm('')
         setSelectedCategories([])
         setSelectedPriceRanges([])
         setMinRating(0)
@@ -256,14 +259,18 @@ const Products = () => {
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-md">
-                    {/* Local Search Input */}
+                    {/* Local Search Input — searches on Enter */}
                     <div className="flex relative flex-1 md:flex-none">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                        {loading && debouncedSearchTerm
+                            ? <Loader2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-trust animate-spin" />
+                            : <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                        }
                         <input
                             type="text"
                             placeholder="Search products..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
                             className="w-full pl-9 pr-4 py-sm bg-surface border border-border-default rounded-lg text-base sm:text-sm focus:outline-none focus:border-trust transition-colors duration-fast md:w-64"
                         />
                     </div>

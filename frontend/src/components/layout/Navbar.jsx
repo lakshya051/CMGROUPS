@@ -25,7 +25,6 @@ const Navbar = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const { user, logout, isSignedIn } = useAuth();
     const { cart } = useShop();
     const { unreadCount, toggleOpen } = useNotifications();
@@ -36,16 +35,10 @@ const Navbar = () => {
         categoriesAPI.getAll().then(setCategories).catch(err => console.error('Failed to load categories:', err));
     }, []);
 
+    // Keep input in sync when URL ?q= changes (e.g. Products page updates it)
     useEffect(() => {
-        const queryFromUrl = searchParams.get('q') || '';
-        setSearchQuery(queryFromUrl);
-        setDebouncedSearchQuery(queryFromUrl);
+        setSearchQuery(searchParams.get('q') || '');
     }, [searchParams]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
 
     const currentSearchContext = useMemo(() => {
         const cat = SEARCH_CATEGORIES.find(c => c.value === searchCategory);
@@ -56,18 +49,6 @@ const Navbar = () => {
         }
         return { path: cat?.path || '/products', placeholder: `Search ${cat?.label.toLowerCase()}...` };
     }, [location.pathname, searchCategory]);
-
-    useEffect(() => {
-        const exactSearchPages = ['/products', '/courses', '/services'];
-        if (!exactSearchPages.includes(location.pathname)) return;
-        const nextQuery = debouncedSearchQuery.trim();
-        const currentQuery = searchParams.get('q') || '';
-        if (nextQuery === currentQuery) return;
-        const nextPath = nextQuery
-            ? `${currentSearchContext.path}?q=${encodeURIComponent(nextQuery)}`
-            : currentSearchContext.path;
-        navigate(nextPath, { replace: true });
-    }, [currentSearchContext.path, debouncedSearchQuery, location.pathname, navigate, searchParams]);
 
     const handleSearch = useCallback((e) => {
         e.preventDefault();
@@ -92,7 +73,6 @@ const Navbar = () => {
 
     const handleClearSearch = useCallback(() => {
         setSearchQuery('');
-        setDebouncedSearchQuery('');
         const exactSearchPages = ['/products', '/courses', '/services'];
         if (exactSearchPages.includes(location.pathname)) {
             navigate(currentSearchContext.path, { replace: true });

@@ -72,7 +72,9 @@ const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 }
             const isRetryable = !err.status || err.status >= 500;
             if (!isRetryable) throw err;
             if (attempt < retries - 1) {
+                if (callerSignal?.aborted) throw new Error('Request cancelled');
                 await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+                if (callerSignal?.aborted) throw new Error('Request cancelled');
             }
         }
     }
