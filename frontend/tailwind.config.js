@@ -42,8 +42,9 @@ export default {
                 'chart-purple':         '#8B5CF6',
             },
             fontFamily: {
-                sans: ['Inter', 'sans-serif'],
-                heading: ['Outfit', 'sans-serif'],
+                // System fallbacks first line-up closer to Inter/Outfit when display=optional skips webfonts (CLS).
+                sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                heading: ['Outfit', 'Inter', 'system-ui', 'Segoe UI', 'sans-serif'],
             },
             fontSize: {
                 'price':    ['1.5rem',   { lineHeight: '1', fontWeight: '700' }],

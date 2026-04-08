@@ -29,10 +29,10 @@
         @apply font-heading font-bold;
     }
 
-    /* All images responsive by default */
+    /* Responsive images without forcing height:auto on every img — that can fight aspect-ratio
+       containers and Tailwind h-full/object-* cards and worsen CLS. */
     img {
         max-width: 100%;
-        height: auto;
     }
 }
 

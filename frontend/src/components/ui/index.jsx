@@ -59,14 +59,23 @@ export function Badge({ type }) {
 export function SkeletonCard() {
   return (
     <div
-      className="bg-surface rounded border border-border-default p-md animate-pulse"
+      className="glass-panel flex flex-col overflow-hidden h-full animate-pulse"
       aria-busy="true"
     >
-      <div className="bg-page-bg h-48 rounded mb-md" />
-      <div className="bg-page-bg h-4  rounded w-3/4 mb-sm" />
-      <div className="bg-page-bg h-4  rounded w-1/2 mb-sm" />
-      <div className="bg-page-bg h-6  rounded w-1/3 mb-md" />
-      <div className="bg-page-bg h-9  rounded" />
+      {/* Match ProductCard: square image area + footer — reduces CLS when swapping to real cards */}
+      <div className="relative aspect-square bg-page-bg" />
+      <div className="p-2.5 sm:p-4 flex flex-col flex-grow gap-2">
+        <div className="flex justify-between gap-2">
+          <div className="bg-page-bg h-3 sm:h-4 rounded w-1/3" />
+          <div className="bg-page-bg h-3 w-8 rounded shrink-0" />
+        </div>
+        <div className="bg-page-bg h-4 sm:h-5 rounded w-full" />
+        <div className="bg-page-bg h-4 sm:h-5 rounded w-4/5" />
+        <div className="flex items-end justify-between gap-2 mt-auto pt-2">
+          <div className="bg-page-bg h-7 sm:h-8 rounded w-24" />
+          <div className="bg-page-bg h-8 w-20 sm:w-24 rounded-full shrink-0" />
+        </div>
+      </div>
     </div>
   )
 }

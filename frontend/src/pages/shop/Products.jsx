@@ -377,15 +377,18 @@ const Products = () => {
                         </div>
                     )}
 
-                    {/* Sort bar */}
-                    {!loading && !error && products.length > 0 && (
-                        <div className="flex items-center justify-between mb-md">
+                    {/* Results summary — fixed min-height so loading → loaded doesn't jump layout */}
+                    <div className="min-h-[1.75rem] mb-md flex items-center justify-between">
+                        {!loading && !error && products.length > 0 && (
                             <p className="text-sm text-text-secondary">
                                 Showing <span className="font-medium text-text-primary">{startItem}–{endItem}</span> of{' '}
                                 <span className="font-medium text-text-primary">{totalProducts}</span> results
                             </p>
-                        </div>
-                    )}
+                        )}
+                        {loading && !error && (
+                            <div className="h-4 w-44 max-w-[60%] rounded bg-page-bg animate-pulse" aria-hidden />
+                        )}
+                    </div>
 
                     {/* Error state */}
                     {error && (

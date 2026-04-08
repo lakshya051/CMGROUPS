@@ -25,6 +25,7 @@ const Home = () => {
     const [bestSellersLoading, setBestSellersLoading] = useState(true);
     const [bestSellersError, setBestSellersError] = useState(false);
     const [pillCategories, setPillCategories] = useState([]);
+    const [pillCategoriesLoading, setPillCategoriesLoading] = useState(true);
     const [pillCategoriesError, setPillCategoriesError] = useState(false);
     const { items: recentlyViewed } = useRecentlyViewed();
 
@@ -36,9 +37,11 @@ const Home = () => {
 
     const loadPillCategories = () => {
         setPillCategoriesError(false);
+        setPillCategoriesLoading(true);
         categoriesAPI.getAll()
             .then(setPillCategories)
-            .catch(() => setPillCategoriesError(true));
+            .catch(() => setPillCategoriesError(true))
+            .finally(() => setPillCategoriesLoading(false));
     };
 
     useEffect(() => { loadPillCategories(); }, []);
@@ -57,6 +60,12 @@ const Home = () => {
                 <div className="md:hidden flex items-center justify-center gap-2 px-4 py-3 bg-surface border-b border-border-default">
                     <span className="text-sm text-text-muted">Couldn't load categories.</span>
                     <button onClick={loadPillCategories} className="text-sm text-primary font-semibold underline">Retry</button>
+                </div>
+            ) : pillCategoriesLoading ? (
+                <div className="md:hidden flex gap-2 px-4 py-3 bg-surface border-b border-border-default min-h-[52px] items-center" aria-hidden>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex-shrink-0 h-9 w-24 rounded-full bg-page-bg animate-pulse" />
+                    ))}
                 </div>
             ) : pillCategories.length > 0 && (
                 <div className="md:hidden flex gap-2 overflow-x-auto scrollbar-hide px-4 py-3 bg-surface border-b border-border-default">
