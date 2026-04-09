@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, ShoppingBag, Wrench, Wallet, GraduationCap, X } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
@@ -36,10 +37,13 @@ const NotificationDropdown = () => {
         markAllAsRead,
     } = useNotifications();
     const navigate = useNavigate();
-    const dropdownRef = useRef(null);
+    const mobileRef = useRef(null);
+    const desktopRef = useRef(null);
 
     const handleClickOutside = useCallback((e) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        const outsideMobile = !mobileRef.current || !mobileRef.current.contains(e.target);
+        const outsideDesktop = !desktopRef.current || !desktopRef.current.contains(e.target);
+        if (outsideMobile && outsideDesktop) {
             setIsOpen(false);
         }
     }, [setIsOpen]);
@@ -71,14 +75,8 @@ const NotificationDropdown = () => {
         }
     };
 
-    return (
+    const innerContent = (
         <>
-        {/* Mobile backdrop */}
-        <div className="fixed inset-0 bg-black/40 z-[59] md:hidden" onClick={() => setIsOpen(false)} />
-        <div
-            ref={dropdownRef}
-            className="fixed inset-x-0 bottom-0 top-auto md:absolute md:inset-auto md:top-full md:right-0 w-full md:w-96 bg-surface border-t md:border border-border-default shadow-card rounded-t-2xl md:rounded-lg md:mt-2 z-[60] md:z-50 flex flex-col max-h-[80dvh] md:max-h-[28rem] overflow-hidden animate-in slide-in-from-bottom-4 md:fade-in md:slide-in-from-top-2 pb-[env(safe-area-inset-bottom,0px)]"
-        >
             {/* Header */}
             <div className="p-3 border-b border-border-default flex justify-between items-center bg-surface-hover rounded-t-lg flex-shrink-0">
                 <span className="font-bold text-sm text-text-primary">Notifications</span>
@@ -163,7 +161,33 @@ const NotificationDropdown = () => {
                     </Link>
                 </div>
             )}
-        </div>
+        </>
+    );
+
+    return (
+        <>
+            {/* Mobile: portal to document.body so backdrop-filter on Navbar ancestors doesn't break fixed positioning */}
+            {createPortal(
+                <>
+                    <div className="fixed inset-0 bg-black/40 z-[59] md:hidden" onClick={() => setIsOpen(false)} />
+                    <div
+                        ref={mobileRef}
+                        className="fixed inset-x-0 bottom-0 top-auto w-full md:hidden bg-surface border-t border-border-default shadow-card rounded-t-2xl z-[60] flex flex-col max-h-[80dvh] overflow-hidden animate-in slide-in-from-bottom-4"
+                        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                    >
+                        {innerContent}
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {/* Desktop: inline absolute positioning relative to bell-button parent */}
+            <div
+                ref={desktopRef}
+                className="hidden md:flex absolute top-full right-0 w-96 bg-surface border border-border-default shadow-card rounded-lg mt-2 z-50 flex-col max-h-[28rem] overflow-hidden animate-in fade-in slide-in-from-top-2"
+            >
+                {innerContent}
+            </div>
         </>
     );
 };

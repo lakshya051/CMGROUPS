@@ -95,6 +95,12 @@ const Cart = () => {
     )
     const hasOutOfStockItems = outOfStockItems.length > 0
 
+    const overStockItems = useMemo(
+        () => cart.filter(item => item.stock != null && item.stock > 0 && item.quantity > item.stock),
+        [cart]
+    )
+    const hasOverStockItems = overStockItems.length > 0
+
     const deliveryProgress = Math.min(100, Math.round((subtotal / FREE_DELIVERY_THRESHOLD) * 100))
     const remainingForFreeDelivery = Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal)
 
@@ -207,6 +213,28 @@ const Cart = () => {
                     <p className="text-sm text-text-secondary mt-xs">
                         Remove them or save them for later before proceeding to checkout.
                     </p>
+                </div>
+            )}
+
+            {hasOverStockItems && (
+                <div className="bg-urgency/10 border border-urgency/30 rounded-lg p-md mb-lg">
+                    <p className="text-sm font-semibold text-urgency">
+                        {overStockItems.length === 1 ? '1 item has' : `${overStockItems.length} items have`} insufficient stock.
+                    </p>
+                    <p className="text-sm text-text-secondary mt-xs">
+                        {overStockItems.map(item => (
+                            <span key={item.uniqueId} className="block">
+                                "{item.title}" — only {item.stock} available (you have {item.quantity} in cart).
+                            </span>
+                        ))}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => overStockItems.forEach(item => handleQuantityChange(item.uniqueId, item.stock))}
+                        className="mt-sm text-sm font-medium text-trust hover:underline"
+                    >
+                        Adjust all to available stock
+                    </button>
                 </div>
             )}
 
@@ -430,21 +458,23 @@ const Cart = () => {
                             <button
                                 type="button"
                                 onClick={() => navigate('/checkout')}
-                                disabled={hasOutOfStockItems}
-                                className={`hidden lg:flex w-full font-bold py-md rounded-lg text-sm items-center justify-center gap-sm transition-colors duration-base ${hasOutOfStockItems
+                                disabled={hasOutOfStockItems || hasOverStockItems}
+                                className={`hidden lg:flex w-full font-bold py-md rounded-lg text-sm items-center justify-center gap-sm transition-colors duration-base ${hasOutOfStockItems || hasOverStockItems
                                     ? 'bg-border-default text-text-muted cursor-not-allowed'
                                     : 'bg-buy-primary hover:bg-buy-primary-hover text-text-primary'
                                     }`}
                             >
                                 {hasOutOfStockItems
                                     ? 'Remove unavailable items to continue'
+                                    : hasOverStockItems
+                                    ? 'Adjust quantities to continue'
                                     : `Proceed to Buy (${totalItems} item${totalItems > 1 ? 's' : ''})`}
                                 <ArrowRight size={16} />
                             </button>
 
                             <p className="text-xs text-center text-text-muted hidden lg:block">
-                                {hasOutOfStockItems
-                                    ? 'Checkout is disabled while unavailable items remain in your cart.'
+                                {hasOutOfStockItems || hasOverStockItems
+                                    ? 'Checkout is disabled while cart items exceed available stock.'
                                     : 'Secure Checkout powered by Shoptify'}
                             </p>
                         </div>
@@ -465,13 +495,13 @@ const Cart = () => {
                         <button
                             type="button"
                             onClick={() => navigate('/checkout')}
-                            disabled={hasOutOfStockItems}
-                            className={`flex-1 min-w-0 max-w-[min(100%,280px)] font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors duration-base touch-manipulation ${hasOutOfStockItems
+                            disabled={hasOutOfStockItems || hasOverStockItems}
+                            className={`flex-1 min-w-0 max-w-[min(100%,280px)] font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors duration-base touch-manipulation ${hasOutOfStockItems || hasOverStockItems
                                 ? 'bg-border-default text-text-muted cursor-not-allowed'
                                 : 'bg-buy-primary hover:bg-buy-primary-hover text-text-primary active:scale-[0.98]'
                                 }`}
                         >
-                            {hasOutOfStockItems ? (
+                            {hasOutOfStockItems || hasOverStockItems ? (
                                 <span className="text-center leading-tight">Fix cart first</span>
                             ) : (
                                 <>
@@ -710,9 +740,10 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
 function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
     const inStock = item.stock == null || item.stock > 0
     const isLowStock = item.stock != null && item.stock > 0 && item.stock < 5
+    const isOverStock = item.stock != null && item.stock > 0 && item.quantity > item.stock
 
     return (
-        <div className={`rounded-lg p-3 sm:p-md border min-w-0 ${inStock ? 'bg-surface border-border-default' : 'bg-deal/5 border-deal/30'}`}>
+        <div className={`rounded-lg p-3 sm:p-md border min-w-0 ${!inStock ? 'bg-deal/5 border-deal/30' : isOverStock ? 'bg-urgency/5 border-urgency/30' : 'bg-surface border-border-default'}`}>
             <div className="flex gap-3 sm:gap-md">
                 <Link
                     to={`/products/${item.id}`}
@@ -758,6 +789,19 @@ function CartItemRow({ item, onQuantityChange, onRemove, onSaveForLater }) {
                                     <p className="text-xs text-text-muted mt-1 leading-snug">
                                         Remove or save for later to checkout.
                                     </p>
+                                </div>
+                            ) : isOverStock ? (
+                                <div className="mt-1.5">
+                                    <p className="text-xs text-urgency font-medium">
+                                        Insufficient stock — only {item.stock} available
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => onQuantityChange(item.uniqueId, item.stock)}
+                                        className="text-xs text-trust font-medium mt-1 hover:underline"
+                                    >
+                                        Adjust to {item.stock}
+                                    </button>
                                 </div>
                             ) : isLowStock ? (
                                 <p className="text-xs text-urgency font-medium mt-1.5">Only {item.stock} left</p>

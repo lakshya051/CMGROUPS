@@ -49,15 +49,49 @@ export const ShopProvider = ({ children }) => {
         }
     });
 
+    const reconcileCartStock = useCallback(async (cartItems) => {
+        const overStockItems = cartItems.filter(
+            item => item.stock != null && item.stock > 0 && item.quantity > item.stock
+        );
+        if (overStockItems.length === 0) return cartItems;
+
+        const adjusted = cartItems.map(item => {
+            if (item.stock != null && item.stock > 0 && item.quantity > item.stock) {
+                return { ...item, quantity: item.stock };
+            }
+            return item;
+        });
+
+        for (const item of overStockItems) {
+            try {
+                await cartAPI.updateItem(
+                    item.productId || item.id,
+                    item.variantId || null,
+                    item.stock,
+                    item.bundleInfo?.bundleInstanceId || ''
+                );
+            } catch (err) {
+                console.error(`Failed to reconcile stock for ${item.title}:`, err);
+            }
+            toast.error(
+                `"${item.title}" adjusted to ${item.stock} — only ${item.stock} available`,
+                { duration: 5000 }
+            );
+        }
+
+        return adjusted;
+    }, []);
+
     const fetchCart = useCallback(async () => {
         if (!user) return;
         try {
             const dbCart = await cartAPI.get();
-            setCart(dbCart);
+            const reconciledCart = await reconcileCartStock(dbCart);
+            setCart(reconciledCart);
         } catch (err) {
             console.error('Failed to fetch cart:', err);
         }
-    }, [user]);
+    }, [user, reconcileCartStock]);
 
     // Fetch cart from DB when user logs in, clear when logged out
     useEffect(() => {
@@ -82,13 +116,15 @@ export const ShopProvider = ({ children }) => {
                 if (localItems.length > 0) {
                     const res = await cartAPI.sync(localItems);
                     if (!cancelled && res.success && res.cart) {
-                        setCart(res.cart);
+                        const reconciled = await reconcileCartStock(res.cart);
+                        setCart(reconciled);
                     }
                     localStorage.removeItem('cart');
                 } else {
                     const dbCart = await cartAPI.get();
                     if (!cancelled) {
-                        setCart(dbCart);
+                        const reconciled = await reconcileCartStock(dbCart);
+                        setCart(reconciled);
                     }
                 }
             } catch (err) {
