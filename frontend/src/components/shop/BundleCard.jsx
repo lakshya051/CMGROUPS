@@ -123,14 +123,14 @@ const BundleCard = ({ bundle, compact = false }) => {
                     <button
                         onClick={handleAddBundle}
                         aria-label="Add bundle to cart"
-                        className="flex-shrink-0 p-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded-lg transition-colors"
+                        className="flex-shrink-0 min-touch bg-buy-primary hover:bg-buy-primary-hover text-text-primary rounded-lg transition-colors"
                     >
                         <ShoppingCart size={16} />
                     </button>
                     <button
                         onClick={handleBuyBundleNow}
                         aria-label="Buy bundle now"
-                        className="flex-shrink-0 p-2 border-2 border-primary text-primary hover:bg-primary hover:text-white rounded-lg transition-colors"
+                        className="flex-shrink-0 min-touch border-2 border-primary text-primary hover:bg-primary hover:text-white rounded-lg transition-colors"
                     >
                         <Zap size={16} />
                     </button>
@@ -151,6 +151,9 @@ const BundleCard = ({ bundle, compact = false }) => {
                                 key={bi.id}
                                 src={getProductImageUrl(bi.product)}
                                 alt={bi.product?.title}
+                                loading="lazy"
+                                width={64}
+                                height={64}
                                 onError={handleImageError}
                                 className="w-16 h-16 object-contain rounded border border-border-default bg-surface p-0.5"
                             />

@@ -74,9 +74,10 @@ const getIcon = (name) => {
     return ICON_MAP[key] || Package;
 };
 
-const CategoryGrid = () => {
-    const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
+const CategoryGrid = ({ initialCategories }) => {
+    const hasInitial = Array.isArray(initialCategories);
+    const [categories, setCategories] = useState(() => hasInitial ? initialCategories : []);
+    const [loading, setLoading] = useState(!hasInitial);
     const [error, setError] = useState(false);
 
     const loadCategories = () => {
@@ -88,7 +89,10 @@ const CategoryGrid = () => {
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { loadCategories(); }, []);
+    useEffect(() => {
+        if (hasInitial) return;
+        loadCategories();
+    }, [hasInitial]);
 
     if (error) {
         return (

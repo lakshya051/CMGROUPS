@@ -5,6 +5,8 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import { AuthProvider } from './context/AuthProvider';
 import { ShopProvider } from './context/ShopProvider';
 import { NotificationProvider } from './context/NotificationContext';
+import { FeatureFlagsProvider } from './context/FeatureFlagsProvider';
+import { useFeatureFlags } from './context/FeatureFlagsContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Toaster } from 'react-hot-toast';
@@ -51,6 +53,7 @@ const FAQ = lazyRetry(() => import('./pages/FAQ'));
 const ContactUs = lazyRetry(() => import('./pages/ContactUs'));
 const SignIn = lazyRetry(() => import('./pages/SignIn'));
 const SignUp = lazyRetry(() => import('./pages/SignUp'));
+const VerifyEmail = lazyRetry(() => import('./pages/VerifyEmail'));
 const Notifications = lazyRetry(() => import('./pages/Notifications'));
 const NotFound = lazyRetry(() => import('./pages/NotFound'));
 
@@ -101,18 +104,32 @@ const AdminBundles = lazyRetry(() => import('./pages/admin/AdminBundles'));
 const AdminBundleTemplates = lazyRetry(() => import('./pages/admin/AdminBundleTemplates'));
 const AdminSheetsSync = lazyRetry(() => import('./pages/admin/AdminSheetsSync'));
 const AdminNotifications = lazyRetry(() => import('./pages/admin/AdminNotifications'));
+const AdminSettings = lazyRetry(() => import('./pages/admin/AdminSettings'));
+
+// When bundles are turned off, every public/admin /bundles* URL needs to
+// redirect somewhere sensible rather than render a half-broken page or 404.
+// Public bundle pages → the products listing (closest equivalent UX).
+// Admin bundle pages → /admin/settings so the admin can flip the toggle back
+// on, with an explicit message about why they were redirected.
+const BundlesGate = ({ children, fallback }) => {
+    const { bundlesEnabled, loading } = useFeatureFlags();
+    if (loading) return null;
+    if (!bundlesEnabled) return fallback;
+    return children;
+};
 
 function App() {
     return (
         <AuthProvider>
-            <NotificationProvider>
-                <ShopProvider>
-                    <PushNotificationsBridge />
-                    <Toaster position="top-center" />
-                    <CompareWidget />
-                    <InstallPromptBanner />
-                    <IOSInstallPrompt />
-                    <Suspense fallback={<PageLoader />}>
+            <FeatureFlagsProvider>
+                <NotificationProvider>
+                    <ShopProvider>
+                        <PushNotificationsBridge />
+                        <Toaster position="top-center" />
+                        <CompareWidget />
+                        <InstallPromptBanner />
+                        <IOSInstallPrompt />
+                        <Suspense fallback={<PageLoader />}>
                         <Routes>
                             {/* Public Routes */}
                             <Route path="/" element={<ErrorBoundary><SharedLayout /></ErrorBoundary>}>
@@ -121,8 +138,16 @@ function App() {
                                 <Route path="products" element={<Products />} />
                                 <Route path="products/category/:slug" element={<CategoryPage />} />
                                 <Route path="products/:id" element={<ProductDetail />} />
-                                <Route path="bundles" element={<Bundles />} />
-                                <Route path="bundles/:idOrSlug" element={<BundleDetail />} />
+                                <Route path="bundles" element={
+                                    <BundlesGate fallback={<Navigate to="/products" replace />}>
+                                        <Bundles />
+                                    </BundlesGate>
+                                } />
+                                <Route path="bundles/:idOrSlug" element={
+                                    <BundlesGate fallback={<Navigate to="/products" replace />}>
+                                        <BundleDetail />
+                                    </BundlesGate>
+                                } />
                                 <Route path="cart" element={<Cart />} />
                                 <Route path="wishlist" element={<Wishlist />} />
                                 <Route path="compare" element={<Compare />} />
@@ -188,16 +213,26 @@ function App() {
                                 <Route path="tally-enquiries" element={<AdminTallyEnquiries />} />
                                 <Route path="cctv-enquiries" element={<AdminCCTVEnquiries />} />
                                 <Route path="banners" element={<AdminBanners />} />
-                                <Route path="bundles" element={<AdminBundles />} />
-                                <Route path="bundle-templates" element={<AdminBundleTemplates />} />
+                                <Route path="bundles" element={
+                                    <BundlesGate fallback={<Navigate to="/admin/settings" replace />}>
+                                        <AdminBundles />
+                                    </BundlesGate>
+                                } />
+                                <Route path="bundle-templates" element={
+                                    <BundlesGate fallback={<Navigate to="/admin/settings" replace />}>
+                                        <AdminBundleTemplates />
+                                    </BundlesGate>
+                                } />
                                 <Route path="sheets" element={<AdminSheetsSync />} />
                                 <Route path="notifications" element={<AdminNotifications />} />
+                                <Route path="settings" element={<AdminSettings />} />
                                 <Route path="audit-log" element={<AdminAuditLog />} />
                             </Route>
 
                             {/* Auth */}
                             <Route path="/sign-in" element={<SignIn />} />
                             <Route path="/sign-up" element={<SignUp />} />
+                            <Route path="/verify-email" element={<VerifyEmail />} />
                             <Route path="/onboarding" element={<OnboardingPage />} />
 
                             {/* 404 catch-all */}
@@ -205,9 +240,10 @@ function App() {
                                 <Route path="*" element={<NotFound />} />
                             </Route>
                         </Routes>
-                    </Suspense>
-                </ShopProvider>
-            </NotificationProvider>
+                        </Suspense>
+                    </ShopProvider>
+                </NotificationProvider>
+            </FeatureFlagsProvider>
         </AuthProvider>
     );
 }

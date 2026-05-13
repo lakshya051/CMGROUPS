@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 
 const SOCIAL_LINKS = [
     { Icon: Facebook, url: 'https://facebook.com/cmgroups', label: 'Facebook' },
@@ -10,23 +11,34 @@ const SOCIAL_LINKS = [
 ];
 
 const Footer = () => {
+    const { bundlesEnabled } = useFeatureFlags();
+    const supportLinks = [
+        { name: 'Help Center / FAQ', path: '/faq' },
+        { name: 'Contact Us', path: '/contact' },
+        ...(bundlesEnabled ? [{ name: 'Bundle Deals', path: '/bundles' }] : []),
+        { name: 'Repair Services', path: '/services' },
+        { name: 'CCTV Security', path: '/cctv' },
+        { name: 'Academy', path: '/courses' },
+        { name: 'Track Order', path: '/dashboard/orders' },
+        { name: 'My Account', path: '/dashboard' },
+    ];
     return (
         <footer className="bg-surface border-t border-border-default mt-auto">
             {/* Mobile condensed footer */}
             <div className="md:hidden px-4 py-6 space-y-4">
                 <div className="flex justify-center gap-3">
                     {SOCIAL_LINKS.map(({ Icon, url, label }) => (
-                        <a key={url} href={url} target="_blank" rel="noopener noreferrer" aria-label={label} className="w-9 h-9 rounded-lg bg-page-bg border border-border-default hover:bg-primary/20 hover:text-primary hover:border-transparent flex items-center justify-center text-text-muted transition-colors">
-                            <Icon size={16} />
+                        <a key={url} href={url} target="_blank" rel="noopener noreferrer" aria-label={label} className="min-touch rounded-lg bg-page-bg border border-border-default hover:bg-primary/20 hover:text-primary hover:border-transparent text-text-muted transition-colors">
+                            <Icon size={18} />
                         </a>
                     ))}
                 </div>
-                <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-text-muted">
-                    <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy</Link>
-                    <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms</Link>
-                    <Link to="/refund-policy" className="hover:text-primary transition-colors">Refunds</Link>
-                    <Link to="/contact" className="hover:text-primary transition-colors">Contact</Link>
-                    <Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link>
+                <div className="flex flex-wrap justify-center gap-x-1 gap-y-1 text-xs text-text-muted">
+                    <Link to="/privacy-policy" className="min-h-11 inline-flex items-center px-3 hover:text-primary transition-colors">Privacy</Link>
+                    <Link to="/terms-of-service" className="min-h-11 inline-flex items-center px-3 hover:text-primary transition-colors">Terms</Link>
+                    <Link to="/refund-policy" className="min-h-11 inline-flex items-center px-3 hover:text-primary transition-colors">Refunds</Link>
+                    <Link to="/contact" className="min-h-11 inline-flex items-center px-3 hover:text-primary transition-colors">Contact</Link>
+                    <Link to="/faq" className="min-h-11 inline-flex items-center px-3 hover:text-primary transition-colors">FAQ</Link>
                 </div>
                 <p className="text-center text-[11px] text-text-muted">&copy; 2026 Shoptify by CMGroups</p>
             </div>
@@ -75,16 +87,7 @@ const Footer = () => {
                         <div>
                             <h4 className="font-bold mb-4 text-sm uppercase tracking-wider text-text-muted">Support</h4>
                             <ul className="space-y-2 text-sm">
-                                {[
-                                    { name: 'Help Center / FAQ', path: '/faq' },
-                                    { name: 'Contact Us', path: '/contact' },
-                                    { name: 'Bundle Deals', path: '/bundles' },
-                                    { name: 'Repair Services', path: '/services' },
-                                    { name: 'CCTV Security', path: '/cctv' },
-                                    { name: 'Academy', path: '/courses' },
-                                    { name: 'Track Order', path: '/dashboard/orders' },
-                                    { name: 'My Account', path: '/dashboard' },
-                                ].map(link => (
+                                {supportLinks.map(link => (
                                     <li key={link.path}>
                                         <Link to={link.path} className="text-text-muted hover:text-primary transition-colors">
                                             {link.name}

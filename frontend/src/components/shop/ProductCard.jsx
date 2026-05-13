@@ -116,7 +116,7 @@ const ProductCard = ({ product }) => {
                 {/* Wishlist Button */}
                 <button
                     onClick={handleWishlistToggle}
-                    className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-colors z-10 ${isWishlisted ? 'bg-primary/20 text-primary' : 'bg-black/20 text-text-main hover:bg-primary hover:text-text-main'}`}
+                    className={`absolute top-2 right-2 min-touch rounded-full backdrop-blur-md transition-colors z-10 ${isWishlisted ? 'bg-primary/20 text-primary' : 'bg-black/20 text-text-main hover:bg-primary hover:text-text-main'}`}
                     aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                 >
                     <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
@@ -148,8 +148,8 @@ const ProductCard = ({ product }) => {
                     <span className="text-[10px] sm:text-xs font-medium text-primary bg-primary/10 px-1.5 sm:px-2 py-0.5 rounded border border-primary/20 truncate max-w-[65%]">
                         {product.category}
                     </span>
-                    <div className="flex items-center gap-0.5 text-warning text-[10px] sm:text-xs shrink-0">
-                        <Star size={10} fill="currentColor" />
+                    <div className="flex items-center gap-0.5 text-warning text-xs shrink-0">
+                        <Star size={12} fill="currentColor" />
                         <span>{product.rating}</span>
                     </div>
                 </div>
@@ -159,7 +159,7 @@ const ProductCard = ({ product }) => {
                         {product.title}
                     </h3>
                     {(isVariableProduct || hasMultipleVariants) && (
-                        <span className="hidden sm:inline-block mt-1 text-[10px] font-medium text-text-muted">
+                        <span className="inline-block mt-1 text-[10px] sm:text-[11px] font-medium text-text-muted">
                             Multiple options available
                         </span>
                     )}
@@ -196,7 +196,7 @@ const ProductCard = ({ product }) => {
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <button
-                            className="hidden sm:flex rounded-full h-10 w-10 p-0 items-center justify-center border border-border-default text-text-muted hover:text-primary hover:border-primary shrink-0 transition-colors"
+                            className="hidden sm:flex rounded-full min-touch p-0 border border-border-default text-text-muted hover:text-primary hover:border-primary shrink-0 transition-colors"
                             onClick={handleCompare}
                             aria-label="Compare product"
                         >
@@ -205,7 +205,7 @@ const ProductCard = ({ product }) => {
                         <Button
                             size="sm"
                             disabled={isOutOfStock && !isVariableProduct && !hasMultipleVariants}
-                            className={`rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 flex items-center justify-center shrink-0 ${
+                            className={`rounded-full min-touch p-0 shrink-0 ${
                                 isOutOfStock && !isVariableProduct && !hasMultipleVariants
                                     ? 'bg-border-default text-text-muted cursor-not-allowed'
                                     : (isOutOfStock && (isVariableProduct || hasMultipleVariants))
@@ -219,7 +219,7 @@ const ProductCard = ({ product }) => {
                         </Button>
                         <button
                             disabled={isOutOfStock && !isVariableProduct && !hasMultipleVariants}
-                            className={`rounded-full h-8 w-8 sm:h-10 sm:w-10 p-0 flex items-center justify-center shrink-0 border-2 transition-colors ${
+                            className={`rounded-full min-touch p-0 shrink-0 border-2 transition-colors ${
                                 isOutOfStock && !isVariableProduct && !hasMultipleVariants
                                     ? 'border-border-default text-text-muted cursor-not-allowed opacity-50'
                                     : 'border-primary text-primary hover:bg-primary hover:text-white'

@@ -34,7 +34,7 @@ router.post('/sync/:sheetName', protect, adminOnly, async (req, res) => {
 router.post('/import/products', protect, adminOnly, async (req, res) => {
     try {
         const result = await importProductsFromSheet();
-        if (result.productsUpdated > 0 || result.variantsUpdated > 0) cache.delByPrefix('products:');
+        if (result.productsUpdated > 0 || result.variantsUpdated > 0) cache.bustWithHome('products:');
         res.json({
             success: true,
             productsUpdated: result.productsUpdated,

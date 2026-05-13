@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
 import { protect } from '../middleware/auth.js';
+import { addressWriteLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // POST /api/addresses — save a new address for the logged-in user
-router.post('/', protect, async (req, res) => {
+router.post('/', addressWriteLimiter, protect, async (req, res) => {
     try {
         const { label, address, city, pincode, phone, latitude, longitude, googleMapLink } = req.body;
 
@@ -63,7 +64,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // DELETE /api/addresses/:id — delete an address that belongs to the logged-in user
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', addressWriteLimiter, protect, async (req, res) => {
     try {
         const { id } = req.params;
 

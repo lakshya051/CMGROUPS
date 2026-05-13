@@ -786,6 +786,22 @@ router.post('/:id/verify-otp', protect, async (req, res) => {
             select: BOOKING_SAFE_SELECT
         });
 
+        // M3: admins are allowed to verify on the customer's behalf (field
+        // technician workflow), but we audit-log each admin-override so any
+        // abuse is traceable.
+        if (req.user.role === 'admin' && booking.userId !== req.user.id) {
+            prisma.auditLog.create({
+                data: {
+                    userId: req.user.id,
+                    action: 'SERVICE_OTP_VERIFY_ADMIN',
+                    entity: 'ServiceBooking',
+                    entityId: String(bookingId),
+                    details: { onBehalfOfUserId: booking.userId, technicianId: booking.technicianId ?? null },
+                    ipAddress: req.ip,
+                },
+            }).catch((err) => console.error('Audit log (service OTP verify) failed:', err));
+        }
+
         res.json({ success: true, message: 'OTP verified. Booking is now In Progress.', booking: updated });
 
         const notifyBooking = { ...updated, user: booking.user };

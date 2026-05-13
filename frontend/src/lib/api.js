@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { API_BASE } from './config';
 
 let _tokenGetter = null;
 
@@ -16,7 +16,18 @@ const getAuthHeaders = async () => {
 
 export { getAuthHeaders };
 
-const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 } = {}) => {
+const apiFetch = async (endpoint, options = {}, fetchOpts = {}) => {
+    // Default timeout 8s (down from 15s) so failed reads don't pile up behind a 5s Prisma timeout.
+    // Default retries are now method-aware:
+    //   - GET / HEAD / OPTIONS    → 1 retry, ONLY on network/timeout errors.
+    //                               A clean 5xx body means the server already failed deliberately;
+    //                               retrying just amplifies the outage on the backend.
+    //   - POST / PUT / PATCH / DELETE → 0 retries by default (writes are not safe to repeat).
+    // Callers can opt in to more retries explicitly when the operation is idempotent.
+    const method = (options.method || 'GET').toUpperCase();
+    const isReadOnly = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+    const { timeout = 8000, retries = isReadOnly ? 2 : 1 } = fetchOpts;
+
     const callerSignal = options.signal;
     let lastError;
 
@@ -61,19 +72,24 @@ const apiFetch = async (endpoint, options = {}, { timeout = 15000, retries = 3 }
 
             if (callerSignal?.aborted) throw new Error('Request cancelled');
 
-            if (err.name === 'AbortError') {
+            const isTimeout = err.name === 'AbortError';
+            if (isTimeout) {
                 lastError = new Error('Request timed out');
                 lastError.isTimeout = true;
-                throw lastError;
             } else {
                 lastError = err;
             }
 
-            const isRetryable = !err.status || err.status >= 500;
-            if (!isRetryable) throw err;
+            // Only retry on network errors (no `err.status`) or timeouts. Do NOT retry on a clean
+            // 5xx body — the server got the request, did work, and decided it failed. Retrying
+            // wastes the user's time and amplifies load on a struggling backend.
+            const isNetworkError = !err.status && !isTimeout;
+            const isRetryable = isNetworkError || isTimeout;
+            if (!isRetryable) throw lastError;
+
             if (attempt < retries - 1) {
                 if (callerSignal?.aborted) throw new Error('Request cancelled');
-                await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+                await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
                 if (callerSignal?.aborted) throw new Error('Request cancelled');
             }
         }
@@ -194,13 +210,44 @@ export const productsAPI = {
 
 // ============ ORDERS ============
 export const ordersAPI = {
-    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, discountAmount = 0, latitude = null, longitude = null, googleMapLink = null, giftWrap = false, giftMessage = null, bundleServiceSchedules = null, serviceOnlyBundles = null) =>
-        apiFetch('/orders', {
+    // H6: line-item prices and discount amounts are authoritative on the server.
+    // We strip item.price from the payload so the server cannot accidentally
+    // trust client prices, and we omit discountAmount entirely — the server
+    // recomputes the coupon discount from DB. `total` is still sent for the
+    // server-side consistency check (it rejects mismatches outright).
+    place: (items, total, paymentMethod = 'pay_at_store', shippingAddress = null, referralCode = null, useWallet = false, walletUsed = 0, couponCode = null, _discountAmount = 0, latitude = null, longitude = null, googleMapLink = null, giftWrap = false, giftMessage = null, bundleServiceSchedules = null, serviceOnlyBundles = null) => {
+        const safeItems = Array.isArray(items)
+            ? items.map(({ productId, variantId, quantity, bundleId, bundleInstanceId }) => ({
+                productId,
+                variantId: variantId || null,
+                quantity,
+                bundleId: bundleId || null,
+                bundleInstanceId: bundleInstanceId || null,
+            }))
+            : items;
+        return apiFetch('/orders', {
             method: 'POST',
-            body: JSON.stringify({ items, total, paymentMethod, shippingAddress, referralCode, useWallet, walletUsed, couponCode, discountAmount, latitude, longitude, googleMapLink, giftWrap, giftMessage, bundleServiceSchedules, serviceOnlyBundles })
-        }),
+            body: JSON.stringify({
+                items: safeItems,
+                total,
+                paymentMethod,
+                shippingAddress,
+                referralCode,
+                useWallet,
+                walletUsed,
+                couponCode,
+                latitude,
+                longitude,
+                googleMapLink,
+                giftWrap,
+                giftMessage,
+                bundleServiceSchedules,
+                serviceOnlyBundles,
+            }),
+        });
+    },
 
-    getById: (id) => apiFetch(`/orders/detail/${id}`),
+    getById: (id, options = {}) => apiFetch(`/orders/detail/${id}`, options),
 
     getMyOrders: (params = {}) => {
         const query = new URLSearchParams(
@@ -321,7 +368,12 @@ export const wishlistAPI = {
     get: () => apiFetch('/wishlist'),
     add: (productId) => apiFetch(`/wishlist/${productId}`, { method: 'POST' }),
     remove: (productId) => apiFetch(`/wishlist/${productId}`, { method: 'DELETE' }),
-    clear: () => apiFetch('/wishlist', { method: 'DELETE' })
+    clear: () => apiFetch('/wishlist', { method: 'DELETE' }),
+    // H7: merges a local (guest) wishlist into the server wishlist instead of replacing it.
+    merge: (productIds) => apiFetch('/wishlist/merge', {
+        method: 'POST',
+        body: JSON.stringify({ productIds })
+    })
 };
 
 export const alertsAPI = {
@@ -725,5 +777,31 @@ export const referralsAPI = {
         apiFetch('/referrals/apply-wallet', {
             method: 'POST',
             body: JSON.stringify({ amount })
-        })
+        }),
+
+    // Public referral settings (reward amounts) for customer-facing copy.
+    getPublicSettings: () => apiFetch('/referrals/public-settings'),
 };
+
+// ============ HOME BOOTSTRAP ============
+// Single endpoint that returns every dataset the homepage needs in one round-trip.
+// Cuts cold-load network requests from 9 → 1 and lets a single backend cache
+// entry serve all downstream components consistently.
+export const homeAPI = {
+    getBootstrap: () => apiFetch('/home-bootstrap'),
+};
+
+// ============ FEATURE FLAGS ============
+// Public read decides what surfaces the SPA renders (e.g. Bundles nav, BYOB
+// section, admin sidebar entries). Admin endpoints live under /admin and
+// require an admin token.
+export const featureFlagsAPI = {
+    getPublic: () => apiFetch('/feature-flags'),
+    getAdmin: () => apiFetch('/admin/feature-flags'),
+    update: (data) =>
+        apiFetch('/admin/feature-flags', {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        }),
+};
+

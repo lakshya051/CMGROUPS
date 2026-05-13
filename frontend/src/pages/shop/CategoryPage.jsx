@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSEO } from '../../hooks/useSEO';
 import { categoriesAPI, productsAPI, bundlesAPI } from '../../lib/api';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 import ProductCard from '../../components/shop/ProductCard';
 import BundleCard from '../../components/shop/BundleCard';
 import { ArrowLeft, Layers } from 'lucide-react';
 
 export default function CategoryPage() {
     const { slug } = useParams();
+    const { bundlesEnabled } = useFeatureFlags();
     const [category, setCategory] = useState(null);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -34,12 +36,16 @@ export default function CategoryPage() {
             .catch(() => { if (!cancelled) setError('Category not found'); })
             .finally(() => { if (!cancelled) setLoading(false); });
 
-        bundlesAPI.getAll()
-            .then(b => { if (!cancelled) setAllBundles(b || []); })
-            .catch(() => { if (!cancelled) setAllBundles([]); });
+        if (bundlesEnabled) {
+            bundlesAPI.getAll()
+                .then(b => { if (!cancelled) setAllBundles(b || []); })
+                .catch(() => { if (!cancelled) setAllBundles([]); });
+        } else {
+            setAllBundles([]);
+        }
 
         return () => { cancelled = true; };
-    }, [slug]);
+    }, [slug, bundlesEnabled]);
 
     const categoryBundles = useMemo(() => {
         if (!category || !allBundles.length) return [];
@@ -96,8 +102,8 @@ export default function CategoryPage() {
                 </div>
             </div>
 
-            {/* Category Bundles */}
-            {categoryBundles.length > 0 && (
+            {/* Category Bundles — gated behind admin toggle */}
+            {bundlesEnabled && categoryBundles.length > 0 && (
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="text-base font-bold text-text-primary flex items-center gap-2">

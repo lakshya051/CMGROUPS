@@ -7,6 +7,7 @@ import PointsBadge from '../ui/PointsBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useShop } from '../../context/ShopContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 import { categoriesAPI } from '../../lib/api';
 import NotificationDropdown from '../notifications/NotificationDropdown';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
@@ -20,7 +21,7 @@ const DELIVERY_AREA_LABEL = `${DEFAULT_DELIVERY_CITY}, ${DEFAULT_DELIVERY_STATE}
 const Navbar = () => {
     const [categories, setCategories] = useState([]);
     const [showCatMenu, setShowCatMenu] = useState(false);
-    const [searchCategory, setSearchCategory] = useState('all');
+    const [searchCategory, setSearchCategory] = useState('products');
     const location = useLocation();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -28,6 +29,7 @@ const Navbar = () => {
     const { user, logout, isSignedIn } = useAuth();
     const { cart } = useShop();
     const { unreadCount, toggleOpen } = useNotifications();
+    const { bundlesEnabled } = useFeatureFlags();
     const { canInstall, install, isInstalled } = useInstallPrompt();
     const accountRef = useRef(null);
 
@@ -41,14 +43,9 @@ const Navbar = () => {
     }, [searchParams]);
 
     const currentSearchContext = useMemo(() => {
-        const cat = SEARCH_CATEGORIES.find(c => c.value === searchCategory);
-        if (searchCategory === 'all') {
-            if (location.pathname.startsWith('/courses')) return { path: '/courses', placeholder: 'Search courses...' };
-            if (location.pathname.startsWith('/services')) return { path: '/services', placeholder: 'Search services...' };
-            return { path: '/products', placeholder: 'Search Shoptify...' };
-        }
-        return { path: cat?.path || '/products', placeholder: `Search ${cat?.label.toLowerCase()}...` };
-    }, [location.pathname, searchCategory]);
+        const cat = SEARCH_CATEGORIES.find(c => c.value === searchCategory) || SEARCH_CATEGORIES[0];
+        return { path: cat.path, placeholder: `Search ${cat.label.toLowerCase()}...` };
+    }, [searchCategory]);
 
     const handleSearch = useCallback((e) => {
         e.preventDefault();
@@ -101,7 +98,7 @@ const Navbar = () => {
         <header className="fixed safe-top-offset top-0 left-0 right-0 z-50">
             {/* ═══════════ MOBILE ═══════════ */}
             <div className="md:hidden flex flex-col bg-background/80 backdrop-blur-lg border-b border-border-default">
-                {/* Row 1: Logo + Bell */}
+                {/* Row 1: Logo + Bell + Cart */}
                 <div className="flex items-center justify-between h-14 px-4">
                     <Link to="/" className="text-xl font-heading font-bold text-text-primary">
                         Shopt<span className="text-trust">ify</span>
@@ -111,7 +108,7 @@ const Navbar = () => {
                         {user && (
                             <div className="relative">
                                 <button
-                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust"
+                                    className="min-touch rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust relative"
                                     onClick={toggleOpen}
                                     aria-label="Notifications"
                                 >
@@ -125,6 +122,18 @@ const Navbar = () => {
                                 <NotificationDropdown />
                             </div>
                         )}
+                        <Link
+                            to="/cart"
+                            className="min-touch rounded-full text-text-secondary transition-colors hover:bg-surface-hover hover:text-trust relative"
+                            aria-label={`Cart${cartCount > 0 ? `, ${cartCount} item${cartCount === 1 ? '' : 's'}` : ''}`}
+                        >
+                            <ShoppingCart size={20} />
+                            {cartCount > 0 && (
+                                <span className="absolute top-1.5 right-1.5 h-4 min-w-[1rem] px-0.5 bg-trust text-[10px] text-white flex items-center justify-center rounded-full">
+                                    {cartCount > 9 ? '9+' : cartCount}
+                                </span>
+                            )}
+                        </Link>
                     </div>
                 </div>
 
@@ -135,7 +144,7 @@ const Navbar = () => {
                 <Link
                     to={user ? '/dashboard/settings' : '/sign-in'}
                     title={user ? 'Manage address in settings' : 'Sign in to save your address'}
-                    className="flex items-center gap-1.5 px-4 py-1.5 bg-page-bg border-t border-border-default hover:bg-surface-hover transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-3 min-h-11 bg-page-bg border-t border-border-default hover:bg-surface-hover transition-colors"
                 >
                     <MapPin size={14} className="text-text-secondary flex-shrink-0" />
                     <span className="text-xs text-text-secondary truncate">
@@ -253,7 +262,9 @@ const Navbar = () => {
                             </div>
 
                             <div className="flex flex-1 min-w-0 items-center gap-1 overflow-x-auto [&::-webkit-scrollbar]:h-1.5">
-                                <NavLink to="/bundles" label="Bundles" active={isActive('/bundles')} />
+                                {bundlesEnabled && (
+                                    <NavLink to="/bundles" label="Bundles" active={isActive('/bundles')} />
+                                )}
                                 <NavLink to="/services" label="Services" active={isActive('/services')} />
                                 <NavLink to="/courses" label="Academy" active={isActive('/courses')} />
                                 <NavLink to="/tally-erp" label="Tally Prime" active={isActive('/tally-erp')} />

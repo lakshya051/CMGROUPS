@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { bundlesAPI } from '../lib/api';
 import BundleCard from '../components/shop/BundleCard';
 import { useSEO } from '../hooks/useSEO';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import {
     BellRing, Camera, CheckCircle, ChevronDown, ChevronUp, Factory, Home, MapPin,
     MessageCircle, MonitorSmartphone, MoonStar, Phone, School, ShieldCheck, Store, Video, Wifi, Wrench
@@ -9,8 +10,8 @@ import {
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import { StarRating } from '../components/ui';
+import { API_BASE } from '../lib/config';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const CITY = 'Etah';
 const WA_NUMBER = '918171838388'; // TODO: Replace with actual CMGroups WhatsApp business number
 const WA_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Hi, I need CCTV installation in Etah. Please share package details and site visit timings.')}`;
@@ -78,11 +79,13 @@ const FAQItem = ({ q, a }) => {
 };
 
 const CCTVBundleSection = () => {
+    const { bundlesEnabled } = useFeatureFlags();
     const [bundles, setBundles] = useState([]);
     useEffect(() => {
+        if (!bundlesEnabled) { setBundles([]); return; }
         bundlesAPI.getAll({ displayOn: 'cctv' }).then(setBundles).catch(() => {});
-    }, []);
-    if (bundles.length === 0) return null;
+    }, [bundlesEnabled]);
+    if (!bundlesEnabled || bundles.length === 0) return null;
     return (
         <section className="py-xl px-lg bg-surface">
             <div className="container mx-auto max-w-6xl">

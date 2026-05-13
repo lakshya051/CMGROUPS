@@ -1,23 +1,24 @@
 import express from 'express';
-import prisma from '../lib/prisma.js';
+import prisma, { isDatabaseUnavailable } from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { logAudit } from '../utils/auditLog.js';
 
 const router = express.Router();
 
-// GET /api/categories - List all categories (Public)
+const CACHE_KEY = 'categories:all';
+const FRESH_TTL = 300;
+const STALE_TTL = 900;
+
+// GET /api/categories - List all categories (Public). Stale-while-revalidate.
 router.get('/', async (req, res) => {
     try {
-        const cached = cache.get('categories:all');
-        if (cached) return res.json(cached);
-
-        const categories = await prisma.category.findMany({
-            orderBy: { name: 'asc' }
-        });
-        cache.set('categories:all', categories, 300);
+        const categories = await cache.getOrRefresh(CACHE_KEY, FRESH_TTL, STALE_TTL, () =>
+            prisma.category.findMany({ orderBy: { name: 'asc' } }),
+        );
         res.json(categories);
     } catch (error) {
+        if (isDatabaseUnavailable(error)) return res.json([]);
         console.error('Get categories error:', error);
         res.status(500).json({ error: 'Server error' });
     }
@@ -60,7 +61,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
             data: { name, slug, image, description }
         });
 
-        cache.delByPrefix('categories:');
+        cache.bustWithHome('categories:');
 
         logAudit({
             userId: req.user.id, action: 'CREATE', entity: 'Category', entityId: category.id,
@@ -80,19 +81,19 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
 // ============ SERVICE TYPES ============
 
-// GET /api/categories/service-types - List all active service types (Public)
+// GET /api/categories/service-types - List all active service types (Public).
+// Stale-while-revalidate so the homepage doesn't block on a slow DB.
 router.get('/service-types', async (req, res) => {
     try {
-        const cached = cache.get('serviceTypes:active');
-        if (cached) return res.json(cached);
-
-        const serviceTypes = await prisma.serviceType.findMany({
-            where: { active: true },
-            orderBy: { createdAt: 'asc' }
-        });
-        cache.set('serviceTypes:active', serviceTypes, 300);
+        const serviceTypes = await cache.getOrRefresh('serviceTypes:active', 300, 900, () =>
+            prisma.serviceType.findMany({
+                where: { active: true },
+                orderBy: { createdAt: 'asc' },
+            }),
+        );
         res.json(serviceTypes);
     } catch (error) {
+        if (isDatabaseUnavailable(error)) return res.json([]);
         console.error('Get service types error:', error);
         res.status(500).json({ error: 'Server error' });
     }
@@ -134,7 +135,7 @@ router.post('/service-types', protect, adminOnly, async (req, res) => {
             }
         });
 
-        cache.delByPrefix('serviceTypes:');
+        cache.bustWithHome('serviceTypes:');
 
         logAudit({
             userId: req.user.id, action: 'CREATE', entity: 'ServiceType', entityId: serviceType.id,
@@ -175,7 +176,7 @@ router.put('/service-types/:id', protect, adminOnly, async (req, res) => {
             data
         });
 
-        cache.delByPrefix('serviceTypes:');
+        cache.bustWithHome('serviceTypes:');
 
         logAudit({
             userId: req.user.id, action: 'UPDATE', entity: 'ServiceType', entityId: stId,
@@ -198,7 +199,7 @@ router.delete('/service-types/:id', protect, adminOnly, async (req, res) => {
     try {
         const stId = parseInt(req.params.id);
         await prisma.serviceType.delete({ where: { id: stId } });
-        cache.delByPrefix('serviceTypes:');
+        cache.bustWithHome('serviceTypes:');
 
         logAudit({
             userId: req.user.id, action: 'DELETE', entity: 'ServiceType', entityId: stId, req,
@@ -217,7 +218,7 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
         const catId = parseInt(req.params.id);
         await prisma.category.delete({ where: { id: catId } });
-        cache.delByPrefix('categories:');
+        cache.bustWithHome('categories:');
 
         logAudit({
             userId: req.user.id, action: 'DELETE', entity: 'Category', entityId: catId, req,

@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useShop } from '../../context/ShopContext';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 import { alertsAPI, productsAPI } from '../../lib/api';
 import Button from '../../components/ui/Button';
 import PriceDisplay from '../../components/common/PriceDisplay';
-import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight, Award, Zap, Truck, ShieldCheck } from 'lucide-react';
+import { QuantitySelector } from '../../components/ui/index';
+import { Star, ShoppingCart, Heart, ArrowLeft, CheckCircle, Bell, TrendingDown, ArrowLeftRight, Award, Zap, Truck, ShieldCheck, X, ZoomIn } from 'lucide-react';
 import ReviewSection from '../../components/shop/ReviewSection';
 import FrequentlyBoughtTogether from '../../components/shop/FrequentlyBoughtTogether';
 import QuantityTierDisplay from '../../components/shop/QuantityTierDisplay';
@@ -19,6 +21,7 @@ const ProductDetail = () => {
     const { id } = useParams();
     const { addToCart, toggleWishlist, wishlist, addToCompare, initBuyNow } = useShop();
     const { user } = useAuth();
+    const { bundlesEnabled } = useFeatureFlags();
     const navigate = useNavigate();
 
     const [product, setProduct] = useState(null);
@@ -31,6 +34,9 @@ const ProductDetail = () => {
     const [isPriceAlertSet, setIsPriceAlertSet] = useState(false);
     const [shake, setShake] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+    const [quantity, setQuantity] = useState(1);
+    const [isZoomOpen, setIsZoomOpen] = useState(false);
+    const galleryRef = useRef(null);
     const { items: recentlyViewed, save: saveToRecentlyViewed } = useRecentlyViewed(id);
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [productBundles, setProductBundles] = useState([]);
@@ -54,11 +60,15 @@ const ProductDetail = () => {
         productsAPI.getRelated(id)
             .then(data => { if (!cancelled) setRelatedProducts(data); })
             .catch(() => { if (!cancelled) setRelatedProducts([]); });
-        bundlesAPI.getForProduct(id)
-            .then(data => { if (!cancelled) setProductBundles(data); })
-            .catch(() => { if (!cancelled) setProductBundles([]); });
+        if (bundlesEnabled) {
+            bundlesAPI.getForProduct(id)
+                .then(data => { if (!cancelled) setProductBundles(data); })
+                .catch(() => { if (!cancelled) setProductBundles([]); });
+        } else {
+            setProductBundles([]);
+        }
         return () => { cancelled = true; };
-    }, [id]);
+    }, [id, bundlesEnabled]);
 
     useEffect(() => {
         if (!user || !product) return;
@@ -216,7 +226,7 @@ const ProductDetail = () => {
             }
             if (selectedVariant.stock <= 0) return;
             setErrorMsg("");
-            addToCart(product, 1, selectedVariant);
+            addToCart(product, quantity, selectedVariant);
             return;
         }
 
@@ -229,7 +239,7 @@ const ProductDetail = () => {
         if (isCurrentlyOutOfStock) return;
         setErrorMsg("");
         const variantToAdd = hasMultipleVariants ? selectedVariant : (hasSingleVariant ? variants[0] : null);
-        addToCart(product, 1, variantToAdd);
+        addToCart(product, quantity, variantToAdd);
     };
 
     const handleBuyNow = () => {
@@ -248,7 +258,7 @@ const ProductDetail = () => {
             }
             if (selectedVariant.stock <= 0) return;
             setErrorMsg("");
-            if (initBuyNow(product, 1, selectedVariant)) {
+            if (initBuyNow(product, quantity, selectedVariant)) {
                 navigate('/checkout', { state: { buyNow: true } });
             }
             return;
@@ -263,7 +273,7 @@ const ProductDetail = () => {
         if (isCurrentlyOutOfStock) return;
         setErrorMsg("");
         const variantToAdd = hasMultipleVariants ? selectedVariant : (hasSingleVariant ? variants[0] : null);
-        if (initBuyNow(product, 1, variantToAdd)) {
+        if (initBuyNow(product, quantity, variantToAdd)) {
             navigate('/checkout', { state: { buyNow: true } });
         }
     };
@@ -277,49 +287,134 @@ const ProductDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
                 {/* Image Section */}
                 <div className="flex flex-col gap-3">
-                    <div className="bg-surface rounded-lg p-xl flex items-center justify-center border border-border-default relative shadow-sm">
-                        <img
-                            src={getProductImageUrl(product, activeImageIdx)}
-                            alt={product.title}
-                            loading="eager"
-                            fetchPriority="high"
-                            decoding="async"
-                            width={800}
-                            height={800}
-                            onError={handleImageError}
-                            className="w-full max-w-md object-contain drop-shadow-2xl"
-                        />
-                        {isCurrentlyOutOfStock ? (
-                            <div className="absolute top-4 right-4 bg-error text-white px-3 py-1 rounded text-sm font-bold shadow-md">
-                                Out of Stock
-                            </div>
-                        ) : isCurrentlyLowStock && (
-                            <div className="absolute top-4 right-4 bg-warning text-white px-3 py-1 rounded text-sm font-bold shadow-md">
-                                Only {currentStock} left!
-                            </div>
-                        )}
-                    </div>
-                    {(product.images || []).length > 1 && (
-                        <div className="flex gap-2 overflow-x-auto pb-1">
-                            {product.images.map((img, idx) => (
+                    {/* Mobile: horizontal swipe gallery with dots */}
+                    <div className="md:hidden">
+                        <div
+                            ref={galleryRef}
+                            className="relative flex overflow-x-auto snap-x snap-mandatory scrollbar-hide rounded-lg bg-surface border border-border-default"
+                            onScroll={(e) => {
+                                const el = e.currentTarget;
+                                const idx = Math.round(el.scrollLeft / el.clientWidth);
+                                if (idx !== activeImageIdx) setActiveImageIdx(idx);
+                            }}
+                        >
+                            {((product.images || []).length > 0 ? product.images : [null]).map((img, idx) => (
                                 <button
                                     key={idx}
-                                    onClick={() => setActiveImageIdx(idx)}
-                                    className={`flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all ${activeImageIdx === idx ? 'border-primary ring-2 ring-primary/30' : 'border-border-default hover:border-primary/50'}`}
+                                    type="button"
+                                    onClick={() => setIsZoomOpen(true)}
+                                    aria-label={`Zoom image ${idx + 1}`}
+                                    className="snap-center shrink-0 w-full aspect-square flex items-center justify-center p-6"
                                 >
                                     <img
-                                        src={resolveImageUrl(img)}
+                                        src={img ? resolveImageUrl(img) : getProductImageUrl(product, idx)}
                                         alt={`${product.title} - ${idx + 1}`}
-                                        loading="lazy"
-                                        width={64}
-                                        height={64}
+                                        loading={idx === 0 ? 'eager' : 'lazy'}
+                                        fetchPriority={idx === 0 ? 'high' : 'auto'}
+                                        decoding="async"
+                                        width={800}
+                                        height={800}
                                         onError={handleImageError}
-                                        className="w-full h-full object-contain"
+                                        className="w-full h-full object-contain drop-shadow-xl"
                                     />
                                 </button>
                             ))}
+                            {/* Out of stock / low stock badge on hero */}
+                            {isCurrentlyOutOfStock ? (
+                                <div className="absolute top-3 left-3 bg-error text-white px-3 py-1 rounded text-xs font-bold shadow-md">
+                                    Out of Stock
+                                </div>
+                            ) : isCurrentlyLowStock && (
+                                <div className="absolute top-3 left-3 bg-warning text-white px-3 py-1 rounded text-xs font-bold shadow-md">
+                                    Only {currentStock} left!
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => setIsZoomOpen(true)}
+                                aria-label="Zoom image"
+                                className="absolute top-3 right-3 min-touch rounded-full bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 transition-colors"
+                            >
+                                <ZoomIn size={18} />
+                            </button>
                         </div>
-                    )}
+                        {(product.images || []).length > 1 && (
+                            <div className="flex justify-center gap-1.5 mt-3" role="tablist">
+                                {product.images.map((_, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeImageIdx === idx}
+                                        aria-label={`Go to image ${idx + 1}`}
+                                        onClick={() => {
+                                            setActiveImageIdx(idx);
+                                            if (galleryRef.current) {
+                                                galleryRef.current.scrollTo({
+                                                    left: idx * galleryRef.current.clientWidth,
+                                                    behavior: 'smooth',
+                                                });
+                                            }
+                                        }}
+                                        className={`h-2 rounded-full transition-all ${activeImageIdx === idx ? 'w-6 bg-primary' : 'w-2 bg-border-default'}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Desktop: large hero + thumbnail strip */}
+                    <div className="hidden md:flex md:flex-col gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setIsZoomOpen(true)}
+                            aria-label="Zoom image"
+                            className="bg-surface rounded-lg aspect-square flex items-center justify-center border border-border-default relative shadow-sm p-xl cursor-zoom-in group"
+                        >
+                            <img
+                                src={getProductImageUrl(product, activeImageIdx, 'detail')}
+                                alt={product.title}
+                                loading="eager"
+                                fetchPriority="high"
+                                decoding="async"
+                                width={800}
+                                height={800}
+                                onError={handleImageError}
+                                className="w-full h-full object-contain drop-shadow-2xl transition-transform group-hover:scale-[1.02]"
+                            />
+                            {isCurrentlyOutOfStock ? (
+                                <div className="absolute top-4 right-4 bg-error text-white px-3 py-1 rounded text-sm font-bold shadow-md">
+                                    Out of Stock
+                                </div>
+                            ) : isCurrentlyLowStock && (
+                                <div className="absolute top-4 right-4 bg-warning text-white px-3 py-1 rounded text-sm font-bold shadow-md">
+                                    Only {currentStock} left!
+                                </div>
+                            )}
+                        </button>
+                        {(product.images || []).length > 1 && (
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                {product.images.map((img, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setActiveImageIdx(idx)}
+                                        aria-label={`View image ${idx + 1}`}
+                                        className={`flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all ${activeImageIdx === idx ? 'border-primary ring-2 ring-primary/30' : 'border-border-default hover:border-primary/50'}`}
+                                    >
+                                        <img
+                                            src={resolveImageUrl(img)}
+                                            alt={`${product.title} - ${idx + 1}`}
+                                            loading="lazy"
+                                            width={64}
+                                            height={64}
+                                            onError={handleImageError}
+                                            className="w-full h-full object-contain"
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Info Section */}
@@ -438,7 +533,7 @@ const ProductDetail = () => {
                                                     type="button"
                                                     disabled={!available}
                                                     onClick={() => handleOptionSelect(option.name, optVal.value)}
-                                                    className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                                                    className={`px-4 min-h-11 inline-flex items-center rounded-lg border-2 text-sm font-medium transition-all ${
                                                         isSelected
                                                             ? 'border-primary bg-primary text-white'
                                                             : !available
@@ -499,7 +594,7 @@ const ProductDetail = () => {
                                                 setSelectedVariant(variant);
                                                 setErrorMsg("");
                                             }}
-                                            className={`px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 min-w-[100px] justify-center ${
+                                            className={`px-4 min-h-11 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2 min-w-[100px] justify-center ${
                                                 isSelected
                                                     ? outOfStock
                                                         ? 'border-error bg-error/10 text-error'
@@ -546,6 +641,19 @@ const ProductDetail = () => {
                                 Option: <span className="font-medium text-text-primary">{variants[0].name}</span>
                                 {variants[0].sku && <span className="text-text-muted ml-2">SKU: {variants[0].sku}</span>}
                             </p>
+                        </div>
+                    )}
+
+                    {/* Quantity selector */}
+                    {!isCurrentlyOutOfStock && (
+                        <div className="pt-4 border-t border-border-default flex items-center gap-3">
+                            <span className="text-sm font-bold text-text-primary">Quantity</span>
+                            <QuantitySelector
+                                value={quantity}
+                                onChange={setQuantity}
+                                min={1}
+                                max={Math.max(1, currentStock || 1)}
+                            />
                         </div>
                     )}
 
@@ -653,8 +761,8 @@ const ProductDetail = () => {
                         <QuantityTierDisplay tiers={product.quantityTiers} currentQty={1} basePrice={product.price} />
                     )}
 
-                    {/* Available in Bundle */}
-                    {productBundles.length > 0 && (
+                    {/* Available in Bundle — gated behind admin toggle */}
+                    {bundlesEnabled && productBundles.length > 0 && (
                         <div className="pt-4 border-t border-border-default">
                             <h3 className="text-sm font-bold text-text-primary mb-3 flex items-center gap-2">
                                 <span className="w-5 h-5 bg-trust/10 rounded flex items-center justify-center"><span className="text-trust text-xs font-bold">B</span></span>
@@ -709,6 +817,8 @@ const ProductDetail = () => {
                                     src={getProductImageUrl(rp)}
                                     alt={rp.title}
                                     loading="lazy"
+                                    width={176}
+                                    height={128}
                                     onError={handleImageError}
                                     className="w-full h-32 object-contain mb-2"
                                 />
@@ -744,6 +854,8 @@ const ProductDetail = () => {
                                     src={getProductImageUrl(rv)}
                                     alt={rv.title}
                                     loading="lazy"
+                                    width={176}
+                                    height={128}
                                     onError={handleImageError}
                                     className="w-full h-32 object-contain mb-2"
                                 />
@@ -756,7 +868,10 @@ const ProductDetail = () => {
             )}
 
             {/* Mobile sticky buy bar */}
-            <div className="lg:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]">
+            <div
+                className="lg:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3"
+                style={{ bottom: 'calc(var(--bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))' }}
+            >
                 <div className="flex items-center gap-3 max-w-7xl mx-auto">
                     <div className="flex-1 min-w-0">
                         <PriceDisplay sellingPrice={displayPrice} originalPrice={displayOriginalPrice} size="md" showBadge={false} />
@@ -785,6 +900,51 @@ const ProductDetail = () => {
                     )}
                 </div>
             </div>
+
+            {/* Zoom Lightbox */}
+            {isZoomOpen && (
+                <div
+                    className="fixed inset-0 z-[80] bg-black/95 flex items-center justify-center"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Product image zoom"
+                    onClick={() => setIsZoomOpen(false)}
+                >
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setIsZoomOpen(false); }}
+                        aria-label="Close"
+                        className="absolute top-4 right-4 min-touch rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors z-10"
+                        style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
+                    >
+                        <X size={24} />
+                    </button>
+                    <img
+                        src={getProductImageUrl(product, activeImageIdx)}
+                        alt={product.title}
+                        onClick={(e) => e.stopPropagation()}
+                        onError={handleImageError}
+                        className="max-w-full max-h-[90vh] object-contain p-4"
+                        style={{ touchAction: 'pinch-zoom' }}
+                    />
+                    {(product.images || []).length > 1 && (
+                        <div
+                            className="absolute left-0 right-0 flex justify-center gap-2 px-4"
+                            style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+                        >
+                            {product.images.map((_, idx) => (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setActiveImageIdx(idx); }}
+                                    aria-label={`View image ${idx + 1}`}
+                                    className={`h-2 rounded-full transition-all ${activeImageIdx === idx ? 'w-6 bg-white' : 'w-2 bg-white/40'}`}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

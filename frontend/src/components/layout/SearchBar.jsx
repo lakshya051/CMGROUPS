@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { Search, ChevronDown, X } from 'lucide-react';
 
 export const SEARCH_CATEGORIES = [
-    { value: 'all', label: 'All', path: '/products' },
     { value: 'products', label: 'Products', path: '/products' },
-    { value: 'courses', label: 'Courses', path: '/courses' },
     { value: 'services', label: 'Services', path: '/services' },
+    { value: 'courses', label: 'Courses', path: '/courses' },
 ];
 
 const SearchBar = ({
@@ -23,15 +22,17 @@ const SearchBar = ({
 
     if (isMobile) {
         return (
-            <div className="px-4 py-2 bg-surface">
+            <div className="relative px-4 py-2 bg-surface">
                 <form onSubmit={handleSearch} className="relative flex w-full">
                     <button
                         type="button"
                         onClick={() => setShowMobileCatSelect(!showMobileCatSelect)}
-                        className="flex items-center gap-0.5 px-2.5 bg-page-bg border border-r-0 border-border-default rounded-l-lg text-xs text-text-secondary hover:bg-surface-hover shrink-0"
+                        aria-haspopup="listbox"
+                        aria-expanded={showMobileCatSelect}
+                        className="flex items-center gap-0.5 px-3 min-h-11 bg-page-bg border border-r-0 border-border-default rounded-l-lg text-sm text-text-secondary hover:bg-surface-hover shrink-0"
                     >
                         {SEARCH_CATEGORIES.find(c => c.value === searchCategory)?.label}
-                        <ChevronDown size={12} />
+                        <ChevronDown size={14} />
                     </button>
                     <input
                         type="text"
@@ -40,23 +41,28 @@ const SearchBar = ({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         aria-label="Search"
-                        className="flex-1 min-w-0 border border-border-default bg-background px-3 py-3 text-sm text-text-primary focus:outline-none focus:border-trust focus:ring-2 focus:ring-trust/20"
+                        className="flex-1 min-w-0 border border-border-default bg-background px-3 py-3 text-base text-text-primary focus:outline-none focus:border-trust focus:ring-2 focus:ring-trust/20"
                     />
                     <button
                         type="submit"
                         aria-label="Search"
-                        className="flex items-center justify-center w-11 bg-trust hover:bg-trust/90 rounded-r-lg text-white transition-colors shrink-0"
+                        className="flex items-center justify-center min-w-11 bg-trust hover:bg-trust/90 rounded-r-lg text-white transition-colors shrink-0"
                     >
                         <Search size={18} />
                     </button>
                 </form>
                 {showMobileCatSelect && (
-                    <div className="absolute left-4 right-4 mt-1 bg-surface border border-border-default rounded-lg shadow-card z-50">
+                    <div
+                        role="listbox"
+                        className="absolute left-4 right-4 mt-1 bg-surface border border-border-default rounded-lg shadow-card z-50"
+                    >
                         {SEARCH_CATEGORIES.map(cat => (
                             <button
                                 key={cat.value}
                                 onClick={() => { setSearchCategory(cat.value); setShowMobileCatSelect(false); }}
-                                className={`block w-full text-left px-4 py-2.5 text-sm hover:bg-surface-hover transition-colors ${searchCategory === cat.value ? 'text-trust font-medium' : 'text-text-primary'}`}
+                                role="option"
+                                aria-selected={searchCategory === cat.value}
+                                className={`block w-full text-left px-4 py-3 min-h-11 text-sm hover:bg-surface-hover transition-colors ${searchCategory === cat.value ? 'text-trust font-medium' : 'text-text-primary'}`}
                             >
                                 {cat.label}
                             </button>

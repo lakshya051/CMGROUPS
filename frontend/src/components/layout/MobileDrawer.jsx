@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     X, UserCircle, Store, Heart, ShoppingBag, Wrench,
@@ -7,13 +7,20 @@ import {
     Building2, HelpCircle, Phone, Bell, Layers, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
+
+const FOCUSABLE =
+    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 const MobileDrawer = ({ isOpen, onClose }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
+    const { bundlesEnabled } = useFeatureFlags();
     const { canInstall, install, isInstalled } = useInstallPrompt();
+    const panelRef = useRef(null);
+    const previousFocus = useRef(null);
 
     useEffect(() => {
         if (isOpen) onClose();
@@ -21,11 +28,42 @@ const MobileDrawer = ({ isOpen, onClose }) => {
 
     useEffect(() => {
         if (!isOpen) return;
-        const handleEscape = (e) => {
-            if (e.key === 'Escape') onClose();
+
+        previousFocus.current = document.activeElement;
+
+        const handleKey = (e) => {
+            if (e.key === 'Escape') {
+                onClose();
+                return;
+            }
+            if (e.key !== 'Tab' || !panelRef.current) return;
+            const focusable = panelRef.current.querySelectorAll(FOCUSABLE);
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey) {
+                if (document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else if (document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
         };
-        document.addEventListener('keydown', handleEscape);
-        return () => document.removeEventListener('keydown', handleEscape);
+        document.addEventListener('keydown', handleKey);
+
+        requestAnimationFrame(() => {
+            const root = panelRef.current;
+            if (!root) return;
+            const focusable = root.querySelectorAll(FOCUSABLE);
+            if (focusable?.length) focusable[0].focus();
+        });
+
+        return () => {
+            document.removeEventListener('keydown', handleKey);
+            previousFocus.current?.focus?.();
+        };
     }, [isOpen, onClose]);
 
     useEffect(() => {
@@ -50,7 +88,9 @@ const MobileDrawer = ({ isOpen, onClose }) => {
             label: 'SHOPPING',
             links: [
                 { name: 'Products', path: '/products', icon: Store },
-                { name: 'Bundle Deals', path: '/bundles', icon: Layers },
+                ...(bundlesEnabled
+                    ? [{ name: 'Bundle Deals', path: '/bundles', icon: Layers }]
+                    : []),
                 { name: 'Wishlist', path: '/wishlist', icon: Heart },
                 { name: 'My Orders', path: '/dashboard/orders', icon: ShoppingBag },
             ]
@@ -109,6 +149,7 @@ const MobileDrawer = ({ isOpen, onClose }) => {
 
             {/* Drawer Panel */}
             <aside
+                ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Navigation menu"
@@ -135,7 +176,7 @@ const MobileDrawer = ({ isOpen, onClose }) => {
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-white/80 hover:text-white transition-colors p-2 touch-manipulation"
+                        className="min-touch rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors touch-manipulation"
                         aria-label="Close menu"
                     >
                         <X size={22} />

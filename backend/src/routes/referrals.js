@@ -4,6 +4,23 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// GET /api/referrals/public-settings — Public referral reward amounts.
+// Used on checkout to display the correct reward value without leaking admin
+// configuration. Exposes only the fields safe to surface to customers.
+router.get('/public-settings', async (req, res) => {
+    try {
+        const settings = await prisma.referralSettings.findFirst();
+        res.json({
+            pointsPerProductPurchase: settings?.pointsPerProductPurchase ?? 200,
+            pointsPerServiceBooking: settings?.pointsPerServiceBooking ?? 100,
+            pointsPerCourseEnrollment: settings?.pointsPerCourseEnrollment ?? 300,
+        });
+    } catch (err) {
+        console.error('Get public referral settings error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // GET /api/referrals/my-stats — Get my referral code, wallet, stats
 router.get('/my-stats', protect, async (req, res) => {
     try {

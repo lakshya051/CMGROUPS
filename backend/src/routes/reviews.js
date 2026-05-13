@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
 import { protect } from '../middleware/auth.js';
+import { reviewWriteLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
@@ -42,7 +43,7 @@ router.get('/pending-bundles', protect, async (req, res) => {
 });
 
 // POST /api/reviews/:productId (Protected)
-router.post('/:productId', protect, async (req, res) => {
+router.post('/:productId', reviewWriteLimiter, protect, async (req, res) => {
     try {
         const { rating, comment, images } = req.body;
         const productId = parseInt(req.params.productId);
@@ -153,7 +154,7 @@ router.post('/:reviewId/helpful', protect, async (req, res) => {
 // ============ BUNDLE REVIEWS ============
 
 // POST /api/reviews/bundle/:bundleId (Protected)
-router.post('/bundle/:bundleId', protect, async (req, res) => {
+router.post('/bundle/:bundleId', reviewWriteLimiter, protect, async (req, res) => {
     try {
         const { rating, comment } = req.body;
         const bundleId = parseInt(req.params.bundleId);

@@ -26,12 +26,12 @@ export default function ConfirmDialog({
                 </div>
                 <h3 className="text-lg font-bold text-text-primary mb-2">{title}</h3>
                 <p className="text-sm text-text-muted mb-6">{message}</p>
-                <div className="flex gap-3 w-full">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 w-full">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={loading}
-                        className="flex-1 px-4 py-2.5 rounded-lg border border-border-default bg-surface hover:bg-surface-hover text-text-primary text-sm font-medium transition-colors disabled:opacity-50"
+                        className="w-full sm:flex-1 min-h-11 px-4 py-3 rounded-lg border border-border-default bg-surface hover:bg-surface-hover text-text-primary text-sm font-medium transition-colors disabled:opacity-50"
                     >
                         {cancelLabel}
                     </button>
@@ -39,7 +39,7 @@ export default function ConfirmDialog({
                         type="button"
                         onClick={onConfirm}
                         disabled={loading}
-                        className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 ${confirmStyles}`}
+                        className={`w-full sm:flex-1 min-h-11 px-4 py-3 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 ${confirmStyles}`}
                     >
                         {loading ? 'Processing...' : confirmLabel}
                     </button>

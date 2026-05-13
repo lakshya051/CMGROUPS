@@ -259,65 +259,118 @@ const UserReferrals = () => {
                 </div>
 
                 {activeReferrals.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-page-bg text-text-secondary text-xs uppercase font-bold tracking-wider border-b border-border-default">
-                                    <th className="p-sm">{tab === 'sent' ? 'Person Referred' : 'Referred By'}</th>
-                                    <th className="p-sm">Source</th>
-                                    <th className="p-sm">Date</th>
-                                    <th className="p-sm">Status</th>
-                                    {tab === 'sent' && <th className="p-sm text-right">You Earned</th>}
-                                    {tab === 'sent' && <th className="p-sm text-right">Referee Got</th>}
-                                    {tab === 'received' && <th className="p-sm text-right">You Got</th>}
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm">
-                                {activeReferrals.map((ref) => (
-                                    <tr key={ref.id} className="border-b border-border-default last:border-0 hover:bg-surface-hover transition-colors">
-                                        <td className="p-sm">
-                                            <div>
-                                                <p className="font-bold text-text-primary">{tab === 'sent' ? ref.referee?.name : ref.referrer?.name}</p>
-                                                <p className="text-xs text-text-secondary font-medium">{tab === 'sent' ? ref.referee?.email : ref.referrer?.email}</p>
+                    <>
+                        {/* Mobile: stacked cards */}
+                        <div className="md:hidden divide-y divide-border-default">
+                            {activeReferrals.map((ref) => {
+                                const person = tab === 'sent' ? ref.referee : ref.referrer;
+                                const myEarn = tab === 'sent'
+                                    ? ref.rewardAmount
+                                    : (ref.refereeReward || 0);
+                                const myEarnLabel = tab === 'sent' ? 'You earned' : 'You got';
+                                return (
+                                    <div key={ref.id} className="py-3 flex flex-col gap-2">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-text-primary truncate">{person?.name || '—'}</p>
+                                                <p className="text-xs text-text-secondary break-all">{person?.email || '—'}</p>
                                             </div>
-                                        </td>
-                                        <td className="p-sm">{renderSourceBadge(ref.source, ref.courseName)}</td>
-                                        <td className="p-sm text-text-secondary text-xs font-medium">
-                                            {new Date(ref.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        </td>
-                                        <td className="p-sm">{getStatusBadge(ref.status)}</td>
+                                            {getStatusBadge(ref.status)}
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                                            {renderSourceBadge(ref.source, ref.courseName)}
+                                            <span className="text-xs text-text-muted font-medium">
+                                                {new Date(ref.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-3 text-sm pt-1 border-t border-border-default/60">
+                                            <span className="text-text-secondary">{myEarnLabel}</span>
+                                            <span className="font-bold text-text-primary">
+                                                {ref.status === 'rewarded' ? (
+                                                    <span className="text-success">+Rs {myEarn}</span>
+                                                ) : (
+                                                    <span className="text-text-muted">—</span>
+                                                )}
+                                            </span>
+                                        </div>
                                         {tab === 'sent' && (
-                                            <td className="p-sm text-right font-bold text-text-primary">
-                                                {ref.status === 'rewarded' ? (
-                                                    <span className="text-success">+Rs {ref.rewardAmount}</span>
-                                                ) : (
-                                                    <span className="text-text-muted">-</span>
-                                                )}
-                                            </td>
+                                            <div className="flex items-center justify-between gap-3 text-sm">
+                                                <span className="text-text-secondary">Referee got</span>
+                                                <span className="font-bold text-text-primary">
+                                                    {ref.status === 'rewarded' ? (
+                                                        <span className="text-success">+Rs {ref.refereeReward || 0}</span>
+                                                    ) : (
+                                                        <span className="text-text-muted">—</span>
+                                                    )}
+                                                </span>
+                                            </div>
                                         )}
-                                        {tab === 'sent' && (
-                                            <td className="p-sm text-right font-bold text-text-primary">
-                                                {ref.status === 'rewarded' ? (
-                                                    <span className="text-success">+Rs {ref.refereeReward || 0}</span>
-                                                ) : (
-                                                    <span className="text-text-muted">-</span>
-                                                )}
-                                            </td>
-                                        )}
-                                        {tab === 'received' && (
-                                            <td className="p-sm text-right font-bold text-text-primary">
-                                                {ref.status === 'rewarded' ? (
-                                                    <span className="text-success">+Rs {ref.refereeReward || 0}</span>
-                                                ) : (
-                                                    <span className="text-text-muted">-</span>
-                                                )}
-                                            </td>
-                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Desktop: table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-page-bg text-text-secondary text-xs uppercase font-bold tracking-wider border-b border-border-default">
+                                        <th className="p-sm">{tab === 'sent' ? 'Person Referred' : 'Referred By'}</th>
+                                        <th className="p-sm">Source</th>
+                                        <th className="p-sm">Date</th>
+                                        <th className="p-sm">Status</th>
+                                        {tab === 'sent' && <th className="p-sm text-right">You Earned</th>}
+                                        {tab === 'sent' && <th className="p-sm text-right">Referee Got</th>}
+                                        {tab === 'received' && <th className="p-sm text-right">You Got</th>}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {activeReferrals.map((ref) => (
+                                        <tr key={ref.id} className="border-b border-border-default last:border-0 hover:bg-surface-hover transition-colors">
+                                            <td className="p-sm">
+                                                <div>
+                                                    <p className="font-bold text-text-primary">{tab === 'sent' ? ref.referee?.name : ref.referrer?.name}</p>
+                                                    <p className="text-xs text-text-secondary font-medium">{tab === 'sent' ? ref.referee?.email : ref.referrer?.email}</p>
+                                                </div>
+                                            </td>
+                                            <td className="p-sm">{renderSourceBadge(ref.source, ref.courseName)}</td>
+                                            <td className="p-sm text-text-secondary text-xs font-medium">
+                                                {new Date(ref.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </td>
+                                            <td className="p-sm">{getStatusBadge(ref.status)}</td>
+                                            {tab === 'sent' && (
+                                                <td className="p-sm text-right font-bold text-text-primary">
+                                                    {ref.status === 'rewarded' ? (
+                                                        <span className="text-success">+Rs {ref.rewardAmount}</span>
+                                                    ) : (
+                                                        <span className="text-text-muted">-</span>
+                                                    )}
+                                                </td>
+                                            )}
+                                            {tab === 'sent' && (
+                                                <td className="p-sm text-right font-bold text-text-primary">
+                                                    {ref.status === 'rewarded' ? (
+                                                        <span className="text-success">+Rs {ref.refereeReward || 0}</span>
+                                                    ) : (
+                                                        <span className="text-text-muted">-</span>
+                                                    )}
+                                                </td>
+                                            )}
+                                            {tab === 'received' && (
+                                                <td className="p-sm text-right font-bold text-text-primary">
+                                                    {ref.status === 'rewarded' ? (
+                                                        <span className="text-success">+Rs {ref.refereeReward || 0}</span>
+                                                    ) : (
+                                                        <span className="text-text-muted">-</span>
+                                                    )}
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 ) : (
                     <div className="text-center py-xl text-text-secondary">
                         <Users size={40} className="mx-auto mb-3 opacity-20" />

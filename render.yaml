@@ -6,6 +6,20 @@ services:
     rootDir: backend
     buildCommand: npm install && npm run build
     startCommand: npm start
+    # DB-aware health check: returns 503 when the circuit breaker has tripped
+    # or Postgres is unreachable, so Render restarts the instance instead of
+    # holding a sick container in rotation. /api/health/db has a 2 s ceiling
+    # by design — never blocks Render's probe behind a 5 s Prisma timeout.
+    healthCheckPath: /api/health/db
     envVars:
       - key: NODE_VERSION
         value: "20"
+      # Trust X-Forwarded-For so express-rate-limit sees the real client IP
+      # rather than Render's load-balancer.
+      - key: TRUST_PROXY
+        value: "1"
+      # Set to a 32-char random hex (`openssl rand -hex 32`) to enable the
+      # /metrics endpoint. Leave blank in dev — endpoint then refuses any
+      # non-localhost caller.
+      - key: METRICS_TOKEN
+        sync: false

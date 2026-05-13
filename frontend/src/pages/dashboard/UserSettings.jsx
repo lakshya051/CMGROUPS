@@ -57,14 +57,14 @@ function PasswordInput({ name, value, onChange, onBlur, error, touched, placehol
                     value={value}
                     onChange={onChange}
                     onBlur={onBlur}
-                    className={`input-field pl-9 pr-10 ${touched && error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                    className={`input-field pl-9 pr-11 text-base ${touched && error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     placeholder={placeholder}
                     autoComplete={name === 'currentPassword' ? 'current-password' : 'new-password'}
                 />
                 <button
                     type="button"
                     onClick={() => setVisible(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 min-touch rounded-full text-text-muted hover:text-text-primary transition-colors"
                     tabIndex={-1}
                     aria-label={visible ? 'Hide password' : 'Show password'}
                 >

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 import { Package, ArrowRight, ArrowUpRight, ShoppingBag, TrendingUp, Store, Wrench, Star } from 'lucide-react';
 import { ordersAPI, reviewsAPI } from '../../lib/api';
 import { Link } from 'react-router-dom';
@@ -45,6 +46,7 @@ const QuickActionCard = ({ to, icon, eyebrow, title, description, cta }) => (
 
 const UserDashboard = () => {
     const { user } = useAuth();
+    const { bundlesEnabled } = useFeatureFlags();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [statsError, setStatsError] = useState(false);
@@ -56,10 +58,11 @@ const UserDashboard = () => {
             .then(data => setStats(data))
             .catch(() => setStatsError(true))
             .finally(() => setLoading(false));
+        if (!bundlesEnabled) { setPendingBundleReviews([]); return; }
         reviewsAPI.getPendingBundles()
             .then(data => setPendingBundleReviews(Array.isArray(data) ? data : []))
             .catch(err => console.error('Failed to load pending reviews:', err));
-    }, []);
+    }, [bundlesEnabled]);
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -99,8 +102,8 @@ const UserDashboard = () => {
                 />
             </div>
 
-            {/* Pending Bundle Reviews */}
-            {pendingBundleReviews.length > 0 && (
+            {/* Pending Bundle Reviews — gated behind admin toggle */}
+            {bundlesEnabled && pendingBundleReviews.length > 0 && (
                 <div className="bg-warning/5 border border-warning/20 rounded-lg p-4">
                     <h2 className="text-sm font-bold text-text-primary mb-3 flex items-center gap-2">
                         <Star size={16} className="text-warning" />
@@ -136,7 +139,7 @@ const UserDashboard = () => {
                 </div>
             ) : (
                 <>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                         <StatCard
                             title="Total Spent"
                             value={`₹${(stats?.totalSpent || 0).toLocaleString()}`}

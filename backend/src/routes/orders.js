@@ -372,12 +372,24 @@ router.post('/', optionalProtect, async (req, res) => {
 
         const deliveryFee = computedSubtotal < FREE_DELIVERY_THRESHOLD ? DELIVERY_FEE_AMOUNT : 0;
         const serverTotal = Math.round((computedSubtotal - serverDiscount) * 1.18 + deliveryFee);
-        const tolerance = Math.max(2, serverTotal * 0.01);
-        if (Math.abs(serverTotal - parsedTotal - (parsedWalletUsed || 0)) > tolerance && Math.abs(serverTotal - parsedTotal) > tolerance) {
-            const totalPlusWallet = parsedTotal + parsedWalletUsed;
-            if (Math.abs(serverTotal - totalPlusWallet) > tolerance && Math.abs(serverTotal - parsedTotal) > tolerance) {
-                return res.status(400).json({ error: 'Order total mismatch. Please refresh and try again.' });
-            }
+
+        // H4: tight equality check. We no longer accept a fuzzy tolerance
+        // window — any mismatch means the client state is stale or has been
+        // tampered with; reject and let the client refresh. The client's
+        // parsedTotal is for CONSISTENCY VERIFICATION only; the persisted
+        // order.total (below) always comes from serverTotal.
+        //
+        // Client may send either the final total (post-wallet) or the
+        // pre-wallet total; accept both shapes as equal-to-serverTotal.
+        const clientTotalPlusWallet = parsedTotal + (parsedWalletUsed || 0);
+        const EXACT_MATCH_EPSILON = 1; // allow for rupee rounding only
+        const matchesPostWallet = Math.abs(serverTotal - clientTotalPlusWallet) <= EXACT_MATCH_EPSILON;
+        const matchesPreWallet = Math.abs(serverTotal - parsedTotal) <= EXACT_MATCH_EPSILON;
+        if (!matchesPostWallet && !matchesPreWallet) {
+            return res.status(400).json({
+                error: 'Order total mismatch. Please refresh the page and try again.',
+                serverTotal,
+            });
         }
 
         logCheckoutTiming(checkoutRequestId, 'pre_validation_complete', checkoutStart);
@@ -464,7 +476,10 @@ router.post('/', optionalProtect, async (req, res) => {
             // 3. Create the order, then bulk-insert items separately to avoid
             //    Prisma XOR ambiguity between OrderCreateInput / OrderUncheckedCreateInput.
             const orderData = {
-                total: parsedTotal,
+                // H4: always persist the server-computed total; never the
+                // client-supplied value. The mismatch check above guarantees
+                // the client agreed with this amount.
+                total: serverTotal,
                 walletUsed: parsedWalletUsed,
                 status: isFullyPaidWithWallet ? 'Confirmed' : 'Processing',
                 paymentMethod: normalizedPaymentMethod,
@@ -792,11 +807,19 @@ router.post('/', optionalProtect, async (req, res) => {
         // *** ORDER-BASED REFERRAL REWARD ***
         // Referral reward will be processed when payment is verified.
     } catch (error) {
+        // SECURITY: Do NOT log req.body here. It contains PII (shipping address,
+        // phone, email) and full cart. We log only non-sensitive identifiers.
+        const safeMeta = {
+            itemCount: Array.isArray(req.body?.items) ? req.body.items.length : 0,
+            paymentMethod: req.body?.paymentMethod || null,
+            couponCodePresent: Boolean(req.body?.couponCode),
+            useWallet: Boolean(req.body?.useWallet),
+        };
         console.error('CRITICAL: Create order failure:', {
             error: error.message,
             stack: error.stack,
-            body: req.body,
-            user: req.user?.id
+            user: req.user?.id,
+            meta: safeMeta,
         });
         // If it's a known error from the transaction (like stock issue), return 400
         if (

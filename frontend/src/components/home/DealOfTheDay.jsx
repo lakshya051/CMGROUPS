@@ -39,9 +39,14 @@ const CountdownTimer = () => {
                 { val: timeLeft.s, label: 'Sec' },
             ].map((unit, i) => (
                 <span key={i} className="flex items-center gap-1">
-                    {i > 0 && <span className="text-deal font-bold text-lg">:</span>}
-                    <span className="bg-deal text-white font-bold text-sm sm:text-base px-2 py-1 rounded min-w-[2rem] text-center">
-                        {pad(unit.val)}
+                    {i > 0 && <span className="text-deal font-bold text-lg self-start pt-0.5" aria-hidden="true">:</span>}
+                    <span className="flex flex-col items-center leading-none">
+                        <span className="bg-deal text-white font-bold text-sm sm:text-base px-2 py-1 rounded min-w-[2rem] text-center tabular-nums">
+                            {pad(unit.val)}
+                        </span>
+                        <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-text-muted mt-0.5 font-semibold">
+                            {unit.label}
+                        </span>
                     </span>
                 </span>
             ))}
@@ -147,17 +152,19 @@ const DealCard = ({ product }) => {
     );
 };
 
-const DealOfTheDay = () => {
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
+const DealOfTheDay = ({ initialDeals }) => {
+    const hasInitial = Array.isArray(initialDeals);
+    const [products, setProducts] = useState(() => hasInitial ? initialDeals : []);
+    const [loading, setLoading] = useState(!hasInitial);
     const scrollRef = React.useRef(null);
 
     useEffect(() => {
+        if (hasInitial) return;
         productsAPI.getAll({ isDeal: true, limit: 12 })
             .then(res => setProducts(res.data || []))
             .catch(err => console.error('Failed to fetch deals:', err))
             .finally(() => setLoading(false));
-    }, []);
+    }, [hasInitial]);
 
     const scroll = (dir) => {
         if (!scrollRef.current) return;

@@ -6,6 +6,16 @@
     :root {
         --safe-area-top: env(safe-area-inset-top, 0px);
         --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        /* Mobile-only chrome heights. Keep desktop/tablet at their own measurements via md: utilities. */
+        --nav-h: 10rem;        /* mobile: logo row (3.5rem) + search row (~3.25rem) + deliver strip (~3rem) */
+        --bottom-nav-h: 3.5rem;  /* mobile bottom tab bar */
+    }
+
+    @media (min-width: 768px) {
+        :root {
+            --nav-h: 6.5rem;
+            --bottom-nav-h: 0px;
+        }
     }
 
     html,
@@ -47,6 +57,19 @@
 }
 
 @layer components {
+    /* Minimum 44x44 touch target (Apple HIG). Use on all icon-only interactive elements on mobile. */
+    .min-touch {
+        @apply min-h-11 min-w-11 inline-flex items-center justify-center;
+    }
+
+    /* Safe-area padding helpers that always reserve at least 1rem. */
+    .safe-pb {
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    .safe-pt {
+        padding-top: max(1rem, env(safe-area-inset-top));
+    }
+
     .btn {
         @apply px-4 py-2 rounded-lg font-medium transition-colors duration-base;
     }

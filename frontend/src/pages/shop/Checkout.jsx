@@ -5,12 +5,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import Button from '../../components/ui/Button';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import BottomSheet from '../../components/ui/BottomSheet';
 import {
-    CheckCircle, CreditCard, Shield, AlertCircle, Copy, MapPin,
+    CheckCircle, CreditCard, Shield, AlertCircle, Copy, MapPin, Receipt, ChevronUp,
 } from 'lucide-react';
 import { checkoutSchema } from '../../utils/validationSchemas';
 import { computeBundleAwareSubtotal, computeBundleSavings } from '../../utils/bundleUtils';
-import { addressesAPI, couponsAPI } from '../../lib/api';
+import { addressesAPI, couponsAPI, referralsAPI } from '../../lib/api';
 import {
     buildCartItemsSummary,
     buildCouponStateFromValidation,
@@ -37,6 +38,7 @@ const Checkout = () => {
 
     const [step, setStep] = useState(1);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isSummaryOpen, setIsSummaryOpen] = useState(false);
     const [orderId, setOrderId] = useState(null);
     const [paymentOtp, setPaymentOtp] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('pay_at_store');
@@ -48,6 +50,22 @@ const Checkout = () => {
     const [useWallet, setUseWallet] = useState(false);
     const [giftWrap, setGiftWrap] = useState(false);
     const [giftMessage, setGiftMessage] = useState('');
+    const [referrerRewardAmount, setReferrerRewardAmount] = useState(200);
+
+    // Pull the dynamic referrer reward amount so the UI copy matches what the
+    // admin configured (instead of hardcoded ₹200).
+    useEffect(() => {
+        let cancelled = false;
+        referralsAPI.getPublicSettings()
+            .then((s) => {
+                if (cancelled) return;
+                if (typeof s?.pointsPerProductPurchase === 'number') {
+                    setReferrerRewardAmount(s.pointsPerProductPurchase);
+                }
+            })
+            .catch(() => { /* non-blocking: fall back to default */ });
+        return () => { cancelled = true; };
+    }, []);
 
     const [serviceSchedules, setServiceSchedules] = useState({});
 
@@ -457,7 +475,7 @@ const Checkout = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-12 pb-24 md:pb-0">
                 <div className="space-y-8">
                     <ShippingStep
                         step={step}
@@ -515,9 +533,56 @@ const Checkout = () => {
                         couponLoading={couponLoading}
                         couponError={couponError}
                         appliedCouponCode={coupon?.code || null}
+                        referrerRewardAmount={referrerRewardAmount}
                     />
                 </div>
 
+                {/* Desktop: sidebar summary */}
+                <div className="hidden md:block">
+                    <OrderSummaryPanel
+                        cart={checkoutItems}
+                        subtotal={subtotal}
+                        bundleSavings={bundleSavings}
+                        tax={tax}
+                        couponDiscount={couponDiscount}
+                        deliveryFee={deliveryFee}
+                        walletDiscount={walletDiscount}
+                        finalTotal={finalTotal}
+                    />
+                </div>
+            </div>
+
+            {/* Mobile: sticky total bar + expandable summary sheet */}
+            <div
+                className="md:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+                style={{ bottom: 'calc(var(--bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))' }}
+            >
+                <button
+                    type="button"
+                    onClick={() => setIsSummaryOpen(true)}
+                    className="w-full flex items-center justify-between px-4 py-3 min-h-[3.5rem]"
+                    aria-label="View order summary"
+                    aria-expanded={isSummaryOpen}
+                >
+                    <div className="flex items-center gap-2">
+                        <Receipt size={18} className="text-trust" />
+                        <div className="flex flex-col items-start leading-tight">
+                            <span className="text-[11px] uppercase tracking-wide text-text-muted">Order total</span>
+                            <span className="text-base font-bold text-text-primary tabular-nums">₹{finalTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                    </div>
+                    <span className="flex items-center gap-1 text-sm font-semibold text-trust">
+                        View details <ChevronUp size={16} />
+                    </span>
+                </button>
+            </div>
+
+            <BottomSheet
+                isOpen={isSummaryOpen}
+                onClose={() => setIsSummaryOpen(false)}
+                title="Order summary"
+                maxHeight="85dvh"
+            >
                 <OrderSummaryPanel
                     cart={checkoutItems}
                     subtotal={subtotal}
@@ -528,7 +593,8 @@ const Checkout = () => {
                     walletDiscount={walletDiscount}
                     finalTotal={finalTotal}
                 />
-            </div>
+            </BottomSheet>
+
             <ConfirmDialog
                 isOpen={confirmState.isOpen}
                 onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}

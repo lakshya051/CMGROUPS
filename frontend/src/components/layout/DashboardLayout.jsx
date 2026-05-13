@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureFlags } from '../../context/FeatureFlagsContext';
 import {
     LayoutDashboard,
     ShoppingBag,
@@ -27,11 +28,13 @@ import {
     Puzzle,
     Table2,
     Bell,
+    SlidersHorizontal,
 } from 'lucide-react';
 import PointsBadge from '../ui/PointsBadge';
 
 const DashboardLayout = ({ role = 'customer' }) => {
     const { logout, user } = useAuth();
+    const { bundlesEnabled } = useFeatureFlags();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -72,8 +75,13 @@ const DashboardLayout = ({ role = 'customer' }) => {
         { name: 'Banners', path: '/admin/banners', icon: <Image size={20} /> },
         { name: 'Products', path: '/admin/products', icon: <Package size={20} /> },
         { name: 'Categories', path: '/admin/categories', icon: <Store size={20} /> },
-        { name: 'Bundles', path: '/admin/bundles', icon: <Layers size={20} /> },
-        { name: 'Bundle Templates', path: '/admin/bundle-templates', icon: <Puzzle size={20} /> },
+        // Bundle admin pages are pre-launch only and shouldn't tempt anyone
+        // into editing data while the customer-facing surface is hidden.
+        // The Site Settings page is where they re-enable the module.
+        ...(bundlesEnabled ? [
+            { name: 'Bundles', path: '/admin/bundles', icon: <Layers size={20} /> },
+            { name: 'Bundle Templates', path: '/admin/bundle-templates', icon: <Puzzle size={20} /> },
+        ] : []),
         { name: 'Orders', path: '/admin/orders', icon: <ShoppingBag size={20} /> },
         { name: 'Services', path: '/admin/services', icon: <Wrench size={20} /> },
         { name: 'Service Types', path: '/admin/service-types', icon: <Settings size={20} /> },
@@ -87,6 +95,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
         { name: 'CCTV Enquiries', path: '/admin/cctv-enquiries', icon: <FileText size={20} /> },
         { name: 'Notifications', path: '/admin/notifications', icon: <Bell size={20} /> },
         { name: 'Google Sheets', path: '/admin/sheets', icon: <Table2 size={20} /> },
+        { name: 'Site Settings', path: '/admin/settings', icon: <SlidersHorizontal size={20} /> },
         { name: 'Audit Log', path: '/admin/audit-log', icon: <ScrollText size={20} /> },
     ];
 
@@ -95,14 +104,14 @@ const DashboardLayout = ({ role = 'customer' }) => {
     const SidebarContent = () => (
         <>
             {/* Header */}
-            <div className="p-6 border-b border-border-default flex items-center justify-between">
+            <div className="p-6 border-b border-border-default flex items-center justify-between safe-top md:safe-top-0">
                 <h2 className="text-xl font-heading font-bold">
                     Shopt<span className="text-primary">ify</span>
                     <span className="text-xs ml-2 bg-page-bg border border-border-default px-2 py-0.5 rounded text-text-muted capitalize">{role}</span>
                 </h2>
                 {/* Close button — mobile only */}
                 <button
-                    className="md:hidden p-2 rounded-lg hover:bg-surface-hover transition-colors text-text-muted touch-manipulation"
+                    className="md:hidden min-touch rounded-lg hover:bg-surface-hover transition-colors text-text-muted touch-manipulation"
                     onClick={() => setSidebarOpen(false)}
                     aria-label="Close sidebar"
                 >
@@ -193,7 +202,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
                 </div>
                 <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 min-h-11 text-sm text-text-muted hover:text-error hover:bg-error/5 rounded-lg transition-colors"
                 >
                     <LogOut size={18} />
                     <span>Logout</span>
@@ -232,7 +241,7 @@ const DashboardLayout = ({ role = 'customer' }) => {
                 <div className="md:hidden sticky top-0 z-20 bg-surface border-b border-border-default flex items-center gap-3 px-4 min-h-[3.5rem] safe-top shrink-0">
                     <button
                         onClick={() => setSidebarOpen(true)}
-                        className="p-2.5 rounded-lg hover:bg-surface-hover transition-colors text-text-muted touch-manipulation"
+                        className="min-touch rounded-lg hover:bg-surface-hover transition-colors text-text-muted touch-manipulation"
                         aria-label="Open sidebar menu"
                     >
                         <Menu size={22} />

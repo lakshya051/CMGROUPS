@@ -4,12 +4,14 @@ import { User, ShoppingBag, MapPin, Calendar, Award, Trash2 } from 'lucide-react
 import { useAuth } from '../../context/AuthContext';
 import { ordersAPI, addressesAPI } from '../../lib/api';
 import toast from 'react-hot-toast';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
 export default function UserProfile() {
     const { user } = useAuth();
     const [stats, setStats] = useState(null);
     const [addresses, setAddresses] = useState([]);
     const [loadingAddresses, setLoadingAddresses] = useState(true);
+    const [addressToDelete, setAddressToDelete] = useState(null);
 
     useEffect(() => {
         ordersAPI.getMyStats().then(setStats).catch(err => console.error('Failed to load stats:', err));
@@ -19,14 +21,17 @@ export default function UserProfile() {
             .finally(() => setLoadingAddresses(false));
     }, []);
 
-    const handleDeleteAddress = async (id) => {
-        if (!window.confirm('Delete this address?')) return;
+    const confirmDeleteAddress = async () => {
+        const id = addressToDelete;
+        if (!id) return;
         try {
             await addressesAPI.delete(id);
             setAddresses(prev => prev.filter(a => a.id !== id));
             toast.success('Address removed');
         } catch {
             toast.error('Failed to delete address');
+        } finally {
+            setAddressToDelete(null);
         }
     };
 
@@ -59,19 +64,19 @@ export default function UserProfile() {
             </div>
 
             {/* Order Summary */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                <div className="bg-surface rounded-xl border border-border-default p-3 sm:p-5 text-center">
-                    <ShoppingBag size={20} className="mx-auto text-primary mb-1 sm:mb-2 hidden sm:block" />
-                    <p className="text-lg sm:text-2xl font-bold text-text-primary">{stats?.totalOrders ?? '—'}</p>
-                    <p className="text-[10px] sm:text-xs text-text-muted">Orders</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div className="bg-surface rounded-xl border border-border-default p-4 sm:p-5 text-center">
+                    <ShoppingBag size={22} className="mx-auto text-primary mb-2 hidden sm:block" />
+                    <p className="text-2xl font-bold text-text-primary">{stats?.totalOrders ?? '—'}</p>
+                    <p className="text-xs text-text-muted mt-1">Orders</p>
                 </div>
-                <div className="bg-surface rounded-xl border border-border-default p-3 sm:p-5 text-center">
-                    <p className="text-lg sm:text-2xl font-bold text-text-primary truncate">₹{(stats?.totalSpent ?? 0).toLocaleString('en-IN')}</p>
-                    <p className="text-[10px] sm:text-xs text-text-muted mt-0.5 sm:mt-1">Spent</p>
+                <div className="bg-surface rounded-xl border border-border-default p-4 sm:p-5 text-center">
+                    <p className="text-2xl font-bold text-text-primary truncate">₹{(stats?.totalSpent ?? 0).toLocaleString('en-IN')}</p>
+                    <p className="text-xs text-text-muted mt-1">Spent</p>
                 </div>
-                <div className="bg-surface rounded-xl border border-border-default p-3 sm:p-5 text-center">
-                    <p className="text-lg sm:text-2xl font-bold text-primary truncate">₹{(user?.walletBalance ?? 0).toLocaleString('en-IN')}</p>
-                    <p className="text-[10px] sm:text-xs text-text-muted mt-0.5 sm:mt-1">Wallet</p>
+                <div className="bg-surface rounded-xl border border-border-default p-4 sm:p-5 text-center">
+                    <p className="text-2xl font-bold text-primary truncate">₹{(user?.walletBalance ?? 0).toLocaleString('en-IN')}</p>
+                    <p className="text-xs text-text-muted mt-1">Wallet</p>
                 </div>
             </div>
 
@@ -123,8 +128,9 @@ export default function UserProfile() {
                                     {addr.phone && <p className="text-text-muted">{addr.phone}</p>}
                                 </div>
                                 <button
-                                    onClick={() => handleDeleteAddress(addr.id)}
-                                    className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors"
+                                    onClick={() => setAddressToDelete(addr.id)}
+                                    className="min-touch rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors"
+                                    aria-label="Delete address"
                                 >
                                     <Trash2 size={16} />
                                 </button>
@@ -133,6 +139,17 @@ export default function UserProfile() {
                     </div>
                 )}
             </div>
+
+            <ConfirmDialog
+                isOpen={addressToDelete !== null}
+                onClose={() => setAddressToDelete(null)}
+                onConfirm={confirmDeleteAddress}
+                title="Delete this address?"
+                message="This address will be permanently removed from your account."
+                confirmText="Delete"
+                cancelText="Keep"
+                variant="danger"
+            />
         </div>
     );
 }

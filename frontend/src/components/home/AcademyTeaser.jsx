@@ -4,17 +4,21 @@ import { GraduationCap, Clock, Award, CheckCircle, ChevronRight } from 'lucide-r
 import { coursesAPI } from '../../lib/api';
 import { handleImageError } from '../../utils/image';
 
-const AcademyTeaser = () => {
-    const [courses, setCourses] = useState([]);
-    const [loading, setLoading] = useState(true);
+const AcademyTeaser = ({ initialCourses }) => {
+    const hasInitial = Array.isArray(initialCourses);
+    const [courses, setCourses] = useState(() =>
+        hasInitial ? initialCourses.slice(0, 4) : [],
+    );
+    const [loading, setLoading] = useState(!hasInitial);
     const scrollRef = useRef(null);
 
     useEffect(() => {
+        if (hasInitial) return;
         coursesAPI.getAll()
             .then(data => setCourses((data || []).slice(0, 4)))
             .catch(() => setCourses([]))
             .finally(() => setLoading(false));
-    }, []);
+    }, [hasInitial]);
 
     if (!loading && courses.length === 0) return null;
 

@@ -53,10 +53,10 @@ export default function SignUp() {
             const refCode = localStorage.getItem('referralCode') || undefined;
             await registerWithEmail(email, password, name.trim(), refCode);
             toast.success(
-                'Account created! A verification link has been sent to your email.',
+                'Account created! Check your inbox to verify your email before continuing.',
                 { duration: 6000 }
             );
-            navigate('/onboarding', { replace: true });
+            navigate('/verify-email', { replace: true });
         } catch (err) {
             const msg = err.code === 'auth/email-already-in-use'
                 ? 'An account with this email already exists'

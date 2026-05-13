@@ -1,13 +1,37 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { uploadImage, deleteImage, getPublicIdFromUrl } from '../utils/cloudinary.js';
 
 const router = express.Router();
-const UPLOAD_JSON_LIMIT = express.json({ limit: '10mb' });
+// H5: decoded-image size is capped to 3 MB in cloudinary.js; the raw JSON
+// request body is capped well above that to account for base64 overhead
+// (~1.37x) plus other fields, but much tighter than the previous 10 MB.
+const UPLOAD_JSON_LIMIT = express.json({ limit: '5mb' });
 const VALID_FOLDER_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
+// Per-IP upload throttling on top of the global rate limiter. Admin routes
+// are still protected, but a compromised admin token should not be able to
+// flood Cloudinary with uploads.
+const uploadLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many uploads from this IP; please slow down.' },
+});
+
+function handleUploadError(res, error, contextLabel) {
+    if (error?.isClientError) {
+        return res.status(400).json({ error: error.message });
+    }
+    console.error(`${contextLabel}:`, error);
+    const message = error.message?.includes('Cloudinary') ? error.message : 'Upload failed';
+    return res.status(500).json({ error: message });
+}
+
 // POST /api/upload — upload a single image (base64)
-router.post('/', UPLOAD_JSON_LIMIT, protect, adminOnly, async (req, res) => {
+router.post('/', UPLOAD_JSON_LIMIT, uploadLimiter, protect, adminOnly, async (req, res) => {
     try {
         const { image, folder } = req.body;
 
@@ -19,14 +43,12 @@ router.post('/', UPLOAD_JSON_LIMIT, protect, adminOnly, async (req, res) => {
         const url = await uploadImage(image, safeFolder);
         res.json({ url });
     } catch (error) {
-        console.error('Upload error:', error);
-        const message = error.message?.includes('Cloudinary') ? error.message : 'Upload failed';
-        res.status(500).json({ error: message });
+        return handleUploadError(res, error, 'Upload error');
     }
 });
 
 // POST /api/upload/multiple — upload multiple images
-router.post('/multiple', UPLOAD_JSON_LIMIT, protect, adminOnly, async (req, res) => {
+router.post('/multiple', UPLOAD_JSON_LIMIT, uploadLimiter, protect, adminOnly, async (req, res) => {
     try {
         const { images, folder } = req.body;
 
@@ -45,13 +67,14 @@ router.post('/multiple', UPLOAD_JSON_LIMIT, protect, adminOnly, async (req, res)
 
         res.json({ urls });
     } catch (error) {
-        console.error('Multiple upload error:', error);
-        const message = error.message?.includes('Cloudinary') ? error.message : 'Upload failed';
-        res.status(500).json({ error: message });
+        return handleUploadError(res, error, 'Multiple upload error');
     }
 });
 
-// DELETE /api/upload — delete an image by URL
+// DELETE /api/upload — delete an image by URL.
+// SECURITY: deleteImage() itself only permits deletes within the `cmgroups/`
+// Cloudinary namespace; this route additionally validates that the URL
+// belongs to our namespace before dispatching.
 router.delete('/', protect, adminOnly, async (req, res) => {
     try {
         const { url } = req.body;
@@ -67,6 +90,9 @@ router.delete('/', protect, adminOnly, async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
+        if (error?.isClientError) {
+            return res.status(400).json({ error: error.message });
+        }
         console.error('Delete image error:', error);
         res.status(500).json({ error: 'Delete failed' });
     }

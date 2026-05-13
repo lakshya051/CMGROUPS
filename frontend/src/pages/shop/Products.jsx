@@ -4,11 +4,22 @@ import ProductCard from '../../components/shop/ProductCard'
 import BundleCard from '../../components/shop/BundleCard'
 import FilterSidebar from '../../components/shop/FilterSidebar'
 import { SkeletonCard, EmptyState } from '../../components/ui/index'
+import BottomSheet from '../../components/ui/BottomSheet'
 import { useShop } from '../../context/ShopContext'
+import { useFeatureFlags } from '../../context/FeatureFlagsContext'
 import {
     Filter, SearchX, Search, X, ArrowLeftRight, ChevronLeft, ChevronRight, Layers, Loader2,
+    ArrowUpDown, Check,
 } from 'lucide-react'
 import { categoriesAPI, productsAPI, bundlesAPI } from '../../lib/api'
+
+const SORT_OPTIONS = [
+    { value: 'newest', label: 'Newest First' },
+    { value: 'price-low', label: 'Price: Low to High' },
+    { value: 'price-high', label: 'Price: High to Low' },
+    { value: 'rating', label: 'Top Rated' },
+    { value: 'name', label: 'Name: A-Z' },
+]
 
 const LIMIT = 12
 
@@ -16,6 +27,7 @@ const Products = () => {
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
     const { compareList, removeFromCompare, clearCompare } = useShop()
+    const { bundlesEnabled } = useFeatureFlags()
 
     // ─── State ──────────────────────────────────────────────────
     const [products, setProducts] = useState([])
@@ -54,6 +66,7 @@ const Products = () => {
     )
     const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest')
     const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false)
+    const [isMobileSortOpen, setIsMobileSortOpen] = useState(false)
     const [dbCategories, setDbCategories] = useState([])
 
     const [featuredBundles, setFeaturedBundles] = useState([])
@@ -61,10 +74,14 @@ const Products = () => {
     // ─── Fetch Categories + Bundles ──────────────────────────────
     useEffect(() => {
         categoriesAPI.getAll().then(setDbCategories).catch(console.error)
+        if (!bundlesEnabled) {
+            setFeaturedBundles([])
+            return
+        }
         bundlesAPI.getAll({ displayOn: 'home' })
             .then(b => setFeaturedBundles((b || []).slice(0, 4)))
             .catch(() => setFeaturedBundles([]))
-    }, [])
+    }, [bundlesEnabled])
 
     // Stable string keys so array deps don't cause spurious re-fetches
     const categoryKey = useMemo(() => selectedCategories.slice().sort().join(','), [selectedCategories])
@@ -245,6 +262,8 @@ const Products = () => {
 
 
     // ─── Render ─────────────────────────────────────────────────
+    const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Sort'
+
     return (
         <div className="container mx-auto px-4 sm:px-lg py-4 sm:py-lg pb-8 md:pb-4">
             {/* Header */}
@@ -275,37 +294,77 @@ const Products = () => {
                         />
                     </div>
 
-                    {/* Mobile filter toggle */}
-                    <button
-                        className="lg:hidden flex items-center gap-1.5 sm:gap-sm bg-surface border border-border-default px-3 sm:px-md py-sm rounded-lg text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors duration-fast shrink-0"
-                        onClick={openMobileFilters}
-                    >
-                        <Filter size={16} />
-                        <span className="hidden xs:inline">Filters</span>
-                        {activeFilterCount > 0 && (
-                            <span className="bg-trust text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                                {activeFilterCount}
-                            </span>
-                        )}
-                    </button>
-
-                    {/* Sort dropdown */}
+                    {/* Desktop Sort dropdown (mobile uses the sticky toolbar below) */}
                     <select
                         value={sortBy}
                         onChange={e => setSortBy(e.target.value)}
-                        className="bg-surface border border-border-default text-text-primary px-2 sm:px-md py-sm rounded-lg text-sm focus:outline-none focus:border-trust cursor-pointer transition-colors duration-fast min-w-0"
+                        className="hidden md:block bg-surface border border-border-default text-text-primary px-2 sm:px-md py-sm rounded-lg text-sm focus:outline-none focus:border-trust cursor-pointer transition-colors duration-fast min-w-0"
                     >
-                        <option value="newest">Newest</option>
-                        <option value="price-low">Price: Low</option>
-                        <option value="price-high">Price: High</option>
-                        <option value="rating">Top Rated</option>
-                        <option value="name">A-Z</option>
+                        {SORT_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
                     </select>
                 </div>
             </div>
 
-            {/* Bundle Deals Banner */}
-            {featuredBundles.length > 0 && (
+            {/* Mobile sticky Filter + Sort toolbar */}
+            <div
+                className="lg:hidden sticky z-30 -mx-4 sm:-mx-lg px-4 sm:px-lg py-2 mb-3 bg-background/95 backdrop-blur-md border-y border-border-default flex items-center gap-2"
+                style={{ top: 'calc(var(--nav-h) + env(safe-area-inset-top, 0px))' }}
+            >
+                <button
+                    className="flex-1 min-h-11 flex items-center justify-center gap-2 bg-surface border border-border-default rounded-lg text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors"
+                    onClick={openMobileFilters}
+                >
+                    <Filter size={16} />
+                    <span>Filter</span>
+                    {activeFilterCount > 0 && (
+                        <span className="bg-trust text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                            {activeFilterCount}
+                        </span>
+                    )}
+                </button>
+                <div className="w-px h-6 bg-border-default" aria-hidden />
+                <button
+                    className="flex-1 min-h-11 flex items-center justify-center gap-2 bg-surface border border-border-default rounded-lg text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors"
+                    onClick={() => setIsMobileSortOpen(true)}
+                >
+                    <ArrowUpDown size={16} />
+                    <span className="truncate">{currentSortLabel}</span>
+                </button>
+            </div>
+
+            {/* Mobile Sort bottom sheet */}
+            <BottomSheet
+                isOpen={isMobileSortOpen}
+                onClose={() => setIsMobileSortOpen(false)}
+                title="Sort by"
+                maxHeight="60dvh"
+            >
+                <ul className="divide-y divide-border-default -mx-4">
+                    {SORT_OPTIONS.map(opt => {
+                        const selected = sortBy === opt.value
+                        return (
+                            <li key={opt.value}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSortBy(opt.value)
+                                        setIsMobileSortOpen(false)
+                                    }}
+                                    className={`flex items-center justify-between w-full px-4 py-4 min-h-11 text-left text-sm transition-colors ${selected ? 'text-trust font-semibold' : 'text-text-primary hover:bg-surface-hover'}`}
+                                >
+                                    <span>{opt.label}</span>
+                                    {selected && <Check size={18} className="text-trust" />}
+                                </button>
+                            </li>
+                        )
+                    })}
+                </ul>
+            </BottomSheet>
+
+            {/* Bundle Deals Banner — only when the bundles module is enabled */}
+            {bundlesEnabled && featuredBundles.length > 0 && (
                 <div className="mb-lg">
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -459,26 +518,29 @@ const Products = () => {
 
             {/* ─── Sticky Compare Bar ────────────────────────────────── */}
             {compareList.length > 0 && (
-                <div className="fixed left-0 right-0 z-[45] bg-surface border-t border-border-default shadow-[0_-4px_24px_rgba(0,0,0,0.08)] bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:bottom-0 md:safe-bottom">
-                    <div className="container mx-auto px-4 sm:px-lg py-3 sm:py-md flex items-center justify-between">
-                        <div className="flex items-center gap-md">
-                            <ArrowLeftRight size={18} className="text-trust" />
-                            <span className="text-sm font-medium text-text-primary">
-                                {compareList.length} item{compareList.length > 1 ? 's' : ''} selected to compare
+                <div
+                    className="fixed left-0 right-0 z-[45] bg-surface border-t border-border-default shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:safe-bottom"
+                    style={{ bottom: 'calc(var(--bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))' }}
+                >
+                    <div className="container mx-auto px-4 sm:px-lg py-3 sm:py-md flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-md min-w-0">
+                            <ArrowLeftRight size={18} className="text-trust shrink-0" />
+                            <span className="text-sm font-medium text-text-primary truncate">
+                                {compareList.length} item{compareList.length > 1 ? 's' : ''} selected
                             </span>
                         </div>
-                        <div className="flex items-center gap-sm">
+                        <div className="flex items-center gap-sm shrink-0">
                             <button
                                 onClick={clearCompare}
-                                className="text-sm text-text-secondary hover:text-text-primary transition-colors duration-fast"
+                                className="min-h-11 px-3 text-sm text-text-secondary hover:text-text-primary transition-colors duration-fast"
                             >
                                 Clear
                             </button>
                             <button
                                 onClick={() => navigate('/compare')}
-                                className="bg-trust text-white text-sm font-bold px-lg py-sm rounded-lg hover:opacity-90 transition-opacity duration-fast"
+                                className="min-h-11 bg-trust text-white text-sm font-bold px-lg rounded-lg hover:opacity-90 transition-opacity duration-fast"
                             >
-                                Compare Now
+                                Compare
                             </button>
                         </div>
                     </div>

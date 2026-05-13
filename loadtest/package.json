@@ -1,0 +1,29 @@
+{
+  "name": "loadtest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local load tests for CMGroups (backend + frontend dev servers).",
+  "type": "module",
+  "scripts": {
+    "smoke": "node run.mjs --quick",
+    "load": "node run.mjs",
+    "load:heavy": "node run.mjs --duration=30 --connections=50",
+    "load:api": "node run.mjs --only=api-products,api-products-search,api-categories,api-banners,api-courses,api-bundles,api-bundle-templates,api-home-bootstrap,api-products-card",
+    "load:frontend": "node run.mjs --only=frontend-root",
+    "load:health": "node run.mjs --only=backend-health",
+    "load:bootstrap": "node run.mjs --only=api-home-bootstrap,api-products-card --duration=20",
+    "load:saturation": "node run-saturation.mjs",
+    "load:saturation:bootstrap": "node run-saturation.mjs --target=/api/home-bootstrap",
+    "load:saturation:products": "node run-saturation.mjs --target=/api/products?limit=20",
+    "soak": "node run-soak.mjs",
+    "soak:short": "node run-soak.mjs --duration=300 --bin=30",
+    "soak:long": "node run-soak.mjs --duration=1800 --bin=60",
+    "cold-vs-warm": "node run-cold-vs-warm.mjs",
+    "test:cache": "node test-cache.mjs",
+    "validate:cache-invalidation": "node validate-cache-invalidation.mjs",
+    "compare": "node compare.mjs"
+  },
+  "devDependencies": {
+    "autocannon": "^8.0.0"
+  }
+}

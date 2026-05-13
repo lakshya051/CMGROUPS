@@ -3,19 +3,21 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { bundlesAPI } from '../../lib/api';
 import BundleCard from '../shop/BundleCard';
 
-const BundleRow = ({ title = 'Hot Combos — Save More Together', displayOn }) => {
-    const [bundles, setBundles] = useState([]);
-    const [loading, setLoading] = useState(true);
+const BundleRow = ({ title = 'Hot Combos — Save More Together', displayOn, initialBundles }) => {
+    const hasInitial = Array.isArray(initialBundles);
+    const [bundles, setBundles] = useState(() => hasInitial ? initialBundles : []);
+    const [loading, setLoading] = useState(!hasInitial);
     const scrollRef = useRef(null);
 
     useEffect(() => {
+        if (hasInitial) return;
         const params = {};
         if (displayOn) params.displayOn = displayOn;
         bundlesAPI.getAll(params)
             .then(setBundles)
             .catch(() => setBundles([]))
             .finally(() => setLoading(false));
-    }, [displayOn]);
+    }, [displayOn, hasInitial]);
 
     const scroll = (dir) => {
         if (!scrollRef.current) return;

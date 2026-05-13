@@ -1,31 +1,48 @@
 import express from 'express';
-import prisma from '../lib/prisma.js';
+import prisma, { isDatabaseUnavailable } from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { logAudit } from '../utils/auditLog.js';
+import { getFeatureFlags } from '../lib/featureFlags.js';
 
 const router = express.Router();
+
+// Same shape as `bundles.js`: gate every public read behind the bundles flag.
+// BYOB templates only make sense when bundles are live, so they share the
+// flag rather than getting their own toggle. Admin routes pass through.
+router.use(async (req, res, next) => {
+    if (req.method !== 'GET') return next();
+    const isAdminPath = req.path === '/admin' || req.path.startsWith('/admin/');
+    if (isAdminPath) return next();
+
+    try {
+        const flags = await getFeatureFlags();
+        if (flags.bundlesEnabled) return next();
+    } catch {
+        return res.json([]);
+    }
+
+    if (req.path === '/') return res.json([]);
+    return res.status(404).json({ error: 'Not found' });
+});
 
 const templateInclude = {
     slots: { orderBy: { position: 'asc' } },
 };
 
-// GET /api/bundle-templates — list active templates
+// GET /api/bundle-templates — list active templates (stale-while-revalidate)
 router.get('/', async (req, res) => {
     try {
-        const cacheKey = 'bundleTemplates:list';
-        const cached = cache.get(cacheKey);
-        if (cached) return res.json(cached);
-
-        const templates = await prisma.bundleTemplate.findMany({
-            where: { isActive: true },
-            include: templateInclude,
-            orderBy: { createdAt: 'desc' },
-        });
-
-        cache.set(cacheKey, templates, 120);
+        const templates = await cache.getOrRefresh('bundleTemplates:list', 120, 600, () =>
+            prisma.bundleTemplate.findMany({
+                where: { isActive: true },
+                include: templateInclude,
+                orderBy: { createdAt: 'desc' },
+            }),
+        );
         res.json(templates);
     } catch (error) {
+        if (isDatabaseUnavailable(error)) return res.json([]);
         console.error('Get bundle templates error:', error);
         res.status(500).json({ error: 'Server error' });
     }
@@ -247,7 +264,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
             include: templateInclude,
         });
 
-        cache.delByPrefix('bundleTemplates:');
+        cache.bustWithHome('bundleTemplates:');
         logAudit({
             userId: req.user.id, action: 'CREATE', entity: 'BundleTemplate', entityId: template.id,
             details: { after: { name: template.name, discount: template.discount } },
@@ -301,7 +318,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
             include: templateInclude,
         });
 
-        cache.delByPrefix('bundleTemplates:');
+        cache.bustWithHome('bundleTemplates:');
         logAudit({
             userId: req.user.id, action: 'UPDATE', entity: 'BundleTemplate', entityId: templateId,
             details: { changedFields: Object.keys(updateData) },
@@ -324,7 +341,7 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
             data: { isActive: false },
         });
 
-        cache.delByPrefix('bundleTemplates:');
+        cache.bustWithHome('bundleTemplates:');
         logAudit({
             userId: req.user.id, action: 'DELETE', entity: 'BundleTemplate', entityId: templateId,
             details: { meta: 'Soft-deleted (isActive → false)' },

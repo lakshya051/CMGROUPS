@@ -3,8 +3,8 @@ import { Filter, Phone, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../../components/ui/Button';
 import { getAuthHeaders } from '../../lib/api';
+import { API_BASE } from '../../lib/config';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const STATUS_STYLES = {
     new: 'bg-primary/10 text-primary border border-primary/20',
     contacted: 'bg-warning/10 text-warning border border-warning/20',

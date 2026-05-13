@@ -58,7 +58,7 @@ const WhatWeOffer = () => (
                             <h3 className="font-bold text-sm sm:text-base text-text-primary leading-tight">
                                 {item.title}
                             </h3>
-                            <p className="text-[11px] sm:text-xs text-text-secondary leading-snug line-clamp-2">
+                            <p className="text-xs text-text-secondary leading-snug line-clamp-2">
                                 {item.desc}
                             </p>
                         </Link>

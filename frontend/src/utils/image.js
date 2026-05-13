@@ -6,10 +6,48 @@ function trimmedUrl(url) {
     return t.length > 0 ? t : null;
 }
 
+// ─── Cloudinary URL transformer ──────────────────────────────────────────────
+// Cloudinary URLs look like:
+//   https://res.cloudinary.com/<cloud>/image/upload/v1234567/folder/file.jpg
+// Inserting `t_` parameters between `/upload/` and the version segment causes
+// Cloudinary to do server-side resize + format conversion. We rely on:
+//   f_auto  → AVIF/WebP/JPEG depending on browser support
+//   q_auto  → adaptive quality (typically 60–80% bandwidth saving)
+//   c_fill,w_X,h_Y → crop to fit
+//   dpr_auto → respect device pixel ratio for retina displays
+//
+// Non-Cloudinary URLs (placeholder SVGs, third-party images) pass through
+// unchanged.
+const CLOUDINARY_RE = /^(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload)\/(.+)$/;
+
+const PRESETS = {
+    // Product card on grid: 400×400 covers 2x retina up to 200×200 display.
+    card: 'f_auto,q_auto,c_fill,w_400,h_400,dpr_auto',
+    // Product detail hero: bigger.
+    detail: 'f_auto,q_auto,c_fill,w_800,h_800,dpr_auto',
+    // Cart/checkout thumb.
+    thumb: 'f_auto,q_auto,c_fill,w_200,h_200,dpr_auto',
+    // Hero banner — wide aspect, no crop.
+    banner: 'f_auto,q_auto,w_1600,dpr_auto',
+};
+
+/** Inject Cloudinary transforms into a URL. Pass through any URL we don't recognize. */
+export function transformImage(url, preset = 'card') {
+    if (typeof url !== 'string' || !url) return url;
+    const m = url.match(CLOUDINARY_RE);
+    if (!m) return url;
+    // If the URL already contains a transform segment (e.g. `c_fill,w_100/`),
+    // don't double-transform — return unchanged.
+    if (/\/(?:[a-z]_[\w,]+\/)+v\d+\//.test(url)) return url;
+    const params = PRESETS[preset] || PRESETS.card;
+    return `${m[1]}/${params}/${m[2]}`;
+}
+
 /**
  * Primary image for a product-like object (`images[]` and/or `image`), or placeholder.
+ * Pass `preset` to control the Cloudinary transform applied (default: 'card').
  */
-export function getProductImageUrl(source, index = 0) {
+export function getProductImageUrl(source, index = 0, preset = 'card') {
     if (!source) return PLACEHOLDER_IMAGE;
 
     const rawList = Array.isArray(source.images) ? source.images : null;
@@ -23,28 +61,31 @@ export function getProductImageUrl(source, index = 0) {
     if (urls.length === 0) return PLACEHOLDER_IMAGE;
 
     const idx = Number.isFinite(index) ? Math.max(0, Math.min(index, urls.length - 1)) : 0;
-    return urls[idx] || urls[0] || PLACEHOLDER_IMAGE;
+    const chosen = urls[idx] || urls[0] || PLACEHOLDER_IMAGE;
+    return transformImage(chosen, preset);
 }
 
 /** Single URL (e.g. gallery thumb) — empty/invalid → placeholder */
-export function resolveImageUrl(url) {
-    return trimmedUrl(url) ?? PLACEHOLDER_IMAGE;
+export function resolveImageUrl(url, preset) {
+    const t = trimmedUrl(url);
+    if (!t) return PLACEHOLDER_IMAGE;
+    return preset ? transformImage(t, preset) : t;
 }
 
 /** Cart/order line: variant image wins, then product gallery */
-export function getLineItemImageUrl(item) {
+export function getLineItemImageUrl(item, preset = 'thumb') {
     if (!item) return PLACEHOLDER_IMAGE;
     const v = trimmedUrl(item.variant?.image);
-    if (v) return v;
-    return getProductImageUrl(item.product, 0);
+    if (v) return transformImage(v, preset);
+    return getProductImageUrl(item.product, 0, preset);
 }
 
 /** Admin order row: bundle cover image, else product */
-export function getOrderLineThumbUrl(item) {
+export function getOrderLineThumbUrl(item, preset = 'thumb') {
     if (!item) return PLACEHOLDER_IMAGE;
     const b = trimmedUrl(item.bundle?.image);
-    if (b) return b;
-    return getProductImageUrl(item.product || {}, 0);
+    if (b) return transformImage(b, preset);
+    return getProductImageUrl(item.product || {}, 0, preset);
 }
 
 export const handleImageError = (event) => {

@@ -1,10 +1,41 @@
 import express from 'express';
-import prisma from '../lib/prisma.js';
+import prisma, { isDatabaseUnavailable } from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { logAudit } from '../utils/auditLog.js';
+import { getFeatureFlags } from '../lib/featureFlags.js';
 
 const router = express.Router();
+
+// Gate every public (non-admin) bundle read behind the bundlesEnabled flag.
+// When the feature is off, list endpoints return [] and detail endpoints
+// return 404 so customers can't reach bundle data through cached client code
+// or direct URLs even if the UI happens to show stale links. Admin routes
+// still operate normally — the admin needs to manage bundles and re-enable
+// them later. Mount before any specific GET route so the gate runs first.
+router.use(async (req, res, next) => {
+    if (req.method !== 'GET') return next();
+    // Anything under /admin (e.g. /admin, /admin/123) is admin-only and is
+    // protected by `protect, adminOnly` further down. Let it through so the
+    // admin UI keeps working when the public surface is off.
+    const isAdminPath = req.path === '/admin' || req.path.startsWith('/admin/');
+    if (isAdminPath) return next();
+
+    try {
+        const flags = await getFeatureFlags();
+        if (flags.bundlesEnabled) return next();
+    } catch {
+        // If the flag read fails for any reason, default to "off" so we never
+        // accidentally leak bundle data we promised was hidden.
+        return res.json([]);
+    }
+
+    // Disabled — return a shape the client knows how to render as empty.
+    if (req.path === '/' || req.path === '/suggestions' || req.path === '/analytics') {
+        return res.json([]);
+    }
+    return res.status(404).json({ error: 'Not found' });
+});
 
 const bundleInclude = {
     items: {
@@ -72,24 +103,23 @@ router.get('/', async (req, res) => {
     try {
         const { displayOn } = req.query;
         const cacheKey = `bundles:list:${displayOn || 'all'}`;
-        const cached = cache.get(cacheKey);
-        if (cached) return res.json(cached);
 
-        const bundles = await prisma.bundle.findMany({
-            where: { isActive: true },
-            include: bundleInclude,
-            orderBy: { createdAt: 'desc' },
+        const result = await cache.getOrRefresh(cacheKey, 120, 600, async () => {
+            const bundles = await prisma.bundle.findMany({
+                where: { isActive: true },
+                include: bundleInclude,
+                orderBy: { createdAt: 'desc' },
+            });
+            let active = bundles.filter(isActiveBundle);
+            if (displayOn) {
+                active = active.filter(b => Array.isArray(b.displayOn) && b.displayOn.includes(displayOn));
+            }
+            return active.map(enrichBundle);
         });
 
-        let active = bundles.filter(isActiveBundle);
-        if (displayOn) {
-            active = active.filter(b => Array.isArray(b.displayOn) && b.displayOn.includes(displayOn));
-        }
-
-        const result = active.map(enrichBundle);
-        cache.set(cacheKey, result, 120);
         res.json(result);
     } catch (error) {
+        if (isDatabaseUnavailable(error)) return res.json([]);
         console.error('Get bundles error:', error);
         res.status(500).json({ error: 'Server error' });
     }
@@ -317,7 +347,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
             }
         }
 
-        cache.delByPrefix('bundles:');
+        cache.bustWithHome('bundles:');
         logAudit({
             userId: req.user.id, action: 'CREATE', entity: 'Bundle', entityId: bundle.id,
             details: { after: { name: bundle.name, bundlePrice: bundle.bundlePrice } },
@@ -381,7 +411,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
             include: bundleInclude,
         });
 
-        cache.delByPrefix('bundles:');
+        cache.bustWithHome('bundles:');
         logAudit({
             userId: req.user.id, action: 'UPDATE', entity: 'Bundle', entityId: bundleId,
             details: { changedFields: Object.keys(updateData) },
@@ -413,7 +443,7 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
                 where: { id: bundleId },
                 data: { isActive: false },
             });
-            cache.delByPrefix('bundles:');
+            cache.bustWithHome('bundles:');
             logAudit({
                 userId: req.user.id, action: 'DELETE', entity: 'Bundle', entityId: bundleId,
                 details: { meta: 'Soft-deleted (isActive → false) — referenced by orders' },
@@ -424,7 +454,7 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
 
         await prisma.bundle.delete({ where: { id: bundleId } });
 
-        cache.delByPrefix('bundles:');
+        cache.bustWithHome('bundles:');
         logAudit({
             userId: req.user.id, action: 'DELETE', entity: 'Bundle', entityId: bundleId,
             details: { meta: 'Hard-deleted' },

@@ -14,12 +14,17 @@ const FALLBACK_SERVICES = [
     { id: 'mobile', title: 'Mobile Repair', icon: 'Smartphone', price: '₹299' },
 ];
 
-const ServicesShowcase = () => {
-    const [services, setServices] = useState([]);
-    const [loading, setLoading] = useState(true);
+const ServicesShowcase = ({ initialServiceTypes }) => {
+    const hasInitial = Array.isArray(initialServiceTypes);
+    const [services, setServices] = useState(() => {
+        if (!hasInitial) return [];
+        return initialServiceTypes.length > 0 ? initialServiceTypes.slice(0, 6) : FALLBACK_SERVICES;
+    });
+    const [loading, setLoading] = useState(!hasInitial);
     const scrollRef = useRef(null);
 
     useEffect(() => {
+        if (hasInitial) return;
         serviceTypesAPI.getAll()
             .then(data => {
                 if (data && data.length > 0) {
@@ -30,7 +35,7 @@ const ServicesShowcase = () => {
             })
             .catch(() => setServices(FALLBACK_SERVICES))
             .finally(() => setLoading(false));
-    }, []);
+    }, [hasInitial]);
 
     const scroll = (dir) => {
         if (!scrollRef.current) return;

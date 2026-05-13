@@ -3,6 +3,11 @@ import prisma from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { logAudit } from '../utils/auditLog.js';
+import {
+    getFeatureFlags,
+    bustFeatureFlagsCache,
+    getDefaultFeatureFlags,
+} from '../lib/featureFlags.js';
 
 const router = express.Router();
 
@@ -465,6 +470,77 @@ router.put('/service-settings', protect, adminOnly, async (req, res) => {
     }
 });
 
+// ==================== FEATURE FLAGS ====================
+// Singleton key/value style settings that gate entire customer-facing modules
+// (bundles today, more later). The corresponding public endpoint at
+// `GET /api/feature-flags` is open to everyone so the SPA can decide what to
+// render before the user is signed in.
+
+const hasFeatureFlagsModel = () =>
+    prisma.featureFlags && typeof prisma.featureFlags.findFirst === 'function';
+
+// GET /api/admin/feature-flags
+router.get('/feature-flags', protect, adminOnly, async (req, res) => {
+    try {
+        if (!hasFeatureFlagsModel()) {
+            return res.json(getDefaultFeatureFlags());
+        }
+        const flags = await getFeatureFlags();
+        res.json(flags);
+    } catch (error) {
+        console.error('Get feature flags error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/admin/feature-flags
+router.put('/feature-flags', protect, adminOnly, async (req, res) => {
+    try {
+        if (!hasFeatureFlagsModel()) {
+            // No DB column yet (migration hasn't been applied) — accept the
+            // payload but echo back defaults so the admin UI doesn't error out.
+            return res.json(getDefaultFeatureFlags());
+        }
+
+        const data = {};
+        if (typeof req.body?.bundlesEnabled === 'boolean') {
+            data.bundlesEnabled = req.body.bundlesEnabled;
+        }
+
+        let row = await prisma.featureFlags.findFirst();
+        if (row) {
+            row = await prisma.featureFlags.update({ where: { id: row.id }, data });
+        } else {
+            row = await prisma.featureFlags.create({ data });
+        }
+
+        // Drop in-memory caches so the next public request, the homepage
+        // bootstrap, and any bundle list reflect the new value immediately
+        // instead of waiting for the stale-while-revalidate window.
+        bustFeatureFlagsCache();
+        cache.bustWithHome('bundles:');
+        cache.bustWithHome('bundleTemplates:');
+
+        await logAudit({
+            userId: req.user?.id,
+            action: 'UPDATE',
+            entity: 'FeatureFlags',
+            entityId: row.id,
+            details: { after: data },
+            req,
+        }).catch(() => {});
+
+        res.json({
+            id: row.id,
+            bundlesEnabled: Boolean(row.bundlesEnabled),
+            updatedAt: row.updatedAt,
+        });
+    } catch (error) {
+        console.error('Update feature flags error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // ==================== BANNER MANAGEMENT ====================
 
 // GET /api/admin/banners — all banners (including inactive), sorted by displayOrder
@@ -505,7 +581,7 @@ router.post('/banners', protect, adminOnly, async (req, res) => {
             },
         });
 
-        cache.delByPrefix('banners:');
+        cache.bustWithHome('banners:');
         res.status(201).json(banner);
     } catch (error) {
         console.error('Create banner error:', error);
@@ -533,7 +609,7 @@ router.patch('/banners/reorder', protect, adminOnly, async (req, res) => {
         await prisma.$transaction(updates);
 
         const banners = await prisma.banner.findMany({ orderBy: { displayOrder: 'asc' } });
-        cache.delByPrefix('banners:');
+        cache.bustWithHome('banners:');
         res.json(banners);
     } catch (error) {
         console.error('Reorder banners error:', error);
@@ -565,7 +641,7 @@ router.patch('/banners/:id', protect, adminOnly, async (req, res) => {
             data,
         });
 
-        cache.delByPrefix('banners:');
+        cache.bustWithHome('banners:');
         res.json(banner);
     } catch (error) {
         console.error('Update banner error:', error);
@@ -591,7 +667,7 @@ router.patch('/banners/:id/toggle', protect, adminOnly, async (req, res) => {
             data: { active: !existing.active },
         });
 
-        cache.delByPrefix('banners:');
+        cache.bustWithHome('banners:');
         res.json(banner);
     } catch (error) {
         console.error('Toggle banner error:', error);
@@ -605,7 +681,7 @@ router.delete('/banners/:id', protect, adminOnly, async (req, res) => {
         const bannerId = parseInt(req.params.id);
 
         await prisma.banner.delete({ where: { id: bannerId } });
-        cache.delByPrefix('banners:');
+        cache.bustWithHome('banners:');
         res.json({ success: true, message: 'Banner deleted' });
     } catch (error) {
         console.error('Delete banner error:', error);

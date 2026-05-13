@@ -161,6 +161,42 @@ export default defineConfig(({ mode }) => ({
                     if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('react-hot-toast')) return 'utils';
                 },
             },
+            plugins: [
+                // Loud guard against a regression where a heavy lib (recharts,
+                // framer-motion, etc.) accidentally lands in the eager bundle.
+                // Failing the build is intentional — silent bloat is how PWAs
+                // get slow, one PR at a time.
+                chunkBudgetGuard({
+                    'recharts': { mustBeIn: ['recharts'] },
+                    'framer-motion': { mustBeIn: ['vendor-motion'] },
+                    'firebase': { mustBeIn: ['vendor-firebase'] },
+                }),
+            ],
         },
     },
 }))
+
+// Verifies (post-build) that certain heavy modules end up only in the chunks
+// we expect. Throws if anything leaks into the eager `index` bundle.
+function chunkBudgetGuard(rules) {
+    return {
+        name: 'chunk-budget-guard',
+        generateBundle(_options, bundle) {
+            const violations = [];
+            for (const [chunkName, info] of Object.entries(bundle)) {
+                if (info.type !== 'chunk') continue;
+                for (const [match, rule] of Object.entries(rules)) {
+                    const usesMatch = info.modules && Object.keys(info.modules).some((id) => id.includes(match));
+                    if (!usesMatch) continue;
+                    const allowed = rule.mustBeIn.some((allowedName) => chunkName.startsWith(`assets/${allowedName}`));
+                    if (!allowed) {
+                        violations.push(`${match} appears in chunk ${chunkName} but should only be in [${rule.mustBeIn.join(', ')}]`);
+                    }
+                }
+            }
+            if (violations.length > 0) {
+                this.error(`Chunk budget violations:\n  ${violations.join('\n  ')}`);
+            }
+        },
+    };
+}

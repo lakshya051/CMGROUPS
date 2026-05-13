@@ -28,11 +28,14 @@ const CompareWidget = () => {
     if (compareList.length === 0) return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 safe-bottom">
+        <div
+            className="fixed right-4 z-40 animate-in slide-in-from-bottom-5"
+            style={{ bottom: 'calc(var(--bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px) + 1rem)' }}
+        >
             <div className="glass-panel p-4 shadow-sm border border-border-default w-80 max-w-[calc(100vw-2rem)] bg-surface/95 backdrop-blur-xl">
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-border-default">
                     <h3 className="font-bold text-sm">Compare Products ({compareList.length}/{MAX_COMPARE_ITEMS})</h3>
-                    <button onClick={clearCompare} className="text-xs text-text-muted hover:text-error underline">
+                    <button onClick={clearCompare} className="min-h-11 px-3 text-xs text-text-muted hover:text-error underline">
                         Clear all
                     </button>
                 </div>
@@ -49,8 +52,8 @@ const CompareWidget = () => {
                                 className="w-8 h-8 object-contain bg-surface rounded flex-shrink-0"
                             />
                             <span className="text-xs font-medium truncate flex-1">{p.title}</span>
-                            <button onClick={() => removeFromCompare(p.id)} className="text-text-muted hover:text-error p-1" aria-label="Remove">
-                                <X size={14} />
+                            <button onClick={() => removeFromCompare(p.id)} className="min-touch text-text-muted hover:text-error rounded-full" aria-label={`Remove ${p.title}`}>
+                                <X size={16} />
                             </button>
                         </div>
                     ))}

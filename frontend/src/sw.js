@@ -50,12 +50,17 @@ registerRoute(
     })
 );
 
+// H9: cache only low-volatility catalog endpoints, and for a short window so
+// price/stock changes propagate quickly. Product DETAIL (/api/products/:id),
+// listings (/api/products?...), and anything that would influence a purchase
+// decision is NOT cached — the checkout total mismatch check would otherwise
+// trip when a user adds to cart from a stale price.
 registerRoute(
-    ({ url }) => /\/api\/(products|categories|banners|courses)/.test(url.pathname),
+    ({ url }) => /\/api\/(categories|banners)(\/|$|\?)/.test(url.pathname),
     new NetworkFirst({
         cacheName: 'api-public-data',
         plugins: [
-            new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 300 }),
+            new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 }),
             new CacheableResponsePlugin({ statuses: [200] }),
         ],
         networkTimeoutSeconds: 5,
@@ -63,7 +68,7 @@ registerRoute(
 );
 
 registerRoute(
-    ({ url }) => /\/api\/(orders|wallet|notifications|user|cart|auth)/.test(url.pathname),
+    ({ url }) => /\/api\/(orders|wallet|notifications|user|cart|auth|products|courses|coupons|bundles)/.test(url.pathname),
     new NetworkOnly()
 );
 

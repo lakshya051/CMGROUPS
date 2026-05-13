@@ -3,13 +3,17 @@ import { useAuth } from '../../context/AuthContext';
 import { needsPhoneCapture } from '../../lib/authProfile';
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
-    const { isSignedIn, user, loading } = useAuth();
+    const { isSignedIn, user, loading, requiresEmailVerification } = useAuth();
     const location = useLocation();
 
     if (loading) return <div className="min-h-screen bg-page-bg" />;
 
     if (!isSignedIn) {
         return <Navigate to="/sign-in" state={{ from: location }} replace />;
+    }
+
+    if (requiresEmailVerification) {
+        return <Navigate to="/verify-email" state={{ from: location }} replace />;
     }
 
     if (adminOnly && user?.role !== 'admin') {

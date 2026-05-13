@@ -16,7 +16,15 @@ export async function assertCouponUserEligibility(db, coupon, userId) {
     }
 
     if (coupon.firstOrderOnly) {
-        const priorOrderCount = await db.order.count({ where: { userId } });
+        // M4: a cancelled or returned order is not a "fulfilled" purchase, so
+        // it shouldn't disqualify a customer from using a first-order coupon.
+        const priorOrderCount = await db.order.count({
+            where: {
+                userId,
+                status: { notIn: ['Cancelled'] },
+                returnStatus: { notIn: ['Approved', 'Refunded'] },
+            },
+        });
         if (priorOrderCount > 0) {
             const e = new Error('This coupon is only valid on your first order.');
             e.isCouponUserRule = true;

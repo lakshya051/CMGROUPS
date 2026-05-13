@@ -148,20 +148,49 @@ export const ShopProvider = ({ children }) => {
         return () => window.removeEventListener('focus', onFocus);
     }, [user, fetchCart]);
 
-    // Fetch wishlist from backend if logged in
+    // Fetch wishlist from backend if logged in.
+    // H7: when a guest who had items in their local wishlist signs in, merge
+    // those local ids into the server wishlist instead of discarding them.
     const wishlistFetchedRef = React.useRef(false);
     useEffect(() => {
-        if (user) {
-            wishlistFetchedRef.current = false;
-            wishlistAPI.get()
-                .then(items => {
-                    const ids = items.map(i => i.id);
-                    setWishlist(ids);
-                    localStorage.setItem('wishlist', JSON.stringify(ids));
-                    wishlistFetchedRef.current = true;
-                })
-                .catch(err => console.error('Failed to fetch wishlist from server:', err));
-        }
+        if (!user) return;
+
+        wishlistFetchedRef.current = false;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                // Read what the guest had on this device before the merge.
+                let localIds = [];
+                try {
+                    const stored = JSON.parse(localStorage.getItem('wishlist') || '[]');
+                    if (Array.isArray(stored)) {
+                        localIds = stored
+                            .map((id) => (typeof id === 'string' ? parseInt(id, 10) : id))
+                            .filter((id) => Number.isInteger(id) && id > 0);
+                    }
+                } catch {
+                    localIds = [];
+                }
+
+                const products = localIds.length > 0
+                    ? await wishlistAPI.merge(localIds)
+                    : await wishlistAPI.get();
+
+                if (cancelled) return;
+
+                const ids = products.map((p) => p.id);
+                setWishlist(ids);
+                localStorage.setItem('wishlist', JSON.stringify(ids));
+                wishlistFetchedRef.current = true;
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Failed to sync wishlist with server:', err);
+                }
+            }
+        })();
+
+        return () => { cancelled = true; };
     }, [user]);
 
     useEffect(() => {

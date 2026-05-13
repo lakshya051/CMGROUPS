@@ -36,6 +36,7 @@ const PaymentStep = ({
     couponLoading = false,
     couponError = '',
     appliedCouponCode = null,
+    referrerRewardAmount = 200,
 }) => (
     <div className={`bg-surface border rounded-lg shadow-sm p-4 sm:p-lg transition-all duration-300 ${step === 2 ? 'border-trust ring-1 ring-trust/50' : 'border-border-default opacity-50'}`}>
         <div className="flex items-center gap-3 sm:gap-4 mb-4">
@@ -164,7 +165,7 @@ const PaymentStep = ({
                         value={referralCode}
                         onChange={(e) => onReferralCodeChange(e.target.value)}
                     />
-                    <p className="text-xs text-text-secondary">Enter a friend's referral code to give them ₹200 store credit!</p>
+                    <p className="text-xs text-text-secondary">Enter a friend's referral code to give them ₹{referrerRewardAmount.toLocaleString('en-IN')} store credit!</p>
                 </div>
 
                 {user && (
@@ -269,8 +270,8 @@ export const OrderSummaryPanel = ({ cart, subtotal, bundleSavings = 0, tax, coup
     }
 
     return (
-        <div className="bg-surface border border-border-default rounded-lg shadow-sm p-4 sm:p-lg h-fit sticky top-24">
-            <h3 className="font-bold mb-4 text-base sm:text-lg text-text-primary">Your Order</h3>
+        <div className="bg-surface md:border md:border-border-default rounded-lg md:shadow-sm md:p-4 md:sm:p-lg h-fit md:sticky md:top-24">
+            <h3 className="font-bold mb-4 text-base sm:text-lg text-text-primary hidden md:block">Your Order</h3>
             <div className="space-y-3 mb-4 max-h-72 overflow-y-auto pr-2">
                 {Object.entries(bundleGroups).map(([instanceId, group]) => {
                     const isServiceOnlyGroup = group.items.every(i => i.isServiceBundle);

@@ -105,12 +105,12 @@ export default function Notifications() {
                 </div>
 
                 {/* Filter Tabs */}
-                <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+                <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4">
                     {TABS.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                            className={`min-h-11 px-4 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
                                 activeTab === tab.id
                                     ? 'bg-trust text-white shadow-sm'
                                     : 'bg-surface border border-border-default text-text-muted hover:border-trust hover:text-trust'
@@ -161,10 +161,10 @@ export default function Notifications() {
                                                     e.stopPropagation();
                                                     deleteNotification(notif.id);
                                                 }}
-                                                className="flex-shrink-0 text-text-muted hover:text-error transition-colors p-1"
+                                                className="flex-shrink-0 min-touch -m-2 rounded-full text-text-muted hover:text-error transition-colors"
                                                 aria-label="Delete notification"
                                             >
-                                                <Trash2 size={14} />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                         <p className="text-xs text-text-muted mt-0.5 line-clamp-2">

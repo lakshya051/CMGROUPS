@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -27,26 +28,26 @@ model User {
   role          String   @default("customer")
   createdAt     DateTime @default(now())
 
-  orders              Order[]
-  reviews             Review[]
-  bookings            ServiceBooking[]
-  referrals           User[]               @relation("UserReferrals")
-  referralsMade       Referral[]           @relation("Referrer")
-  referralsReceived   Referral[]           @relation("Referee")
-  walletTransactions  WalletTransaction[]
-  productAlerts       ProductAlert[]
-  notifications       Notification[]
-  pushSubscriptions   PushSubscription[]
-  wishlists           Wishlist[]
-  cartItems           CartItem[]
-  addresses           Address[]
+  orders             Order[]
+  reviews            Review[]
+  bookings           ServiceBooking[]
+  referrals          User[]              @relation("UserReferrals")
+  referralsMade      Referral[]          @relation("Referrer")
+  referralsReceived  Referral[]          @relation("Referee")
+  walletTransactions WalletTransaction[]
+  productAlerts      ProductAlert[]
+  notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
+  wishlists          Wishlist[]
+  cartItems          CartItem[]
+  addresses          Address[]
 
   // Education Module
   courseApplications CourseApplication[]
   enrollments        Enrollment[]
   attendances        Attendance[]
   auditLogs          AuditLog[]
-  bundleReviews      BundleReview[] @relation("BundleReviews")
+  bundleReviews      BundleReview[]         @relation("BundleReviews")
   adminNotifications AdminNotificationLog[] @relation("AdminNotifications")
 
   @@index([firebaseUid])
@@ -75,6 +76,9 @@ model Course {
   materials    CourseMaterial[]
   attendances  Attendance[]
   bundleItems  BundleItem[]
+
+  // Public course list always filters `isPublished: true`.
+  @@index([isPublished])
 }
 
 model CourseDuration {
@@ -223,7 +227,7 @@ model Product {
   isActive         Boolean  @default(true)
   isDeal           Boolean  @default(false)
 
-  hasVariants Boolean  @default(false)
+  hasVariants Boolean @default(false)
 
   orderItems     OrderItem[]
   reviews        Review[]
@@ -240,6 +244,16 @@ model Product {
   @@index([isRefurbished])
   @@index([price])
   @@index([rating])
+  // Composite indexes — every public product query starts with
+  // `where: { isActive: true, ... }`. With `isActive` placed FIRST in a
+  // composite index, Postgres can use a single index range-scan instead
+  // of a sequential scan + post-filter. Even with low isActive selectivity
+  // (most products active), pairing it with the secondary sort/filter
+  // column lets the planner satisfy ORDER BY without a heap re-scan.
+  @@index([isActive, isDeal])
+  @@index([isActive, rating])
+  @@index([isActive, category])
+  @@index([isActive, brand])
 }
 
 model Wishlist {
@@ -360,48 +374,48 @@ model Review {
 }
 
 model ServiceBooking {
-  id               Int       @id @default(autoincrement())
-  userId           Int
-  user             User      @relation(fields: [userId], references: [id])
-  orderId          Int?
-  order            Order?    @relation(fields: [orderId], references: [id])
-  serviceType      String
-  description      String?
-  deviceType       String?
-  deviceBrand      String?
-  date             DateTime
-  timeSlot         String?
-  status           String    @default("Pending")
-  referralCodeUsed String?
-  customFields     Json? // Dynamic field values { fieldName: value }
+  id                     Int       @id @default(autoincrement())
+  userId                 Int
+  user                   User      @relation(fields: [userId], references: [id])
+  orderId                Int?
+  order                  Order?    @relation(fields: [orderId], references: [id])
+  serviceType            String
+  description            String?
+  deviceType             String?
+  deviceBrand            String?
+  date                   DateTime
+  timeSlot               String?
+  status                 String    @default("Pending")
+  referralCodeUsed       String?
+  customFields           Json? // Dynamic field values { fieldName: value }
   // Customer details
-  customerName     String?
-  customerPhone    String?
-  address          String?
-  city             String?
-  pincode          String?
-  landmark         String?
+  customerName           String?
+  customerPhone          String?
+  address                String?
+  city                   String?
+  pincode                String?
+  landmark               String?
   // Location (GPS)
-  latitude         Float?
-  longitude        Float?
-  googleMapLink    String?
+  latitude               Float?
+  longitude              Float?
+  googleMapLink          String?
   // Admin fields
-  estimatedPrice   Float?
-  finalPrice       Float?
-  adminNotes       String?
-  assignedTo       String?
+  estimatedPrice         Float?
+  finalPrice             Float?
+  adminNotes             String?
+  assignedTo             String?
   // OTP for pickup verification
-  pickupOtp        String?
+  pickupOtp              String?
   // OTP for delivery verification
   deliveryOtp            String?
   deliveryOtpVerified    Boolean   @default(false)
   deliveryOtpGeneratedAt DateTime?
   // Timestamps
-  confirmedAt      DateTime?
-  pickedUpAt       DateTime?
-  completedAt      DateTime?
-  deliveredAt      DateTime?
-  createdAt        DateTime  @default(now())
+  confirmedAt            DateTime?
+  pickedUpAt             DateTime?
+  completedAt            DateTime?
+  deliveredAt            DateTime?
+  createdAt              DateTime  @default(now())
 
   // --- Service Hub Upgrade Fields ---
   // OTP verification
@@ -463,18 +477,18 @@ model ServiceInvoice {
 }
 
 model Coupon {
-  id               Int       @id @default(autoincrement())
-  code             String    @unique
-  discountType     String
-  value            Float
-  active           Boolean   @default(true)
-  expiresAt        DateTime?
-  minOrderAmount   Float?
-  maxUses          Int?
-  usedCount        Int       @default(0)
-  applicableTo     String    @default("all")
-  firstOrderOnly   Boolean   @default(false)
-  maxUsesPerUser   Int?
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  discountType   String
+  value          Float
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  minOrderAmount Float?
+  maxUses        Int?
+  usedCount      Int       @default(0)
+  applicableTo   String    @default("all")
+  firstOrderOnly Boolean   @default(false)
+  maxUsesPerUser Int?
 }
 
 model Referral {
@@ -515,18 +529,18 @@ model Category {
 }
 
 model ServiceType {
-  id             Int      @id @default(autoincrement())
-  title          String   @unique
+  id             Int          @id @default(autoincrement())
+  title          String       @unique
   description    String?
   icon           String? // Icon name e.g. "Wrench", "Monitor", "Cpu"
   price          String? // Starting price e.g. "₹499"
   features       Json? // Array of feature strings
   formFields     Json? // Array of { name, label, type, required, options }
-  active         Boolean  @default(true)
+  active         Boolean      @default(true)
   referrerPoints Float?
   refereePoints  Float?
   sellerName     String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
   bundleItems    BundleItem[]
 
   @@index([active])
@@ -575,6 +589,10 @@ model ProductVariant {
   @@index([productId])
   @@index([productId, price])
   @@index([sku])
+  // Public reads always filter `where: { isActive: true }`. Pair it with
+  // productId so the planner can satisfy "active variants of product X"
+  // with a single index lookup.
+  @@index([productId, isActive])
 }
 
 model ProductAlert {
@@ -680,6 +698,17 @@ model ServiceSettings {
   updatedAt          DateTime @updatedAt
 }
 
+// Singleton row that gates customer-facing modules. Toggling a flag here
+// removes the corresponding surfaces from the UI and short-circuits the
+// matching public APIs without deleting any underlying data.
+// Default is OFF for bundles since the feature isn't being launched yet.
+model FeatureFlags {
+  id             Int      @id @default(autoincrement())
+  bundlesEnabled Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model Banner {
   id           Int      @id @default(autoincrement())
   title        String
@@ -716,15 +745,15 @@ model Address {
 }
 
 model AuditLog {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  user       User     @relation(fields: [userId], references: [id])
-  action     String
-  entity     String
-  entityId   String
-  details    Json?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([entity, entityId])
@@ -735,19 +764,19 @@ model AuditLog {
 // ─── Bundle System ─────────────────────────────────────────────────────────────
 
 model Bundle {
-  id          Int          @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   name        String
-  slug        String?      @unique
+  slug        String?        @unique
   description String?
   image       String?
   bundlePrice Float
-  isActive    Boolean      @default(true)
-  isGiftable  Boolean      @default(false)
-  displayOn   String[]     @default(["home"])
+  isActive    Boolean        @default(true)
+  isGiftable  Boolean        @default(false)
+  displayOn   String[]       @default(["home"])
   startDate   DateTime?
   endDate     DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   items       BundleItem[]
   orderItems  OrderItem[]
   reviews     BundleReview[]
@@ -833,8 +862,8 @@ model QuantityTier {
   minQty    Int
   price     Float
 
-  @@index([productId])
   @@unique([productId, minQty])
+  @@index([productId])
 }
 
 model AdminNotificationLog {

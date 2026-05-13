@@ -1,13 +1,14 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
 import { protect, adminOnly } from '../middleware/auth.js';
+import { bookingCreateLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
 // @route   POST /api/applications
 // @desc    Apply for a course
 // @access  Private
-router.post('/', protect, async (req, res) => {
+router.post('/', bookingCreateLimiter, protect, async (req, res) => {
     try {
         const { courseId, name, email, phone, message } = req.body;
 
@@ -148,47 +149,69 @@ router.put('/enrollment/:id/payment', protect, adminOnly, async (req, res) => {
             return res.status(404).json({ error: 'Enrollment not found' });
         }
 
-        const isNewlyPaid = paymentStatus === 'Paid' && enrollment.paymentStatus !== 'Paid';
+        const parsedFeePaid = parseFloat(feePaid);
+        const willBePaid = paymentStatus === 'Paid';
 
-        const updatedEnrollment = await prisma.enrollment.update({
-            where: { id: parseInt(req.params.id) },
-            data: {
-                paymentStatus,
-                feePaid: parseFloat(feePaid)
+        // Atomic state transition + referral credit. Using updateMany with a
+        // paymentStatus guard ensures only ONE concurrent request can flip the
+        // enrollment from non-Paid → Paid, preventing double referral credit.
+        const enrollmentId = parseInt(req.params.id);
+        const referredById = enrollment.user.referredById;
+
+        const { transitionedToPaid, updatedEnrollment } = await prisma.$transaction(async (tx) => {
+            if (willBePaid && enrollment.paymentStatus !== 'Paid') {
+                // Guarded flip to Paid. If another request already flipped it,
+                // result.count === 0 and we do NOT credit a referral again.
+                const result = await tx.enrollment.updateMany({
+                    where: {
+                        id: enrollmentId,
+                        paymentStatus: { not: 'Paid' },
+                    },
+                    data: {
+                        paymentStatus: 'Paid',
+                        feePaid: parsedFeePaid,
+                    },
+                });
+
+                const row = await tx.enrollment.findUnique({ where: { id: enrollmentId } });
+
+                if (result.count === 1 && referredById) {
+                    const settings = await tx.referralSettings.findFirst();
+                    const rewardAmount = settings ? settings.pointsPerCourseEnrollment : 300;
+
+                    await tx.user.update({
+                        where: { id: referredById },
+                        data: { walletBalance: { increment: rewardAmount } }
+                    });
+
+                    await tx.referral.create({
+                        data: {
+                            referrerId: referredById,
+                            refereeId: enrollment.userId,
+                            status: 'rewarded',
+                            rewardAmount,
+                            source: 'course',
+                            completedAt: new Date(),
+                        },
+                    });
+                }
+
+                return { transitionedToPaid: result.count === 1, updatedEnrollment: row };
             }
+
+            // Non-Paid → Non-Paid or Paid → something else: straightforward update.
+            const row = await tx.enrollment.update({
+                where: { id: enrollmentId },
+                data: {
+                    paymentStatus,
+                    feePaid: parsedFeePaid,
+                },
+            });
+            return { transitionedToPaid: false, updatedEnrollment: row };
         });
 
-        // *** REFERRAL REWARD FOR COURSE ENROLLMENT ***
-        // Only credit when course is fully paid
-        if (isNewlyPaid && enrollment.user.referredById) {
-            try {
-                const settings = await prisma.referralSettings.findFirst();
-                const rewardAmount = settings ? settings.pointsPerCourseEnrollment : 300;
-
-                const referrerId = enrollment.user.referredById;
-
-                // Credit the referrer
-                await prisma.user.update({
-                    where: { id: referrerId },
-                    data: { walletBalance: { increment: rewardAmount } }
-                });
-
-                // Record the referral reward
-                await prisma.referral.create({
-                    data: {
-                        referrerId,
-                        refereeId: enrollment.userId,
-                        status: 'rewarded',
-                        rewardAmount,
-                        source: 'course',
-                        completedAt: new Date()
-                    }
-                });
-
-                console.log(`Course Referral reward: ₹${rewardAmount} credited to referrer ${referrerId} for course padding by user ${enrollment.userId}`);
-            } catch (refErr) {
-                console.error('Course referral reward error:', refErr);
-            }
+        if (transitionedToPaid && referredById) {
+            console.log(`[course-referral] Credited referrer ${referredById} for enrollment ${enrollmentId}`);
         }
 
         res.json(updatedEnrollment);

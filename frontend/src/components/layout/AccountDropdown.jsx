@@ -87,16 +87,16 @@ const AccountDropdown = ({
                         <p className="text-sm font-semibold text-text-primary">{user.name}</p>
                         <p className="text-xs text-text-muted">{user.email}</p>
                     </div>
-                    <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} role="menuitem" className="flex items-center gap-2.5 px-4 py-2 text-sm text-text-primary hover:bg-surface-hover transition-colors">
+                    <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} role="menuitem" className="flex items-center gap-2.5 px-4 py-3 text-sm text-text-primary hover:bg-surface-hover transition-colors">
                         <LayoutDashboard size={15} className="text-text-muted" /> Dashboard
                     </Link>
-                    <Link to="/dashboard/orders" role="menuitem" className="flex items-center gap-2.5 px-4 py-2 text-sm text-text-primary hover:bg-surface-hover transition-colors">
+                    <Link to="/dashboard/orders" role="menuitem" className="flex items-center gap-2.5 px-4 py-3 text-sm text-text-primary hover:bg-surface-hover transition-colors">
                         <ShoppingBag size={15} className="text-text-muted" /> Orders
                     </Link>
-                    <Link to="/wishlist" role="menuitem" className="flex items-center gap-2.5 px-4 py-2 text-sm text-text-primary hover:bg-surface-hover transition-colors">
+                    <Link to="/wishlist" role="menuitem" className="flex items-center gap-2.5 px-4 py-3 text-sm text-text-primary hover:bg-surface-hover transition-colors">
                         <Heart size={15} className="text-text-muted" /> Wishlist
                     </Link>
-                    <Link to="/dashboard/settings" role="menuitem" className="flex items-center gap-2.5 px-4 py-2 text-sm text-text-primary hover:bg-surface-hover transition-colors">
+                    <Link to="/dashboard/settings" role="menuitem" className="flex items-center gap-2.5 px-4 py-3 text-sm text-text-primary hover:bg-surface-hover transition-colors">
                         <Settings size={15} className="text-text-muted" /> Settings
                     </Link>
                     <div className="border-t border-border-default mt-1 pt-1">
@@ -109,7 +109,7 @@ const AccountDropdown = ({
                                 handleLogout();
                             }}
                             role="menuitem"
-                            className="flex items-center gap-2.5 px-4 py-2 text-sm text-error hover:bg-surface-hover transition-colors w-full text-left"
+                            className="flex items-center gap-2.5 px-4 py-3 text-sm text-error hover:bg-surface-hover transition-colors w-full text-left"
                         >
                             <LogOut size={15} /> Sign Out
                         </button>

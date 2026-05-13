@@ -3,12 +3,16 @@ import { bundleTemplatesAPI } from '../../lib/api';
 import BundleBuilder from '../shop/BundleBuilder';
 import { Puzzle } from 'lucide-react';
 
-const BYOBSection = () => {
-    const [templates, setTemplates] = useState([]);
-    const [activeTemplate, setActiveTemplate] = useState(null);
-    const [loading, setLoading] = useState(true);
+const BYOBSection = ({ initialTemplates }) => {
+    const hasInitial = Array.isArray(initialTemplates);
+    const [templates, setTemplates] = useState(() => hasInitial ? initialTemplates : []);
+    const [activeTemplate, setActiveTemplate] = useState(() =>
+        hasInitial && initialTemplates.length > 0 ? initialTemplates[0] : null,
+    );
+    const [loading, setLoading] = useState(!hasInitial);
 
     useEffect(() => {
+        if (hasInitial) return;
         bundleTemplatesAPI.getAll()
             .then(data => {
                 setTemplates(data);
@@ -16,7 +20,7 @@ const BYOBSection = () => {
             })
             .catch(() => {})
             .finally(() => setLoading(false));
-    }, []);
+    }, [hasInitial]);
 
     if (loading || templates.length === 0) return null;
 

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Send, MapPin, Phone, Mail } from 'lucide-react';
 import { useSEO } from '../hooks/useSEO';
 import toast from 'react-hot-toast';
+import { API_BASE } from '../lib/config';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const DEPARTMENTS = ['Sales', 'Support', 'Services', 'Courses'];
 
@@ -109,7 +109,7 @@ export default function ContactUs() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-sm shadow-lg shadow-primary/25 hover:brightness-105 transition-all disabled:opacity-50"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 min-h-11 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-bold text-sm shadow-lg shadow-primary/25 hover:brightness-105 transition-all disabled:opacity-50"
                     >
                         <Send size={16} /> {loading ? 'Sending...' : 'Send Message'}
                     </button>

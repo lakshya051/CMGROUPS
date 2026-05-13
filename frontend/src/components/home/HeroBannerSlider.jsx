@@ -48,15 +48,22 @@ const SkeletonSlide = () => (
     </section>
 );
 
-const HeroBannerSlider = () => {
-    const [slides, setSlides] = useState([]);
-    const [loading, setLoading] = useState(true);
+const HeroBannerSlider = ({ initialBanners }) => {
+    // When `initialBanners` is provided (Home page bootstrap), skip the fetch
+    // entirely. Other pages that mount this slider standalone keep the legacy
+    // fetch path so the component remains reusable.
+    const hasInitial = Array.isArray(initialBanners);
+    const [slides, setSlides] = useState(() =>
+        hasInitial ? (initialBanners.length > 0 ? initialBanners : FALLBACK_SLIDES) : [],
+    );
+    const [loading, setLoading] = useState(!hasInitial);
     const [current, setCurrent] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const timerRef = useRef(null);
     const touchStartRef = useRef(0);
 
     useEffect(() => {
+        if (hasInitial) return;
         bannersAPI.getPublic()
             .then(data => {
                 setSlides(data.length > 0 ? data : FALLBACK_SLIDES);
@@ -65,7 +72,7 @@ const HeroBannerSlider = () => {
                 setSlides(FALLBACK_SLIDES);
             })
             .finally(() => setLoading(false));
-    }, []);
+    }, [hasInitial]);
 
     const slideCount = slides.length;
 
@@ -164,14 +171,14 @@ const HeroBannerSlider = () => {
                 <>
                     <button
                         onClick={prev}
-                        className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full flex items-center justify-center transition-colors"
+                        className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full items-center justify-center transition-colors"
                         aria-label="Previous slide"
                     >
                         <ChevronLeft size={22} />
                     </button>
                     <button
                         onClick={next}
-                        className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full flex items-center justify-center transition-colors"
+                        className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full items-center justify-center transition-colors"
                         aria-label="Next slide"
                     >
                         <ChevronRight size={22} />

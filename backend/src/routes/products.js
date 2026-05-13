@@ -1,5 +1,5 @@
 import express from 'express';
-import prisma from '../lib/prisma.js';
+import prisma, { isDatabaseUnavailable } from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { logAudit } from '../utils/auditLog.js';
@@ -12,8 +12,19 @@ const router = express.Router();
 //   ?category=GPU  ?search=rtx  ?sort=price_asc  ?minPrice=  ?maxPrice=
 //   ?isSecondHand=true
 router.get('/', async (req, res) => {
+    // Hoisted out of the try so the DB-unavailable catch can echo them back
+    // in the empty-fallback pagination payload without a ReferenceError.
+    const parsedPageOuter = Number.parseInt(req.query.page, 10);
+    const parsedLimitOuter = Number.parseInt(req.query.limit, 10);
+    const cachePage = Number.isFinite(parsedPageOuter) && parsedPageOuter > 0 ? parsedPageOuter : 1;
+    const cacheLimit = Math.max(1, Number.isFinite(parsedLimitOuter) ? Math.min(parsedLimitOuter, 500) : 20);
+
     try {
-        const { category, search, sort, minPrice, maxPrice, isSecondHand, onSale, isDeal, page, limit } = req.query;
+        const { category, search, sort, minPrice, maxPrice, isSecondHand, onSale, isDeal, page, limit, fields } = req.query;
+        // `fields=card` returns only what the product grid needs (title, price,
+        // image, rating, stock). Saves ~70% bytes per page since we drop
+        // variantOptions[].values, full variant arrays, and detail-only fields.
+        const isCardProjection = fields === 'card';
 
         // Build where clause
         let where = { isActive: true };
@@ -61,116 +72,139 @@ router.get('/', async (req, res) => {
         }
 
         // ── Cache key ──────────────────────────────────────────────────────────
-        const parsedPage = Number.parseInt(page, 10);
-        const parsedLimit = Number.parseInt(limit, 10);
-        const cachePage = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-        const cacheLimit = Math.max(1, Number.isFinite(parsedLimit) ? Math.min(parsedLimit, 500) : 20);
+        // (cachePage / cacheLimit are computed at the top of the handler so the
+        // catch block can reuse them when serving the DB-unavailable fallback.)
         const cacheKeyData = { ...req.query, page: cachePage, limit: cacheLimit };
         const cacheKey = `products:${JSON.stringify(cacheKeyData)}`;
 
-        const cached = cache.get(cacheKey);
-        if (cached) {
-            return res.json(cached);
-        }
-
-        const take = cacheLimit;
-        const skip = (cachePage - 1) * take;
-
-        // Out-of-stock last: fetch in-stock and out-of-stock separately with same sort, then merge
-        const whereInStock = { ...where, stock: { gt: 0 } };
-        const whereOutOfStock = { ...where, stock: { lte: 0 } };
-
-        // Sequential queries via $transaction to use one DB connection at a time for this handler.
-        // Parallel Promise.all was exhausting the pool (P2024) under concurrent /api/products traffic.
-        const [total, inStockCount] = await prisma.$transaction([
-            prisma.product.count({ where }),
-            prisma.product.count({ where: whereInStock }),
-        ]);
-
-        const inStockSkip = Math.min(skip, inStockCount);
-        const inStockTake = Math.min(take, inStockCount - inStockSkip);
-        const outOfStockSkip = Math.max(0, skip - inStockCount);
-        const outOfStockTake = take - inStockTake;
-
-        const variantInclude = {
-            variantOptions: {
-                include: { values: { orderBy: { position: 'asc' } } },
-                orderBy: { position: 'asc' }
-            },
-            variants: {
-                where: { isActive: true },
-                orderBy: { price: 'asc' }
-            }
-        };
-
-        const [inStockProducts, outOfStockProducts] = await prisma.$transaction(async (tx) => {
-            const inStock = inStockTake > 0
-                ? await tx.product.findMany({
-                    where: whereInStock,
-                    orderBy,
-                    skip: inStockSkip,
-                    take: inStockTake,
-                    include: variantInclude,
-                })
-                : [];
-            const outOfStock = outOfStockTake > 0
-                ? await tx.product.findMany({
-                    where: whereOutOfStock,
-                    orderBy,
-                    skip: outOfStockSkip,
-                    take: outOfStockTake,
-                    include: variantInclude,
-                })
-                : [];
-            return [inStock, outOfStock];
-        }, { timeout: 30_000 });
-
-        const allFetched = [...inStockProducts, ...outOfStockProducts].map(p => {
-            const variantStock = p.hasVariants && p.variants.length > 0
-                ? p.variants.reduce((sum, v) => sum + v.stock, 0)
-                : null;
-            const effectiveStock = variantStock !== null ? variantStock : p.stock;
-
-            if (p.hasVariants && p.variants.length > 0) {
-                const cheapest = p.variants[0];
-                return {
-                    ...p,
-                    displayPrice: cheapest.price,
-                    displayMrp: cheapest.originalPrice != null && cheapest.originalPrice > cheapest.price ? cheapest.originalPrice : null,
-                    totalStock: effectiveStock,
-                };
-            }
-            return {
-                ...p,
-                displayPrice: p.price,
-                displayMrp: p.originalPrice != null && p.originalPrice > p.price ? p.originalPrice : null,
-                totalStock: effectiveStock,
-            };
-        });
-
-        // Re-sort: variable products with variant stock > 0 should appear with in-stock items
-        const inStock = allFetched.filter(p => p.totalStock > 0);
-        const outOfStock = allFetched.filter(p => p.totalStock <= 0);
-        const products = [...inStock, ...outOfStock];
-
-        const result = {
-            data: products,
-            pagination: {
-                total,
-                page: cachePage,
-                limit: take,
-                totalPages: Math.ceil(total / take)
-            }
-        };
-
-        cache.set(cacheKey, result, 300);
+        const result = await cache.getOrRefresh(cacheKey, 300, 900, () =>
+            buildProductsListing({ where, orderBy, cachePage, cacheLimit, isCardProjection }),
+        );
         res.json(result);
-
     } catch (error) {
+        if (isDatabaseUnavailable(error)) {
+            return res.json({
+                data: [],
+                pagination: { total: 0, page: cachePage, limit: cacheLimit, totalPages: 0 },
+            });
+        }
         console.error('Get products error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
+
+// Internal helper — used by the cache.getOrRefresh wrapper above. Runs the
+// actual Prisma queries to build a paginated, in-stock-first product listing.
+// Card-projection includes: minimum needed for the product grid (image, title,
+// price, rating, stock, plus a tiny variant slice to compute totalStock and
+// the cheapest displayPrice). Skips variantOptions.values, full variants[]
+// arrays, etc. Cuts ~70% off serialized payload size on a typical page.
+const cardProjectionInclude = {
+    variants: {
+        where: { isActive: true },
+        orderBy: { price: 'asc' },
+        select: { id: true, price: true, originalPrice: true, stock: true },
+    },
+};
+
+const fullVariantInclude = {
+    variantOptions: {
+        include: { values: { orderBy: { position: 'asc' } } },
+        orderBy: { position: 'asc' },
+    },
+    variants: {
+        where: { isActive: true },
+        orderBy: { price: 'asc' },
+    },
+};
+
+async function buildProductsListing({ where, orderBy, cachePage, cacheLimit, isCardProjection = false }) {
+    const take = cacheLimit;
+    const skip = (cachePage - 1) * take;
+
+    const whereInStock = { ...where, stock: { gt: 0 } };
+    const whereOutOfStock = { ...where, stock: { lte: 0 } };
+
+    // Sequential counts to avoid pool exhaustion (P2024) under concurrent traffic.
+    const [total, inStockCount] = await prisma.$transaction([
+        prisma.product.count({ where }),
+        prisma.product.count({ where: whereInStock }),
+    ]);
+
+    const inStockSkip = Math.min(skip, inStockCount);
+    const inStockTake = Math.min(take, inStockCount - inStockSkip);
+    const outOfStockSkip = Math.max(0, skip - inStockCount);
+    const outOfStockTake = take - inStockTake;
+
+    const include = isCardProjection ? cardProjectionInclude : fullVariantInclude;
+
+    // For card projection, also limit the top-level select to grid-relevant
+    // columns. Fields are aligned with backend/prisma/schema.prisma — adding a
+    // column here that does not exist on the Product model causes every
+    // `?fields=card` request to 500. The fields below are the minimum the
+    // ProductCard / FilterSidebar components consume.
+    const cardProductSelect = isCardProjection ? {
+        id: true, title: true, brand: true, category: true,
+        price: true, originalPrice: true, images: true, stock: true,
+        rating: true, numReviews: true, isDeal: true,
+        isSecondHand: true, isRefurbished: true, hasVariants: true,
+    } : undefined;
+
+    const [inStockProducts, outOfStockProducts] = await prisma.$transaction(async (tx) => {
+        const baseQuery = (extra) => isCardProjection
+            ? { ...extra, select: { ...cardProductSelect, variants: include.variants } }
+            : { ...extra, include };
+
+        const inStock = inStockTake > 0
+            ? await tx.product.findMany(baseQuery({
+                where: whereInStock, orderBy, skip: inStockSkip, take: inStockTake,
+            }))
+            : [];
+        const outOfStock = outOfStockTake > 0
+            ? await tx.product.findMany(baseQuery({
+                where: whereOutOfStock, orderBy, skip: outOfStockSkip, take: outOfStockTake,
+            }))
+            : [];
+        return [inStock, outOfStock];
+    }, { timeout: 30_000 });
+
+    const allFetched = [...inStockProducts, ...outOfStockProducts].map(p => {
+        const variantStock = p.hasVariants && p.variants.length > 0
+            ? p.variants.reduce((sum, v) => sum + v.stock, 0)
+            : null;
+        const effectiveStock = variantStock !== null ? variantStock : p.stock;
+
+        if (p.hasVariants && p.variants.length > 0) {
+            const cheapest = p.variants[0];
+            return {
+                ...p,
+                displayPrice: cheapest.price,
+                displayMrp: cheapest.originalPrice != null && cheapest.originalPrice > cheapest.price ? cheapest.originalPrice : null,
+                totalStock: effectiveStock,
+            };
+        }
+        return {
+            ...p,
+            displayPrice: p.price,
+            displayMrp: p.originalPrice != null && p.originalPrice > p.price ? p.originalPrice : null,
+            totalStock: effectiveStock,
+        };
+    });
+
+    const inStock = allFetched.filter(p => p.totalStock > 0);
+    const outOfStock = allFetched.filter(p => p.totalStock <= 0);
+    const products = [...inStock, ...outOfStock];
+
+    return {
+        data: products,
+        pagination: {
+            total,
+            page: cachePage,
+            limit: take,
+            totalPages: Math.ceil(total / take),
+        },
+    };
+}
 
 // GET /api/products/:id (Public)
 router.get('/:id', async (req, res) => {
@@ -360,7 +394,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
             }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
 
         logAudit({
             userId: req.user.id, action: 'CREATE', entity: 'Product', entityId: product.id,
@@ -423,7 +457,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
             data: updateData
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
 
         logAudit({
             userId: req.user.id, action: 'UPDATE', entity: 'Product', entityId: productId,
@@ -516,7 +550,7 @@ router.patch('/:id/deal', protect, adminOnly, async (req, res) => {
             data: { isDeal: !product.isDeal }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
 
         logAudit({
             userId: req.user.id, action: 'UPDATE', entity: 'Product', entityId: productId,
@@ -545,7 +579,7 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
             data: { isActive: false }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
 
         logAudit({
             userId: req.user.id, action: 'DELETE', entity: 'Product', entityId: productId,
@@ -604,7 +638,7 @@ router.post('/:id/variants', protect, adminOnly, async (req, res) => {
         }
         const variant = await prisma.productVariant.create({ data: variantData });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         debouncedSyncProducts();
         res.status(201).json(variant);
     } catch (error) {
@@ -640,7 +674,7 @@ router.put('/:id/variants/:variantId', protect, adminOnly, async (req, res) => {
             data: updateData
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         debouncedSyncProducts();
         res.json(variant);
     } catch (error) {
@@ -664,7 +698,7 @@ router.delete('/:id/variants/:variantId', protect, adminOnly, async (req, res) =
             where: { id: variantId }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         debouncedSyncProducts();
         res.json({ message: 'Variant deleted' });
     } catch (error) {
@@ -707,7 +741,7 @@ router.post('/:id/variants/bulk', protect, adminOnly, async (req, res) => {
             }
         }
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         debouncedSyncProducts();
         res.json({ variants: results });
     } catch (error) {
@@ -743,7 +777,7 @@ router.post('/:id/options', protect, adminOnly, async (req, res) => {
             include: { values: { orderBy: { position: 'asc' } } }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         res.status(201).json(option);
     } catch (error) {
         console.error('Create option error:', error);
@@ -787,7 +821,7 @@ router.put('/:id/options/:optionId', protect, adminOnly, async (req, res) => {
             include: { values: { orderBy: { position: 'asc' } } }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         res.json(updated);
     } catch (error) {
         console.error('Update option error:', error);
@@ -805,7 +839,7 @@ router.delete('/:id/options/:optionId', protect, adminOnly, async (req, res) => 
             return res.status(404).json({ error: 'Option not found for this product' });
         }
         await prisma.variantOption.delete({ where: { id: optionId } });
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         res.json({ message: 'Option deleted' });
     } catch (error) {
         console.error('Delete option error:', error);
@@ -903,7 +937,7 @@ router.post('/:id/variants/generate', protect, adminOnly, async (req, res) => {
             orderBy: { price: 'asc' }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         debouncedSyncProducts();
         res.json({ created, total: allVariants.length, variants: allVariants });
     } catch (error) {
@@ -956,7 +990,7 @@ router.put('/:id/quantity-tiers', protect, adminOnly, async (req, res) => {
             orderBy: { minQty: 'asc' },
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         logAudit({
             userId: req.user.id, action: 'UPDATE', entity: 'QuantityTier', entityId: productId,
             details: { tiersCount: updated.length },
@@ -984,7 +1018,7 @@ router.patch('/:id/toggle-variants', protect, adminOnly, async (req, res) => {
             data: { hasVariants: hasVariants === true || hasVariants === 'true' }
         });
 
-        cache.delByPrefix('products:');
+        cache.bustWithHome('products:');
         res.json(product);
     } catch (error) {
         console.error('Toggle variants error:', error);

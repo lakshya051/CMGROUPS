@@ -1,11 +1,26 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AuthPageLayout from '../components/auth/AuthPageLayout';
 import { needsPhoneCapture } from '../lib/authProfile';
 import { FIREBASE_OPERATION_NOT_ALLOWED } from '../lib/firebaseAuthErrors';
 import toast from 'react-hot-toast';
+
+/**
+ * H8: validate the redirect target coming from ProtectedRoute's `state.from`.
+ * We only honor in-app paths to block open-redirect attempts via crafted
+ * location state (e.g. a phishing page linking to /sign-in with an external
+ * `state.from`).
+ */
+function safeInternalPath(candidate, fallback = '/') {
+    if (typeof candidate !== 'string') return fallback;
+    // Must be an in-app path (no scheme, no protocol-relative, no backslashes).
+    if (!candidate.startsWith('/')) return fallback;
+    if (candidate.startsWith('//')) return fallback;
+    if (candidate.startsWith('/\\')) return fallback;
+    return candidate;
+}
 
 const inputClass =
     'input-field text-base py-3 rounded-xl border-border-default/80 shadow-sm focus:border-trust focus:ring-2 focus:ring-trust/20';
@@ -20,6 +35,8 @@ export default function SignIn() {
     const [showPassword, setShowPassword] = useState(false);
     const { loginWithEmail, loginWithGoogle, resetPassword, firebaseConfigured } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const redirectTarget = safeInternalPath(location.state?.from?.pathname, '/');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -33,8 +50,13 @@ export default function SignIn() {
                 );
                 setResetMode(false);
             } else {
-                const { user: dbUser } = await loginWithEmail(email, password);
-                navigate(needsPhoneCapture(dbUser) ? '/onboarding' : '/', { replace: true });
+                const { cred, user: dbUser } = await loginWithEmail(email, password);
+                if (cred?.user && !cred.user.emailVerified) {
+                    toast('Please verify your email to continue.', { icon: '✉️', duration: 5000 });
+                    navigate('/verify-email', { replace: true });
+                } else {
+                    navigate(needsPhoneCapture(dbUser) ? '/onboarding' : redirectTarget, { replace: true });
+                }
             }
         } catch (err) {
             console.error(`[Auth ${resetMode ? 'reset' : 'login'}]`, err.code || err.message, err);
@@ -63,7 +85,7 @@ export default function SignIn() {
             const result = await loginWithGoogle();
             if (result?.redirectStarted) return;
             const dbUser = result?.user;
-            navigate(needsPhoneCapture(dbUser) ? '/onboarding' : '/', { replace: true });
+            navigate(needsPhoneCapture(dbUser) ? '/onboarding' : redirectTarget, { replace: true });
         } catch (err) {
             if (err.code === 'auth/popup-closed-by-user') return;
             const msg = err.code === 'auth/operation-not-allowed'
@@ -144,10 +166,20 @@ export default function SignIn() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(v => !v)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 min-touch rounded-full text-text-muted hover:text-text-primary transition-colors"
                                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                             >
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
+                        {/* Mobile-only duplicate "Forgot password?" for quick thumb reach */}
+                        <div className="mt-2 flex justify-end sm:hidden">
+                            <button
+                                type="button"
+                                onClick={() => setResetMode(true)}
+                                className="text-sm font-semibold text-trust underline-offset-4 hover:underline min-h-11 px-1"
+                            >
+                                Forgot password?
                             </button>
                         </div>
                     </div>
@@ -206,7 +238,7 @@ export default function SignIn() {
                         <button
                             type="button"
                             onClick={() => setResetMode(true)}
-                            className="font-semibold text-trust underline-offset-4 hover:underline"
+                            className="hidden sm:inline-flex font-semibold text-trust underline-offset-4 hover:underline"
                         >
                             Forgot password?
                         </button>

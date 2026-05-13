@@ -65,11 +65,12 @@ const ShippingStep = ({
             )}
 
             <div>
+                <label htmlFor="checkout-fullName" className="block text-sm font-medium text-text-primary mb-1">Full Name *</label>
                 <input
+                    id="checkout-fullName"
                     type="text"
                     name="fullName"
-                    placeholder="Full Name *"
-                    aria-label="Full name"
+                    placeholder="Enter your full name"
                     autoComplete="name"
                     className={`input-field ${formik.touched.fullName && formik.errors.fullName ? 'border-red-500' : ''}`}
                     value={formik.values.fullName}
@@ -83,11 +84,12 @@ const ShippingStep = ({
             </div>
 
             <div>
+                <label htmlFor="checkout-email" className="block text-sm font-medium text-text-primary mb-1">Email Address *</label>
                 <input
+                    id="checkout-email"
                     type="email"
                     name="email"
-                    placeholder="Email Address *"
-                    aria-label="Email address"
+                    placeholder="you@example.com"
                     autoComplete="email"
                     className={`input-field ${formik.touched.email && formik.errors.email ? 'border-red-500' : ''}`}
                     value={formik.values.email}
@@ -101,11 +103,12 @@ const ShippingStep = ({
             </div>
 
             <div>
+                <label htmlFor="checkout-phone" className="block text-sm font-medium text-text-primary mb-1">Phone Number *</label>
                 <input
+                    id="checkout-phone"
                     type="tel"
                     name="phone"
-                    placeholder="Phone Number *"
-                    aria-label="Phone number"
+                    placeholder="10-digit mobile"
                     autoComplete="tel"
                     className={`input-field ${formik.touched.phone && formik.errors.phone ? 'border-red-500' : ''}`}
                     value={formik.values.phone}
@@ -119,11 +122,12 @@ const ShippingStep = ({
             </div>
 
             <div>
+                <label htmlFor="checkout-addressLine" className="block text-sm font-medium text-text-primary mb-1">Street Address *</label>
                 <input
+                    id="checkout-addressLine"
                     type="text"
                     name="addressLine"
-                    placeholder="Address Line *"
-                    aria-label="Street address"
+                    placeholder="Flat / house no, building, street"
                     autoComplete="street-address"
                     className={`input-field ${formik.touched.addressLine && formik.errors.addressLine ? 'border-red-500' : ''}`}
                     value={formik.values.addressLine}
@@ -209,11 +213,12 @@ const ShippingStep = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <div>
+                    <label htmlFor="checkout-city" className="block text-sm font-medium text-text-primary mb-1">City *</label>
                     <input
+                        id="checkout-city"
                         type="text"
                         name="city"
-                        placeholder="City * (default: Etah)"
-                        aria-label="City"
+                        placeholder="Etah"
                         autoComplete="address-level2"
                         className={`input-field ${formik.touched.city && formik.errors.city ? 'border-red-500' : ''}`}
                         value={formik.values.city}
@@ -225,24 +230,28 @@ const ShippingStep = ({
                         <p className="text-error text-sm mt-1">{formik.errors.city}</p>
                     )}
                 </div>
-                <input
-                    type="text"
-                    name="state"
-                    placeholder="State (default: Uttar Pradesh)"
-                    aria-label="State"
-                    autoComplete="address-level1"
-                    className="input-field"
-                    value={formik.values.state}
-                    onChange={onDeliveryFieldChange}
-                    onBlur={formik.handleBlur}
-                    readOnly={step !== 1}
-                />
                 <div>
+                    <label htmlFor="checkout-state" className="block text-sm font-medium text-text-primary mb-1">State</label>
                     <input
+                        id="checkout-state"
+                        type="text"
+                        name="state"
+                        placeholder="Uttar Pradesh"
+                        autoComplete="address-level1"
+                        className="input-field"
+                        value={formik.values.state}
+                        onChange={onDeliveryFieldChange}
+                        onBlur={formik.handleBlur}
+                        readOnly={step !== 1}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="checkout-postal" className="block text-sm font-medium text-text-primary mb-1">PIN Code *</label>
+                    <input
+                        id="checkout-postal"
                         type="text"
                         name="postalCode"
-                        placeholder="PIN Code *"
-                        aria-label="PIN code"
+                        placeholder="207001"
                         autoComplete="postal-code"
                         className={`input-field bg-surface-hover/50 ${formik.touched.postalCode && formik.errors.postalCode ? 'border-red-500' : ''}`}
                         value={formik.values.postalCode}

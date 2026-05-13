@@ -13,8 +13,8 @@ import {
 import { auth } from '../lib/firebase';
 import { AuthContext } from './AuthContext';
 import { setTokenGetter, authAPI } from '../lib/api';
+import { API_BASE } from '../lib/config';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 /** Load DB user via /auth/me, or create/link row via /auth/register (same as after sign-up). */
 async function fetchMeOrRegister(fbUser, idToken) {
@@ -42,6 +42,7 @@ async function fetchMeOrRegister(fbUser, idToken) {
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [firebaseUser, setFirebaseUser] = useState(null);
+    const [emailVerified, setEmailVerified] = useState(false);
     const [loading, setLoading] = useState(true);
     const tokenRef = useRef(null);
 
@@ -73,6 +74,7 @@ export const AuthProvider = ({ children }) => {
                 if (cancelled) return;
                 tokenRef.current = idToken;
                 setFirebaseUser(fbUser);
+                setEmailVerified(Boolean(fbUser.emailVerified));
 
                 setTokenGetter(() => Promise.resolve(tokenRef.current));
 
@@ -101,6 +103,7 @@ export const AuthProvider = ({ children }) => {
             } else {
                 setFirebaseUser(null);
                 setUser(null);
+                setEmailVerified(false);
                 tokenRef.current = null;
                 setTokenGetter(null);
             }
@@ -127,9 +130,11 @@ export const AuthProvider = ({ children }) => {
         if (!auth) throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY and VITE_FIREBASE_APP_ID to frontend/.env');
         const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-        sendEmailVerification(cred.user).catch((err) => {
+        try {
+            await sendEmailVerification(cred.user);
+        } catch (err) {
             console.warn('Failed to send verification email:', err);
-        });
+        }
 
         const idToken = await cred.user.getIdToken();
         tokenRef.current = idToken;
@@ -145,6 +150,7 @@ export const AuthProvider = ({ children }) => {
             throw new Error(data.error || `Registration failed (${res.status})`);
         }
         setUser(data.user);
+        setEmailVerified(Boolean(cred.user.emailVerified));
         localStorage.removeItem('referralCode');
         return cred;
     }, []);
@@ -154,6 +160,28 @@ export const AuthProvider = ({ children }) => {
         if (firebaseUser.emailVerified) throw new Error('Email already verified');
         await sendEmailVerification(firebaseUser);
     }, [firebaseUser]);
+
+    const reloadFirebaseUser = useCallback(async () => {
+        if (!auth?.currentUser) return false;
+        try {
+            await auth.currentUser.reload();
+        } catch (err) {
+            console.warn('reloadFirebaseUser: reload failed', err);
+            return false;
+        }
+        const fresh = auth.currentUser;
+        const verified = Boolean(fresh?.emailVerified);
+        setFirebaseUser(fresh);
+        setEmailVerified(verified);
+        if (verified) {
+            try {
+                const idToken = await fresh.getIdToken(true);
+                tokenRef.current = idToken;
+                setTokenGetter(() => Promise.resolve(tokenRef.current));
+            } catch { /* ignore token refresh errors */ }
+        }
+        return verified;
+    }, []);
 
     const completeGoogleSignIn = useCallback(async (cred, referredByCode) => {
         const idToken = await cred.user.getIdToken();
@@ -259,9 +287,12 @@ export const AuthProvider = ({ children }) => {
                     }
                     return { cred, user: dbUser };
                 },
-                emailVerified: firebaseUser?.emailVerified ?? false,
+                emailVerified,
+                requiresEmailVerification:
+                    !!firebaseUser && !emailVerified,
                 registerWithEmail,
                 resendVerificationEmail,
+                reloadFirebaseUser,
                 loginWithGoogle,
                 resetPassword: async (email) => {
                     const trimmed = String(email || '').trim();

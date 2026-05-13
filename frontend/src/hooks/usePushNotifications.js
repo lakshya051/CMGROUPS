@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAuthHeaders } from '../lib/api';
+import { API_BASE } from '../lib/config';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const LS_KEY = 'cmgroups_push_subscribed';
 
 function urlBase64ToUint8Array(base64String) {

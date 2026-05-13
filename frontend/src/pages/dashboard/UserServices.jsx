@@ -96,14 +96,14 @@ const StatusTimeline = ({ currentStatus }) => {
     const activeIdx = Math.min(currentIdx, lastIdx);
 
     return (
-        <div className="relative py-3">
-            <div className="flex items-start justify-between gap-1">
+        <div className="relative py-3 overflow-x-auto scrollbar-hide">
+            <div className="flex items-start justify-between gap-1 min-w-[600px]">
                 {TIMELINE_STEPS.map(({ key, label, icon: Icon }, idx) => {
                     const isComplete = idx <= activeIdx;
                     const isCurrent = idx === activeIdx;
                     return (
                         <React.Fragment key={key}>
-                            <div className="flex flex-col items-center min-w-[56px]">
+                            <div className="flex flex-col items-center min-w-[72px]">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300
                                     ${isComplete
                                         ? isCurrent
@@ -113,7 +113,7 @@ const StatusTimeline = ({ currentStatus }) => {
                                     }`}>
                                     <Icon size={14} />
                                 </div>
-                                <span className={`text-[9px] mt-1.5 text-center leading-tight max-w-[56px] ${isComplete ? 'text-text-primary font-bold' : 'text-text-muted'}`}>
+                                <span className={`text-xs mt-1.5 text-center leading-tight max-w-[72px] whitespace-nowrap px-1 ${isComplete ? 'text-text-primary font-bold' : 'text-text-muted'}`}>
                                     {label}
                                 </span>
                             </div>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, RefreshCw, Filter } from 'lucide-react';
 import { getAuthHeaders } from '../../lib/api';
+import { API_BASE } from '../../lib/config';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const STATUS_STYLES = {
     new: 'bg-primary/10 text-primary border border-primary/20',

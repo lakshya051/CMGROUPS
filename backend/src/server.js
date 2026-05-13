@@ -21,6 +21,21 @@ for (const envVar of requiredEnvVars) {
     }
 }
 
+// Fail closed: production must have ADMIN_EMAILS explicitly configured.
+// Previously the code fell back to a hardcoded personal gmail, which meant a
+// misconfigured deploy would auto-promote that account to admin.
+if (process.env.NODE_ENV === 'production') {
+    const adminEmailsRaw = (process.env.ADMIN_EMAILS || '').trim();
+    const adminEmails = adminEmailsRaw
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean);
+    if (adminEmails.length === 0) {
+        console.error('FATAL: ADMIN_EMAILS must be set in production (comma-separated list)');
+        process.exit(1);
+    }
+}
+
 process.on('unhandledRejection', (reason) => {
     console.error('Unhandled promise rejection:', reason);
 });

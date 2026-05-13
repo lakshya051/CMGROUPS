@@ -578,6 +578,9 @@ const BundleDetail = () => {
                                             <img
                                                 src={getProductImageUrl(bi.product)}
                                                 alt={bi.product.title}
+                                                loading="lazy"
+                                                width={300}
+                                                height={300}
                                                 onError={handleImageError}
                                                 className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                                             />
@@ -782,20 +785,32 @@ const BundleDetail = () => {
             )}
 
             {/* Mobile sticky CTA */}
-            <div className="lg:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]">
-                <div className="flex items-center gap-3 max-w-7xl mx-auto">
-                    <div className="flex-1 min-w-0">
-                        <p className="text-[10px] uppercase tracking-wide text-text-muted">Bundle Price</p>
-                        <p className="text-lg font-bold text-text-primary">₹{bundle.bundlePrice.toLocaleString('en-IN')}</p>
+            <div
+                className="lg:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3"
+                style={{ bottom: 'calc(var(--bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))' }}
+            >
+                <div className="flex items-center gap-2 max-w-7xl mx-auto">
+                    <div className="shrink-0 min-w-0">
+                        <p className="text-[10px] uppercase tracking-wide text-text-muted">Bundle</p>
+                        <p className="text-base font-bold text-text-primary tabular-nums">₹{bundle.bundlePrice.toLocaleString('en-IN')}</p>
                     </div>
                     <button
                         type="button"
                         onClick={handleAddToCart}
                         disabled={!canPurchase}
-                        className="flex-1 min-w-0 max-w-[180px] font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 bg-buy-primary hover:bg-buy-primary-hover text-text-primary disabled:opacity-40"
+                        className="flex-1 min-w-0 font-bold py-3 px-3 rounded-xl text-sm flex items-center justify-center gap-1.5 bg-buy-primary hover:bg-buy-primary-hover text-text-primary disabled:opacity-40 active:scale-[0.98] transition-transform"
                     >
                         <ShoppingCart size={16} />
-                        Add to Cart
+                        Add
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleBuyNow}
+                        disabled={!canPurchase}
+                        className="flex-1 min-w-0 font-bold py-3 px-3 rounded-xl text-sm flex items-center justify-center gap-1.5 border-2 border-primary text-primary disabled:opacity-40 active:scale-[0.98] transition-transform"
+                    >
+                        <Zap size={16} />
+                        Buy Now
                     </button>
                 </div>
             </div>

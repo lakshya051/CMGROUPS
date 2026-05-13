@@ -264,6 +264,9 @@ const BundleBuilder = ({ template }) => {
                                                     <img
                                                         src={getProductImageUrl(product)}
                                                         alt={product.title}
+                                                        loading="lazy"
+                                                        width={100}
+                                                        height={64}
                                                         onError={handleImageError}
                                                         className="w-full h-16 object-contain mb-1"
                                                     />
@@ -271,7 +274,7 @@ const BundleBuilder = ({ template }) => {
                                                     <p className="text-xs font-bold text-primary mt-1">₹{displayPrice?.toLocaleString('en-IN')}</p>
                                                 </button>
                                                 {hasVariants && isSelected && (
-                                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
                                                         {product.variants.map(v => (
                                                             <button
                                                                 key={v.id}
@@ -279,7 +282,7 @@ const BundleBuilder = ({ template }) => {
                                                                     e.stopPropagation();
                                                                     handleVariantSelect(slot.id, product.id, v.id);
                                                                 }}
-                                                                className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                                                                className={`text-xs px-3 min-h-11 inline-flex items-center rounded border transition-colors ${
                                                                     selectedVariantId === v.id
                                                                         ? 'border-trust bg-trust/10 text-trust font-semibold'
                                                                         : 'border-border-default text-text-muted hover:border-trust/30'
@@ -331,7 +334,7 @@ const BundleBuilder = ({ template }) => {
                     </div>
                 )}
 
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                     <div>
                         {pricing ? (
                             <>
@@ -343,11 +346,11 @@ const BundleBuilder = ({ template }) => {
                             <p className="text-sm text-text-muted">Select products to see price</p>
                         )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         <button
                             onClick={handleAddToCart}
                             disabled={!canProceed}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-buy-primary hover:bg-buy-primary-hover text-text-primary text-sm font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 min-h-11 bg-buy-primary hover:bg-buy-primary-hover text-text-primary text-sm font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             <ShoppingCart size={16} />
                             Add to Cart
@@ -355,7 +358,7 @@ const BundleBuilder = ({ template }) => {
                         <button
                             onClick={handleBuyBundleNow}
                             disabled={!canProceed}
-                            className="flex items-center gap-2 px-5 py-2.5 border-2 border-primary text-primary hover:bg-primary hover:text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 min-h-11 border-2 border-primary text-primary hover:bg-primary hover:text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             <Zap size={16} />
                             Buy Now

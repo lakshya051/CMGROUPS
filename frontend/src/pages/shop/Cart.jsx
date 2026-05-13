@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useShop } from '../../context/ShopContext'
+import { useFeatureFlags } from '../../context/FeatureFlagsContext'
 import { Link, useNavigate } from 'react-router-dom'
 import { QuantitySelector, ProgressBar, EmptyState, SkeletonCard } from '../../components/ui/index'
 import PriceDisplay from '../../components/common/PriceDisplay'
@@ -14,6 +15,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog'
 
 const Cart = () => {
     const { cart, cartLoading, addToCart, removeFromCart, removeBundleFromCart, updateCartQuantity, coupon, applyCoupon, removeCoupon } = useShop()
+    const { bundlesEnabled } = useFeatureFlags()
     const navigate = useNavigate()
     useSEO({ title: 'Your Cart — Shoptify', description: 'Review your shopping cart before checkout.', noIndex: true })
 
@@ -56,12 +58,14 @@ const Cart = () => {
             })
             .catch((err) => { console.error('Failed to load cross-sell products:', err); })
 
-        if (productIds.length > 0) {
+        if (bundlesEnabled && productIds.length > 0) {
             bundlesAPI.getSuggestions(productIds)
                 .then(setBundleSuggestions)
                 .catch(() => setBundleSuggestions([]))
+        } else {
+            setBundleSuggestions([])
         }
-    }, [cartSignature]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [cartSignature, bundlesEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
     const subtotal = useMemo(
         () => computeBundleAwareSubtotal(cart),
@@ -276,8 +280,8 @@ const Cart = () => {
                         </div>
                     )}
 
-                    {/* Bundle Suggestions */}
-                    {bundleSuggestions.length > 0 && (
+                    {/* Bundle Suggestions — gated behind admin toggle */}
+                    {bundlesEnabled && bundleSuggestions.length > 0 && (
                         <div className="mt-md">
                             <h3 className="text-sm font-bold text-text-primary mb-sm flex items-center gap-1.5">
                                 <Package size={14} className="text-trust" />
@@ -365,39 +369,45 @@ const Cart = () => {
                                 Order Summary
                             </h2>
 
-                            {/* Coupon */}
-                            <div>
-                                {appliedCoupon ? (
-                                    <div className="flex items-center justify-between gap-sm bg-success/10 border border-success/20 rounded-lg px-md py-sm">
-                                        <span className="text-sm text-success font-medium flex items-center gap-xs min-w-0">
-                                            <Tag size={14} className="shrink-0" /> <span className="truncate">{appliedCoupon} applied</span>
+                            {/* Coupon — accordion on mobile if unapplied, always visible once applied */}
+                            {appliedCoupon ? (
+                                <div className="flex items-center justify-between gap-sm bg-success/10 border border-success/20 rounded-lg px-md py-sm">
+                                    <span className="text-sm text-success font-medium flex items-center gap-xs min-w-0">
+                                        <Tag size={14} className="shrink-0" /> <span className="truncate">{appliedCoupon} applied</span>
+                                    </span>
+                                    <button type="button" onClick={handleRemoveCoupon} className="min-h-11 px-3 text-xs text-text-muted hover:text-deal shrink-0">
+                                        Remove
+                                    </button>
+                                </div>
+                            ) : (
+                                <details className="group lg:open" open={false}>
+                                    <summary className="list-none flex items-center justify-between gap-sm cursor-pointer min-h-11 py-1 lg:py-0 lg:pointer-events-none">
+                                        <span className="text-sm font-medium text-text-primary flex items-center gap-1.5">
+                                            <Tag size={14} className="text-trust" /> Have a promo code?
                                         </span>
-                                        <button type="button" onClick={handleRemoveCoupon} className="text-xs text-text-muted hover:text-deal shrink-0">
-                                            Remove
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col sm:flex-row gap-sm">
+                                        <span className="lg:hidden text-xs text-trust font-semibold group-open:rotate-180 transition-transform">▾</span>
+                                    </summary>
+                                    <div className="mt-3 flex flex-col sm:flex-row gap-sm">
                                         <input
                                             type="text"
                                             placeholder="Promo Code"
                                             value={couponCode}
                                             onChange={e => { setCouponCode(e.target.value); setCouponError('') }}
                                             aria-label="Promo code"
-                                            className="flex-1 min-w-0 border border-border-default rounded-lg px-md py-sm text-base sm:text-sm focus:outline-none focus:border-trust transition-colors duration-fast"
+                                            className="flex-1 min-w-0 border border-border-default rounded-lg px-md py-3 text-base sm:text-sm focus:outline-none focus:border-trust transition-colors duration-fast"
                                         />
                                         <button
                                             type="button"
                                             onClick={handleApplyCoupon}
                                             disabled={couponLoading}
-                                            className="border border-border-default rounded-lg px-md py-sm text-base sm:text-sm font-medium hover:bg-surface-hover disabled:opacity-40 transition-colors duration-fast shrink-0 sm:w-auto w-full"
+                                            className="min-h-11 border border-border-default rounded-lg px-md text-sm font-medium hover:bg-surface-hover disabled:opacity-40 transition-colors duration-fast shrink-0 sm:w-auto w-full"
                                         >
                                             {couponLoading ? '...' : 'Apply'}
                                         </button>
                                     </div>
-                                )}
-                                {couponError && <p className="text-xs text-deal mt-xs">{couponError}</p>}
-                            </div>
+                                    {couponError && <p className="text-xs text-deal mt-xs">{couponError}</p>}
+                                </details>
+                            )}
 
                             {/* Line items */}
                             <div className="space-y-sm text-sm">
@@ -485,7 +495,8 @@ const Cart = () => {
             {/* Mobile: sticky checkout bar above bottom nav */}
             {cart.length > 0 && (
                 <div
-                    className="lg:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+                    className="lg:hidden fixed left-0 right-0 z-[45] border-t border-border-default bg-surface/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3"
+                    style={{ bottom: 'calc(var(--bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))' }}
                 >
                     <div className="flex items-center gap-3 max-w-7xl mx-auto">
                         <div className="flex-1 min-w-0">
@@ -684,6 +695,8 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
                                     src={getProductImageUrl(item)}
                                     alt={item.title}
                                     loading="lazy"
+                                    width={48}
+                                    height={48}
                                     onError={handleImageError}
                                     className="w-full h-full object-contain"
                                 />
@@ -705,12 +718,12 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
                 </div>
             )}
 
-            <div className="border-t border-trust/10 px-3 sm:px-md py-2 flex items-center gap-2 justify-end">
+            <div className="border-t border-trust/10 px-3 sm:px-md py-2 flex items-center gap-2 justify-end flex-wrap">
                 {isByob && (
                     <button
                         type="button"
                         onClick={() => navigate('/')}
-                        className="text-xs font-medium text-trust hover:underline px-2 py-1"
+                        className="min-h-11 inline-flex items-center text-xs font-medium text-trust hover:underline px-3"
                     >
                         Edit Bundle
                     </button>
@@ -718,7 +731,7 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
                 {isServiceOnly && (
                     <Link
                         to={`/bundles/${bundleInfo.bundleId}`}
-                        className="text-xs font-medium text-trust hover:underline px-2 py-1"
+                        className="min-h-11 inline-flex items-center text-xs font-medium text-trust hover:underline px-3"
                     >
                         View Details
                     </Link>
@@ -726,7 +739,7 @@ function BundleGroupCard({ instanceId, bundleInfo, items, onRemoveBundle }) {
                 <button
                     type="button"
                     onClick={() => onRemoveBundle(instanceId)}
-                    className="flex items-center gap-1 text-xs font-medium text-deal hover:text-deal/80 px-2 py-1"
+                    className="min-h-11 flex items-center gap-1 text-xs font-medium text-deal hover:text-deal/80 px-3"
                 >
                     <Trash2 size={12} />
                     Remove Bundle

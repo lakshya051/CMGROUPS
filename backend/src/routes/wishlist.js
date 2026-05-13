@@ -94,6 +94,55 @@ router.delete('/:productId', protect, async (req, res) => {
     }
 });
 
+// @route   POST /api/wishlist/merge
+// @desc    Merge a guest wishlist (array of productIds) into the user's server wishlist.
+//          Idempotent: existing items are kept, new ones are added.
+// @access  Private
+router.post('/merge', protect, async (req, res) => {
+    try {
+        const { productIds } = req.body || {};
+        if (!Array.isArray(productIds)) {
+            return res.status(400).json({ error: 'productIds array is required' });
+        }
+
+        // Coerce, de-dup and clamp the input to avoid abuse.
+        const ids = [...new Set(
+            productIds
+                .map((id) => parseInt(id, 10))
+                .filter((id) => Number.isInteger(id) && id > 0)
+        )].slice(0, 200);
+
+        if (ids.length > 0) {
+            // Only merge products that actually exist, to avoid FK errors.
+            const existing = await prisma.product.findMany({
+                where: { id: { in: ids } },
+                select: { id: true },
+            });
+            const existingIds = existing.map((p) => p.id);
+            if (existingIds.length > 0) {
+                await prisma.wishlist.createMany({
+                    data: existingIds.map((pid) => ({
+                        userId: req.user.id,
+                        productId: pid,
+                    })),
+                    skipDuplicates: true,
+                });
+            }
+        }
+
+        // Return the merged wishlist so the client can replace its state in one round-trip.
+        const wishlistItems = await prisma.wishlist.findMany({
+            where: { userId: req.user.id },
+            include: { product: true },
+            orderBy: { createdAt: 'desc' },
+        });
+        res.json(wishlistItems.map((item) => item.product));
+    } catch (error) {
+        console.error('Merge wishlist error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // @route   DELETE /api/wishlist
 // @desc    Clear entire wishlist
 // @access  Private

@@ -1,5 +1,5 @@
 import express from 'express';
-import prisma from '../lib/prisma.js';
+import prisma, { isDatabaseUnavailable } from '../lib/prisma.js';
 import cache from '../lib/cache.js';
 import { protect, adminOnly } from '../middleware/auth.js';
 import { generateCertificate } from '../utils/certificateGenerator.js';
@@ -118,8 +118,6 @@ router.get('/', async (req, res) => {
     try {
         const { page, limit } = req.query;
         const cacheKey = `courses:list:${JSON.stringify(req.query)}`;
-        const cached = cache.get(cacheKey);
-        if (cached) return res.json(cached);
 
         const usePagination = page !== undefined || limit !== undefined;
         const parsedLimit = parseInt(limit, 10);
@@ -138,30 +136,34 @@ router.get('/', async (req, res) => {
             }
         };
 
-        if (usePagination) {
-            const [courses, total] = await Promise.all([
-                prisma.course.findMany({ where: { isPublished: true }, include, orderBy: { createdAt: 'desc' }, take, skip }),
-                prisma.course.count({ where: { isPublished: true } }),
-            ]);
-            const result = {
-                data: courses,
-                total,
-                page: parseInt(page) || 1,
-                limit: take,
-                totalPages: Math.ceil(total / take),
-            };
-            cache.set(cacheKey, result);
-            return res.json(result);
-        }
-
-        const courses = await prisma.course.findMany({
-            where: { isPublished: true },
-            include,
-            orderBy: { createdAt: 'desc' }
+        const result = await cache.getOrRefresh(cacheKey, 60, 600, async () => {
+            if (usePagination) {
+                const [courses, total] = await Promise.all([
+                    prisma.course.findMany({ where: { isPublished: true }, include, orderBy: { createdAt: 'desc' }, take, skip }),
+                    prisma.course.count({ where: { isPublished: true } }),
+                ]);
+                return {
+                    data: courses,
+                    total,
+                    page: parseInt(page) || 1,
+                    limit: take,
+                    totalPages: Math.ceil(total / take),
+                };
+            }
+            return prisma.course.findMany({
+                where: { isPublished: true },
+                include,
+                orderBy: { createdAt: 'desc' },
+            });
         });
-        cache.set(cacheKey, courses);
-        res.json(courses);
+
+        res.json(result);
     } catch (error) {
+        if (isDatabaseUnavailable(error)) {
+            return res.json(req.query.page !== undefined || req.query.limit !== undefined
+                ? { data: [], total: 0, page: 1, limit: 20, totalPages: 0 }
+                : []);
+        }
         console.error('Get courses error:', error);
         res.status(500).json({ error: 'Server error' });
     }
@@ -450,7 +452,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
                 sellerName: sellerName?.trim() || null
             }
         });
-        cache.delByPrefix('courses:');
+        cache.bustWithHome('courses:');
         res.status(201).json(course);
     } catch (error) {
         console.error('Create course error:', error);
@@ -476,7 +478,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
                 sellerName: sellerName !== undefined ? (sellerName?.trim() || null) : undefined
             }
         });
-        cache.delByPrefix('courses:');
+        cache.bustWithHome('courses:');
         res.json(course);
     } catch (error) {
         console.error('Update course error:', error);
@@ -488,7 +490,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 router.delete('/:id', protect, adminOnly, async (req, res) => {
     try {
         await prisma.course.delete({ where: { id: parseInt(req.params.id) } });
-        cache.delByPrefix('courses:');
+        cache.bustWithHome('courses:');
         res.json({ message: 'Course deleted' });
     } catch (error) {
         console.error('Delete course error:', error);

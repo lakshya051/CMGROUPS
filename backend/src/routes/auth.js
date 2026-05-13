@@ -4,6 +4,7 @@ import prisma from '../lib/prisma.js';
 import admin from '../utils/firebase.js';
 import { protect } from '../middleware/auth.js';
 import { transporter } from '../utils/nodemailer.js';
+import { resetPasswordLimiter } from '../middleware/rateLimiters.js';
 
 const router = express.Router();
 
@@ -11,9 +12,13 @@ function generateReferralCode() {
     return 'TN' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
-/** Comma-separated in ADMIN_EMAILS; defaults to primary owner account. */
+/**
+ * Returns the set of admin emails from ADMIN_EMAILS (comma-separated, case-insensitive).
+ * Fails closed: if the env var is missing or empty, NO email is treated as admin.
+ * Server boot (src/server.js) refuses to start in production when ADMIN_EMAILS is empty.
+ */
 function adminEmailSet() {
-    const raw = process.env.ADMIN_EMAILS || 'lakshyavarshney2003@gmail.com';
+    const raw = process.env.ADMIN_EMAILS || '';
     return new Set(raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean));
 }
 
@@ -264,7 +269,7 @@ router.put('/profile', protect, async (req, res) => {
 
 // POST /api/auth/forgot-password — generate reset link & send branded email (via your SMTP, not Firebase’s default template).
 // Deliverability: set SPF/DKIM/DMARC on the domain you send from; prefer mail from your own domain (e.g. noreply@yourdomain.com) over a random free address.
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', resetPasswordLimiter, async (req, res) => {
     const { email } = req.body;
     if (!email) {
         return res.status(400).json({ error: 'Email is required' });

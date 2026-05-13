@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
-import { productsAPI, categoriesAPI } from '../lib/api';
+import { homeAPI } from '../lib/api';
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 
 import HeroBannerSlider from '../components/home/HeroBannerSlider';
 import WhatWeOffer from '../components/home/WhatWeOffer';
@@ -21,109 +21,71 @@ import BYOBSection from '../components/home/BYOBSection';
 
 const Home = () => {
     useSEO({ title: 'Shoptify — Shop, Services & Courses in Etah', description: 'Your one-stop destination for computers, tech services, CCTV, Tally Prime and professional courses in Etah.' });
-    const [bestSellers, setBestSellers] = useState([]);
-    const [bestSellersLoading, setBestSellersLoading] = useState(true);
-    const [bestSellersError, setBestSellersError] = useState(false);
-    const [pillCategories, setPillCategories] = useState([]);
-    const [pillCategoriesLoading, setPillCategoriesLoading] = useState(true);
-    const [pillCategoriesError, setPillCategoriesError] = useState(false);
+    // One round-trip for everything the homepage needs (banners, categories,
+    // deals, bundles, courses, services, brands, best-sellers). Replaces the
+    // 9 parallel calls each child component used to make. While `bootstrap`
+    // is loading, we pass `undefined` to children so they fall back to their
+    // own legacy fetch path — keeps the components reusable on other pages
+    // and means a partial backend rollout still works.
+    const [bootstrap, setBootstrap] = useState(null);
+    const [bootstrapError, setBootstrapError] = useState(false);
     const { items: recentlyViewed } = useRecentlyViewed();
+    const { bundlesEnabled } = useFeatureFlags();
 
     useEffect(() => {
+        // Prefetch the next likely chunks while the network is idle.
         import('./shop/Products');
         import('./shop/ProductDetail');
         import('./shop/Cart');
     }, []);
 
-    const loadPillCategories = () => {
-        setPillCategoriesError(false);
-        setPillCategoriesLoading(true);
-        categoriesAPI.getAll()
-            .then(setPillCategories)
-            .catch(() => setPillCategoriesError(true))
-            .finally(() => setPillCategoriesLoading(false));
-    };
-
-    useEffect(() => { loadPillCategories(); }, []);
-
     useEffect(() => {
-        productsAPI.getAll({ sort: 'rating', limit: 10 })
-            .then(res => setBestSellers(res.data || []))
-            .catch(() => setBestSellersError(true))
-            .finally(() => setBestSellersLoading(false));
+        let cancelled = false;
+        homeAPI.getBootstrap()
+            .then(data => { if (!cancelled) setBootstrap(data); })
+            .catch(() => { if (!cancelled) setBootstrapError(true); });
+        return () => { cancelled = true; };
     }, []);
 
     return (
         <div className="min-h-screen bg-page-bg pb-4 md:pb-0">
-            {/* 1. Category Pills — mobile only */}
-            {pillCategoriesError ? (
-                <div className="md:hidden flex items-center justify-center gap-2 px-4 py-3 bg-surface border-b border-border-default">
-                    <span className="text-sm text-text-muted">Couldn't load categories.</span>
-                    <button onClick={loadPillCategories} className="text-sm text-primary font-semibold underline">Retry</button>
-                </div>
-            ) : pillCategoriesLoading ? (
-                <div className="md:hidden flex gap-2 px-4 py-3 bg-surface border-b border-border-default min-h-[52px] items-center" aria-hidden>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="flex-shrink-0 h-9 w-24 rounded-full bg-page-bg animate-pulse" />
-                    ))}
-                </div>
-            ) : pillCategories.length > 0 && (
-                <div className="md:hidden flex gap-2 overflow-x-auto scrollbar-hide px-4 py-3 bg-surface border-b border-border-default">
-                    <Link
-                        to="/products"
-                        className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium bg-trust text-white border border-trust whitespace-nowrap"
-                    >
-                        All
-                    </Link>
-                    {pillCategories.slice(0, 10).map(cat => (
-                        <Link
-                            key={cat.id}
-                            to={cat.slug ? `/products/category/${cat.slug}` : `/products?category=${encodeURIComponent(cat.name)}`}
-                            className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium bg-surface text-text-primary border border-border-default whitespace-nowrap hover:border-trust/40 transition-colors"
-                        >
-                            {cat.name}
-                        </Link>
-                    ))}
-                    {pillCategories.length > 10 && (
-                        <Link
-                            to="/products"
-                            className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium bg-trust/10 text-trust border border-trust/20 whitespace-nowrap"
-                        >
-                            +{pillCategories.length - 10} More
-                        </Link>
-                    )}
-                </div>
-            )}
+            {/* 1. Hero Banner Slider */}
+            <HeroBannerSlider initialBanners={bootstrap?.banners} />
 
-            {/* 2. Hero Banner Slider */}
-            <HeroBannerSlider />
-
-            {/* 3. Trust Strip */}
+            {/* 2. Trust Strip */}
             <TrustStrip />
 
-            {/* 4. What We Offer — 4 verticals */}
+            {/* 3. What We Offer — 4 verticals */}
             <WhatWeOffer />
 
-            {/* 4.5. Our Businesses */}
+            {/* 4. Our Businesses */}
             <OurBusinesses />
 
             {/* 5. Shop by Category */}
-            <CategoryGrid />
+            <CategoryGrid initialCategories={bootstrap?.categories} />
 
             {/* 6. Deal of the Day */}
-            <DealOfTheDay />
+            <DealOfTheDay initialDeals={bootstrap?.deals} />
 
-            {/* 6.5. Hot Combos - Bundles */}
+            {/* 7. Hot Combos — Bundles (gated behind admin toggle) */}
+            {bundlesEnabled && (
+                <>
+                    <div className="bg-page-bg border-t border-border-default">
+                        <BundleRow
+                            title="Hot Combos — Save More Together"
+                            displayOn="home"
+                            initialBundles={bootstrap?.bundles}
+                        />
+                    </div>
+
+                    {/* 8. Build Your Own Bundle */}
+                    <BYOBSection initialTemplates={bootstrap?.bundleTemplates} />
+                </>
+            )}
+
+            {/* 9. Popular Right Now */}
             <div className="bg-page-bg border-t border-border-default">
-                <BundleRow title="Hot Combos — Save More Together" displayOn="home" />
-            </div>
-
-            {/* 6.75. Build Your Own Bundle */}
-            <BYOBSection />
-
-            {/* 7. Popular Right Now */}
-            <div className="bg-page-bg border-t border-border-default">
-                {bestSellersError ? (
+                {bootstrapError ? (
                     <div className="container mx-auto px-4 py-12 text-center">
                         <p className="text-text-muted text-sm">
                             Unable to load products right now.{' '}
@@ -133,30 +95,30 @@ const Home = () => {
                 ) : (
                     <ProductRow
                         title="Popular Right Now"
-                        products={bestSellers}
+                        products={bootstrap?.bestSellers || []}
                         viewAllLink="/products?sort=rating"
-                        loading={bestSellersLoading}
+                        loading={bootstrap === null}
                         gridOnDesktop
                     />
                 )}
             </div>
 
-            {/* 7. Services Showcase */}
-            <ServicesShowcase />
+            {/* 10. Services Showcase */}
+            <ServicesShowcase initialServiceTypes={bootstrap?.serviceTypes} />
 
-            {/* 8. Academy / Courses Teaser */}
-            <AcademyTeaser />
+            {/* 11. Academy / Courses Teaser */}
+            <AcademyTeaser initialCourses={bootstrap?.courses} />
 
-            {/* 9. Brand Strip */}
-            <BrandStrip />
+            {/* 12. Brand Strip */}
+            <BrandStrip initialBrands={bootstrap?.brands} />
 
-            {/* 10. B2B Strip */}
+            {/* 13. B2B Strip */}
             <B2BStrip />
 
-            {/* 11. PWA Install Section */}
+            {/* 14. PWA Install Section */}
             <PWAInstallSection />
 
-            {/* 12. Recently Viewed */}
+            {/* 15. Recently Viewed */}
             {recentlyViewed.length > 0 && (
                 <div className="bg-page-bg border-t border-border-default">
                     <ProductRow

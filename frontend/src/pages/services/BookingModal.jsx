@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     CheckCircle, Calendar, X, MapPin, Phone, User,
     Gift, Info, LocateFixed, Loader2,
@@ -142,11 +142,48 @@ const BookingModal = ({
         onClose();
     };
 
+    const dialogTitleId = 'booking-modal-title';
+    const firstFieldRef = useRef(null);
+
+    // Close on Escape; lock body scroll; focus first field when the dialog opens.
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                e.stopPropagation();
+                handleClose();
+            }
+        };
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', onKey);
+        // Defer focus so the modal is mounted first.
+        const t = setTimeout(() => { firstFieldRef.current?.focus(); }, 0);
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+            clearTimeout(t);
+        };
+    }, [isOpen]);
+
     if (!isOpen || !selectedService) return null;
 
+    const handleBackdropClick = (e) => {
+        if (e.target === e.currentTarget) handleClose();
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-surface border border-border-default shadow-2xl rounded-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto p-6 relative animate-in zoom-in duration-200">
+        <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            role="presentation"
+            onClick={handleBackdropClick}
+        >
+            <div
+                className="bg-surface border border-border-default shadow-2xl rounded-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto p-6 relative animate-in zoom-in duration-200"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogTitleId}
+            >
                 <button onClick={handleClose} className="absolute top-4 right-4 text-text-muted hover:text-text-primary z-10 hover:bg-surface-hover rounded-full p-1 transition-colors" aria-label="Close booking dialog">
                     <X size={22} />
                 </button>
@@ -158,7 +195,7 @@ const BookingModal = ({
                                 {getServiceIcon(selectedService.icon)}
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-text-primary">Book {selectedService.title}</h2>
+                                <h2 id={dialogTitleId} className="text-xl font-bold text-text-primary">Book {selectedService.title}</h2>
                                 <p className="text-text-secondary text-sm">Fill in your details and we'll pick up your device.</p>
                             </div>
                         </div>
@@ -175,7 +212,7 @@ const BookingModal = ({
                                     <label className="block text-sm font-medium mb-1">Full Name *</label>
                                     <div className="relative">
                                         <User className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-                                        <input name="customerName" className={`input-field pl-9 ${formik.touched.customerName && formik.errors.customerName ? 'border-red-500' : ''}`} value={formik.values.customerName} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="Your name" />
+                                        <input ref={firstFieldRef} name="customerName" className={`input-field pl-9 ${formik.touched.customerName && formik.errors.customerName ? 'border-red-500' : ''}`} value={formik.values.customerName} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="Your name" />
                                     </div>
                                     <ErrMsg name="customerName" touched={formik.touched} errors={formik.errors} />
                                 </div>
@@ -248,7 +285,7 @@ const BookingModal = ({
                                 <ErrMsg name="address" touched={formik.touched} errors={formik.errors} />
                             </div>
 
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">City *</label>
                                     <input name="city" className={`input-field ${formik.touched.city && formik.errors.city ? 'border-red-500' : ''}`} value={formik.values.city} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="City" />
@@ -256,7 +293,7 @@ const BookingModal = ({
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Pincode *</label>
-                                    <input name="pincode" className={`input-field ${formik.touched.pincode && formik.errors.pincode ? 'border-red-500' : ''}`} value={formik.values.pincode} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="000000" maxLength={6} />
+                                    <input name="pincode" className={`input-field ${formik.touched.pincode && formik.errors.pincode ? 'border-red-500' : ''}`} value={formik.values.pincode} onChange={formik.handleChange} onBlur={formik.handleBlur} placeholder="000000" maxLength={6} inputMode="numeric" />
                                     <ErrMsg name="pincode" touched={formik.touched} errors={formik.errors} />
                                 </div>
                                 <div>

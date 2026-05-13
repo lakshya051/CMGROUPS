@@ -11,11 +11,11 @@ const TRUST_ITEMS = [
 const TrustStrip = () => (
     <section className="bg-surface border-y border-border-default py-4 sm:py-6">
         <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
                 {TRUST_ITEMS.map((item) => {
                     const Icon = item.icon;
                     return (
-                        <div key={item.label} className="flex items-center gap-3 justify-center md:justify-start">
+                        <div key={item.label} className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-trust/10 flex items-center justify-center flex-shrink-0">
                                 <Icon size={20} className="text-trust" />
                             </div>

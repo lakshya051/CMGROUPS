@@ -19,12 +19,33 @@ out/
 .env.test.local
 .env.production.local
 *.env*
+# Allow .env.example/.env.template to be committed as docs.
+!.env.example
+!.env.template
+!**/.env.example
+!**/.env.template
 
 # Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+backend/backend-crash.log
+backend/seed-error.log
+backend/seed_output.log
+backend/prisma_out.txt
+frontend/build.log
+frontend/build_log*.txt
+
+# Build artifacts / tools that should never be in VCS
+bfg.jar
+
+# Local virtualenvs / ad-hoc dirs
+.venv-selenium/
+once/
+# Scratch patches
+frontend/temp_patch.js
 
 # OS files
 .DS_Store
@@ -61,3 +82,7 @@ backend/serviceAccountKey.json
 backend/src/serviceAccountKey.json
 google-credentials.json
 backend/cmgroups-sheets-*.json
+
+# Load test artifacts
+loadtest/results/
+loadtest/node_modules/

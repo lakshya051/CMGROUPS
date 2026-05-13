@@ -68,17 +68,17 @@ const Compare = () => {
                 <table className="w-full min-w-[800px] border-collapse bg-transparent table-fixed">
                     <thead>
                         <tr>
-                            <th className="w-48 p-4 text-left align-top bg-surface sticky left-0 z-10 border-b border-border-default">
+                            <th className="w-48 p-4 text-left align-top bg-surface sticky left-0 z-10 border-b border-border-default shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">
                                 <span className="text-xl font-bold text-text-primary">Features</span>
                             </th>
                             {products.map(p => (
                                 <th key={p.id} className="w-64 p-4 align-top border-l border-b border-border-default relative">
                                     <button
                                         onClick={() => removeFromCompare(p.id)}
-                                        className="absolute top-2 right-2 p-1.5 bg-page-bg hover:bg-error hover:text-white rounded-full transition-colors z-20 border border-border-default"
-                                        aria-label="Remove"
+                                        className="absolute top-1 right-1 min-touch bg-page-bg hover:bg-error hover:text-white rounded-full transition-colors z-20 border border-border-default"
+                                        aria-label={`Remove ${p.title}`}
                                     >
-                                        <X size={14} />
+                                        <X size={16} />
                                     </button>
                                     <div className="flex flex-col items-center">
                                         <div className="w-32 h-32 bg-surface rounded-lg p-2 shadow-sm mb-4 border border-border-default">
@@ -155,21 +155,21 @@ const Compare = () => {
                     <tbody className="text-sm">
                         {/* Basic Info */}
                         <tr className="hover:bg-surface-hover">
-                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">Brand</td>
+                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">Brand</td>
                             {products.map(p => (
                                 <td key={p.id} className="p-4 text-center border-l border-b border-border-default font-medium text-text-primary">{p.brand || '-'}</td>
                             ))}
                             {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-brand-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                         </tr>
                         <tr className="hover:bg-surface-hover">
-                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">Category</td>
+                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">Category</td>
                             {products.map(p => (
                                 <td key={p.id} className="p-4 text-center border-l border-b border-border-default text-text-primary">{p.category}</td>
                             ))}
                             {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-category-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                         </tr>
                         <tr className="hover:bg-surface-hover">
-                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">Condition</td>
+                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">Condition</td>
                             {products.map(p => (
                                 <td key={p.id} className="p-4 text-center border-l border-b border-border-default">
                                     {p.isSecondHand ? (
@@ -186,7 +186,7 @@ const Compare = () => {
                             {[...Array(Math.max(0, MAX_COMPARE_ITEMS - products.length))].map((_, i) => <td key={`empty-condition-${i}`} className="border-l border-b border-border-default bg-page-bg"></td>)}
                         </tr>
                         <tr className="hover:bg-surface-hover">
-                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">Rating</td>
+                            <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">Rating</td>
                             {products.map(p => (
                                 <td key={p.id} className="p-4 text-center border-l border-b border-border-default">
                                     <div className="flex items-center justify-center gap-1 font-bold text-text-primary">
@@ -206,7 +206,7 @@ const Compare = () => {
                         </tr>
                         {allSpecKeys.map(key => (
                             <tr key={key} className="hover:bg-surface-hover">
-                                <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default">{key}</td>
+                                <td className="p-4 font-bold text-text-muted bg-surface sticky left-0 z-10 border-b border-border-default shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">{key}</td>
                                 {products.map(p => (
                                     <td key={p.id} className="p-4 text-center border-l border-b border-border-default">
                                         {p.specs && p.specs[key] ? (

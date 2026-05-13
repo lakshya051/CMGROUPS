@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../lib/api';
@@ -9,8 +9,16 @@ export default function OnboardingPage() {
     const [phone, setPhone] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { refreshUser, isSignedIn, user, loading: authLoading } = useAuth();
+    const { refreshUser, isSignedIn, user, loading: authLoading, requiresEmailVerification } = useAuth();
     const navigate = useNavigate();
+
+    // Prefill name from the signed-in user profile so returning Google users
+    // don't have to retype it.
+    useEffect(() => {
+        if (user?.name && !name) {
+            setName(user.name);
+        }
+    }, [user, name]);
 
     if (authLoading) {
         return (
@@ -24,6 +32,9 @@ export default function OnboardingPage() {
     }
     if (!isSignedIn) {
         return <Navigate to="/sign-in" replace />;
+    }
+    if (requiresEmailVerification) {
+        return <Navigate to="/verify-email" replace />;
     }
     if (user && !needsPhoneCapture(user)) {
         return <Navigate to="/" replace />;
@@ -41,12 +52,18 @@ export default function OnboardingPage() {
         try {
             await authAPI.onboarding({ name: name.trim(), phone: `+91${cleaned}` });
             await refreshUser();
+            try { window.sessionStorage?.removeItem('onboardingSkipped'); } catch { /* ignore */ }
             navigate('/', { replace: true });
         } catch (err) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSkip = () => {
+        try { window.sessionStorage?.setItem('onboardingSkipped', '1'); } catch { /* ignore */ }
+        navigate('/', { replace: true });
     };
 
     return (
@@ -79,6 +96,10 @@ export default function OnboardingPage() {
                     <button type="submit" disabled={loading}
                         className="w-full bg-buy-primary hover:bg-buy-primary-hover text-text-primary font-bold py-3 rounded-lg transition-colors duration-base disabled:opacity-50">
                         {loading ? 'Saving...' : 'Continue to Shoptify →'}
+                    </button>
+                    <button type="button" onClick={handleSkip} disabled={loading}
+                        className="w-full text-sm text-text-secondary hover:text-text-primary underline-offset-2 hover:underline py-2 disabled:opacity-50">
+                        Skip for now
                     </button>
                 </form>
             </div>

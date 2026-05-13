@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { bundlesAPI } from '../lib/api';
 import BundleCard from '../components/shop/BundleCard';
 import { useSEO } from '../hooks/useSEO';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import {
     CheckCircle, ChevronDown, ChevronUp, FileText, Package, Users,
     Building2, Receipt, BarChart3, CreditCard, Wrench, GraduationCap,
@@ -10,8 +11,8 @@ import {
     Calculator, Truck, Settings, Phone, Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { API_BASE } from '../lib/config';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // ── Config — change these two values ──────────────────────────────────
 const CITY = 'Etah';
@@ -132,11 +133,13 @@ const FAQItem = ({ q, a }) => {
 // Main Page
 // ─────────────────────────────────────────────
 const TallyBundleSection = () => {
+    const { bundlesEnabled } = useFeatureFlags();
     const [bundles, setBundles] = useState([]);
     useEffect(() => {
+        if (!bundlesEnabled) { setBundles([]); return; }
         bundlesAPI.getAll({ displayOn: 'tally' }).then(setBundles).catch(() => {});
-    }, []);
-    if (bundles.length === 0) return null;
+    }, [bundlesEnabled]);
+    if (!bundlesEnabled || bundles.length === 0) return null;
     return (
         <section className="py-xl px-lg bg-surface">
             <div className="container mx-auto max-w-6xl">

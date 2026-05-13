@@ -11,7 +11,9 @@ export default function Modal({
     maxWidth = 'max-w-lg',
     showCloseButton = true,
     closeOnBackdrop = true,
+    variant = 'center',
 }) {
+    const isSheet = variant === 'sheet';
     const dialogRef = useRef(null);
     const previousFocus = useRef(null);
     // Avoid re-running open effects when parents pass an inline onClose (new ref each render).
@@ -74,7 +76,7 @@ export default function Modal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className={`fixed inset-0 z-50 flex ${isSheet ? 'items-end sm:items-center' : 'items-center'} justify-center ${isSheet ? 'p-0 sm:p-4' : 'p-4'}`}
             role="dialog"
             aria-modal="true"
             aria-label={title}
@@ -86,12 +88,21 @@ export default function Modal({
             />
             <div
                 ref={dialogRef}
-                className={`relative bg-surface border border-border-default shadow-2xl rounded-2xl w-full ${maxWidth} max-h-[90dvh] overflow-y-auto p-6 animate-in zoom-in duration-200`}
+                className={`relative bg-surface border border-border-default shadow-2xl w-full ${maxWidth} overflow-y-auto animate-in duration-200
+                    ${isSheet
+                        ? 'rounded-t-2xl sm:rounded-2xl max-h-[92dvh] sm:max-h-[90dvh] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] slide-in-from-bottom sm:zoom-in'
+                        : 'rounded-2xl max-h-[90dvh] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] zoom-in'
+                    }`}
             >
+                {isSheet && (
+                    <div className="sm:hidden sticky -top-6 -mx-6 -mt-6 mb-3 pt-2 pb-1 bg-surface flex justify-center" aria-hidden="true">
+                        <span className="h-1 w-10 rounded-full bg-border-default" />
+                    </div>
+                )}
                 {showCloseButton && (
                     <button
                         onClick={() => onCloseRef.current()}
-                        className="absolute top-3 right-3 z-10 p-2 rounded-full text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors touch-manipulation"
+                        className="absolute top-2 right-2 z-10 min-touch rounded-full text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors touch-manipulation"
                         aria-label="Close dialog"
                     >
                         <X size={20} />

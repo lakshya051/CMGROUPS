@@ -45,9 +45,14 @@ export default function AuthPageLayout({ headline, subheadline, children }) {
                     </div>
 
                     <div className="flex w-full flex-col justify-center lg:max-w-[440px] lg:flex-none">
-                        <div className="mb-8 text-center lg:hidden">
-                            <p className="font-heading text-2xl font-bold tracking-tight text-white">Shoptify</p>
-                            <div className="mx-auto mt-3 h-1 w-14 rounded-full bg-gradient-to-r from-primary via-secondary to-trust opacity-90" />
+                        <div className="mb-6 flex flex-col items-center gap-2 lg:hidden">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/90 to-secondary/90 shadow-lg shadow-primary/30">
+                                <span className="font-heading text-xl font-black text-white">S</span>
+                            </div>
+                            <p className="font-heading text-2xl font-bold tracking-tight text-white">
+                                Shopt<span className="text-trust">ify</span>
+                            </p>
+                            <div className="h-1 w-14 rounded-full bg-gradient-to-r from-primary via-secondary to-trust opacity-90" />
                         </div>
 
                         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.45)] sm:p-10">

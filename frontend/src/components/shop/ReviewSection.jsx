@@ -16,6 +16,7 @@ const ReviewSection = ({ productId }) => {
     const [comment, setComment] = useState('');
     const [images, setImages] = useState([]); // Array of base64 strings
     const [submitting, setSubmitting] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(3);
 
     const fetchReviews = async () => {
         try {
@@ -109,11 +110,13 @@ const ReviewSection = ({ productId }) => {
     if (loading) return <div className="animate-pulse h-32 bg-page-bg rounded-lg my-8"></div>;
 
     const avgRating = reviews.length ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : 0;
+    const visibleReviews = reviews.slice(0, visibleCount);
+    const hasMoreReviews = reviews.length > visibleCount;
 
     return (
-        <div className="mt-16 bg-page-bg rounded-lg p-8 border border-border-default">
+        <div className="mt-12 sm:mt-16 bg-page-bg rounded-lg p-4 sm:p-8 border border-border-default">
             {/* Summary Header */}
-            <div className="flex flex-col md:flex-row gap-8 items-start md:items-center justify-between mb-8 bg-surface p-6 rounded-lg border border-border-default shadow-sm">
+            <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start md:items-center justify-between mb-6 sm:mb-8 bg-surface p-4 sm:p-6 rounded-lg border border-border-default shadow-sm">
                 <div className="flex items-center gap-6">
                     <div className="text-center">
                         <div className="text-5xl font-bold text-text-main mb-1">{avgRating}</div>
@@ -140,15 +143,16 @@ const ReviewSection = ({ productId }) => {
                     <h3 className="font-bold text-xl mb-6">Write Your Review</h3>
                     <div className="mb-6">
                         <label className="block text-sm font-bold text-text-main mb-2">Rating</label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                             {[1, 2, 3, 4, 5].map(star => (
                                 <button
                                     key={star}
                                     type="button"
                                     onClick={() => setRating(star)}
-                                    className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                                    aria-label={`Rate ${star} star${star === 1 ? '' : 's'}`}
+                                    className="min-touch rounded-lg focus:outline-none focus:ring-2 focus:ring-trust transition-transform hover:scale-110 active:scale-95"
                                 >
-                                    <Star size={32} className={star <= rating ? "text-warning fill-warning" : "text-border-default"} />
+                                    <Star size={28} className={star <= rating ? "text-warning fill-warning" : "text-border-default"} />
                                 </button>
                             ))}
                         </div>
@@ -206,7 +210,7 @@ const ReviewSection = ({ productId }) => {
             )}
 
             {/* Reviews List */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
                 {reviews.length === 0 ? (
                     <div className="text-center py-12 bg-surface rounded-lg border border-dashed border-border-default">
                         <Star size={48} className="mx-auto text-text-muted/50 mb-4" />
@@ -214,10 +218,10 @@ const ReviewSection = ({ productId }) => {
                         <p className="text-text-muted text-sm">Be the first to share your experience!</p>
                     </div>
                 ) : (
-                    reviews.map(review => {
+                    visibleReviews.map(review => {
                         const hasVoted = user && Array.isArray(review.voters) && review.voters.some(v => (typeof v === 'object' ? v?.id : v) === user.id);
                         return (
-                            <div key={review.id} className="bg-surface p-6 rounded-lg border border-border-default shadow-sm transition-shadow hover:shadow-md">
+                            <div key={review.id} className="bg-surface p-4 sm:p-6 rounded-lg border border-border-default shadow-sm transition-shadow hover:shadow-md">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-inner font-black text-lg rounded-full flex items-center justify-center uppercase">
@@ -268,7 +272,7 @@ const ReviewSection = ({ productId }) => {
                                     <span className="text-xs text-text-muted">Was this review helpful?</span>
                                     <button
                                         onClick={() => handleHelpful(review.id)}
-                                        className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full transition-all ${hasVoted ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-surface text-text-secondary border border-border-default hover:bg-surface-hover hover:text-text-primary'}`}
+                                        className={`flex items-center gap-2 text-sm font-bold px-4 min-h-11 rounded-full transition-all ${hasVoted ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-surface text-text-secondary border border-border-default hover:bg-surface-hover hover:text-text-primary'}`}
                                     >
                                         <ThumbsUp size={14} className={hasVoted ? 'fill-primary' : ''} />
                                         {review.helpfulVotes || 0}
@@ -277,6 +281,15 @@ const ReviewSection = ({ productId }) => {
                             </div>
                         );
                     })
+                )}
+                {hasMoreReviews && (
+                    <button
+                        type="button"
+                        onClick={() => setVisibleCount(c => c + 5)}
+                        className="w-full min-h-11 rounded-lg border-2 border-border-default bg-surface text-sm font-bold text-text-primary hover:border-primary hover:text-primary transition-colors"
+                    >
+                        Show more reviews ({reviews.length - visibleCount} remaining)
+                    </button>
                 )}
             </div>
         </div>
