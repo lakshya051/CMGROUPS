@@ -1,37 +1,6 @@
 # CMGroups (Shoptify)
 
-# CLERK_PUBLISHABLE_KEY=pk_test_c3F1YXJlLWtpdC01LmNsZXJrLmFjY291bnRzLmRldiQ
-# CLERK_SECRET_KEY=sk_test_MwVeMUV38c0wDd9WtXtCO41FYgPNFnKxmwKAWz2A0i
-# CLERK_WEBHOOK_SECRET=whsec_6O8uI1FWJsHifdX0fwUFU7yCD6FknTgG
-# DATABASE_URL="postgresql://neondb_owner:npg_g3aXUYAMq9sj@ep-summer-boat-aiig9ihe-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
-EMAIL_PASS="mfqu plsb kupw vypj"
-EMAIL_USER=lakshyavarshney2003@gmail.com
-JWT_SECRET=7dcd54a8578e3298e9447e5f1d0902b477ee9e0fe481b6408fb0e91c3172
-PORT=5000
 
-PUSH_NOTIFICATIONS_ENABLED=true
-FIREBASE_SERVICE_ACCOUNT_PATH=D:\final\CMGROUPS\backend\serviceAccountKey.json
-
-
-PORT=5000
-# Set to 1 if you see "self-signed certificate in certificate chain" (e.g. corporate proxy). Dev only.
-ALLOW_INSECURE_TLS=1
-DATABASE_URL="postgresql://neondb_owner:npg_g3aXUYAMq9sj@ep-dry-cherry-ai9eizsi-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&connect_timeout=30&connection_limit=5"
-
-FRONTEND_URL="http://localhost:5173"
-VAPID_PUBLIC_KEY=BCykQtf77m-F7sheCvGq2TcAXl74TrQvZMofTFWpRVW_udD64my0XyxWdLKSXRI937N1_loGzqAFP8Xo0lQMYR8
-VAPID_PRIVATE_KEY=n_QoDHRi6CDWoDDPXZd7sME7flsJU-6RcfYFmywELuc
-VAPID_SUBJECT=mailto:lakshyavarshney2003@gmail.com
-
-# Cloudinary (Dashboard: https://console.cloudinary.com → API Keys)
-CLOUDINARY_CLOUD_NAME=dhdyyg8zr
-CLOUDINARY_API_KEY=486975339188368
-CLOUDINARY_API_SECRET=tRBgAAdsU3cPRzguyQSAB307MSc
-
-# Firebase (from service account)
-FIREBASE_PROJECT_ID=cmgroups-78dbb
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@cmgroups-78dbb.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC91zQRaI25g12p\nC91pLtJp+o+Su4a/UPuoqmJtg2xaFKCR+jpAf9eHUDs+bfAnk0WcnIASSKTgqLrT\nxq2F8sqe5mZATpG/1l/abXUnLmQ9lxBTAJLT41CTqYWN8a25tEEvT+40VQzGcL4D\no7HyykGghgycvgbrKV2W7FONj/3Nunpi8f8DNwt2QYjywPqu0nVg4Iy5OOAAIIV6\nZRAs+6FDdrah7DcAU++b3FvqCM3G/CXCBiG2OYyJkLlpX6d6G0O9MiKXeDHiQcD8\nsSnuEejG2Bije8o+Z3S5uMVlxWE4ReFtIzpKTqGkBHhM4ZeNUiwV/eCW6hKf5Ge/\nFyZ6sFyFAgMBAAECggEABcUNJDxOa7rQ4BWSu0181VNpWqx6uhopfo+odytH4e2q\nOwA6a1cXWK75EKWBvN+D0vCKD0Qy8qWzgUKSvTVLBYz7bZfrDm64XL3352LIZtDO\nYl9sQaaxKRO9ZzosWAO2TsxPRpA716okiZ1yMplavkNkuGd+yVXpWMVs/VVI1vWh\ntymu2l/AfxdB1o2h7xgbNPiV2dx167E//oq+hp1mA8266ituFZhC41vyfNILbC0o\nLZKvowdcXwmopIgvJDMXDrfupv3WfiJp0qdJ83pSbD9o307niBRJFUWZsCpscYNy\nx++CGqTeA+BzLC6RCI9Cg+aDnO9k3pR2VQub+1DOIQKBgQDgpxM8hEqjKlIxt1YZ\nBUPAcDhTTeSa6j7iIDKqaZ4WGx0cU4HK524jVlH2B6DyVm5perxGBhOYnJnWFBso\nv3OB5KtGgkvnjuMWMja4Bl3f4WwVg0DDNNJWvZnt6JypXO4KlcSIMfL7VdjpmbDy\ngF+FDXRVht9PWdU4d4tIt5eINQKBgQDYVJeTjjRVbHZCEkAgkUhSeumJqx+EXUFH\nhtQdqEyav1XN/HVQcJfDn6LhV0YAo/8HAeyLKT2HUFTm8zmytf+oFGuxfI0SUFcR\neUH3XYEF7mA8nN00G+DBKUB/vIzeKlBpRHNGpnegTC64qvSCoe9HoDxRyjsSBRcZ\nqjfUN9MtEQKBgGI8bQr/hmvHK94Vn46dYL0b1WWIIDklyY20KrOeL8TW4mnqkk0Z\n2m2VZ43AVD7kUK/LPd0Y9yS7BgI5FI9C+M2KIuNYQrzlHKQuHQNntVEbD9pwZLd3\nt6q6ij8ggrEEtAro5uHvhaMmLQ4paNkCDcLu2To1Gh1m2PgyPjP0JE0pAoGANiXW\nWuS5TLh9UURoML6sr5h8ZC0lEmiVMmYZKeM6aXGC9LBAXQYRtrF6f5TsvLRP3V0p\n7BtCf2AoIDa5NnY/q76Qxjg6x168rG8Bh/0rkmR8Si+pXqWruC2vK0nyqJlGz1KG\n2CRKxSDMgQSpdxk5X2BIOOC5sGT9xzrIBqKChUECgYEAhlUFSzFDm8SkYuaIkQO1\ncg56kRsK3ZJNZGoq18K7PGFS1jCPOOL2rBMfrOzrwY9/DqhEt/oPUFtqFtDQOjvw\nS9/DzCB5kgXwjoyM5j7e5xhapvMdHuilViPd6AsrIEGNoC3CLtl935jZHOAqDjt0\ngqsgDkzPHYtztuOuUKjdJO8=\n-----END PRIVATE KEY-----\n"
 E‑commerce + services + courses platform for CMGroups, deployed as:
 
 - **Backend** — Node.js / Express / Prisma / PostgreSQL on Render
